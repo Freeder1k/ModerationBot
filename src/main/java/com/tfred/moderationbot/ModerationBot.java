@@ -26,7 +26,7 @@ public class ModerationBot extends ListenerAdapter
         // we would use AccountType.CLIENT
         try
         {
-            JDA jda = JDABuilder.createDefault("NzM5MTM5NjkwNTE0NjEyMjg0.XyWHeg.T4xwteHPh2fuVxCI0ZpETr-GU5k") // The token of the account that is logging in.
+            JDA jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
                     .addEventListeners(new ModerationBot())   // An instance of a class that will handle events.
                     .build();
             jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
