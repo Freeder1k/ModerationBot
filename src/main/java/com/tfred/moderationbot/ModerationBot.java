@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class ModerationBot extends ListenerAdapter
 {
-    private boolean delSalt = false;
+    private boolean delSalt = true;
 
     public static void main(String[] args)
     {
@@ -26,19 +26,16 @@ public class ModerationBot extends ListenerAdapter
         // we would use AccountType.CLIENT
         try
         {
-            JDA jda = JDABuilder.createDefault("NzM5MTM5NjkwNTE0NjEyMjg0.XyWHeg.JxK34E-8Edowpw8fQN_JlgdKaTY") // The token of the account that is logging in.
+            JDA jda = JDABuilder.createDefault("NzM5MTM5NjkwNTE0NjEyMjg0.XyWHeg.T4xwteHPh2fuVxCI0ZpETr-GU5k") // The token of the account that is logging in.
                     .addEventListeners(new ModerationBot())   // An instance of a class that will handle events.
                     .build();
             jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
             System.out.println("Finished Building JDA!");
         }
-        catch (LoginException e)
+        catch (LoginException | InterruptedException e)
         {
             //If anything goes wrong in terms of authentication, this is the exception that will represent it
-            e.printStackTrace();
-        }
-        catch (InterruptedException e)
-        {
+
             //Due to the fact that awaitReady is a blocking method, one which waits until JDA is fully loaded,
             // the waiting can be interrupted. This is the exception that would fire in that situation.
             //As a note: in this extremely simplified example this will never occur. In fact, this will never occur unless
@@ -126,39 +123,63 @@ public class ModerationBot extends ListenerAdapter
         }
 
         else if (msg.startsWith("!delreaction")) {
-            //else {
-            Guild guild = event.getGuild();
-            Member selfMember = guild.getSelfMember();
+            if(message.getMember().hasPermission(Permission.ADMINISTRATOR)) {
+                Guild guild = event.getGuild();
+                Member selfMember = guild.getSelfMember();
 
-            if (!selfMember.hasPermission(Permission.MESSAGE_MANAGE)) {
-                channel.sendMessage("Please make sure to give me the manage messages permission!").queue();
-                return; //We jump out of the method instead of using cascading if/else
+                if (!selfMember.hasPermission(Permission.MESSAGE_MANAGE)) {
+                    channel.sendMessage("Please make sure to give me the manage messages permission!").queue();
+                    return; //We jump out of the method instead of using cascading if/else
+                }
+
+                if(msg.length() < 14) {
+                    channel.sendMessage("Please provide an emoji!").complete();
+                    return;
+                }
+
+                String emoji = msg.substring(13);
+                //List<Emote> emotes = message.getEmotes();
+
+                channel.sendMessage("Removing reactions...").complete();
+
+                //channel.sendTyping().complete();
+
+                for(Message m:message.getChannel().getHistory().retrievePast(100).complete()) {
+                    //m.deleteReaction(emoji).queue();
+                    //m.removeReaction(emoji).queue();
+                    m.clearReactions(emoji).complete();
+                    //m.addReaction(emoji).queue();
+                }
+
+                /*
+                for(Message m: channel.getHistoryBefore(message, 100).complete().getRetrievedHistory()) {
+                    m.addReaction(emoji);
+                }
+                */
+
+                //message.addReaction(emoji).queue();
+
+                //channel.sendMessage(emoji).queue();
+
+                channel.sendMessage("Finished removing reactions with " + emoji + ".").queue();
             }
-
-            String emoji = msg.substring(13);
-
-            for(Message m : channel.getHistory().getRetrievedHistory()) {
-                m.removeReaction(emoji).queue();
-            }
-
-            channel.sendMessage("done").queue();
-            //}
         }
 
         else if (msg.equals("!nosalt")) {
-            if(delSalt) {
-                delSalt = false;
-                channel.sendMessage("No salt mode disabled.").queue();
-            }
-            else {
-                delSalt = true;
-                channel.sendMessage("No salt mode enabled!").queue();
+            if((message.getMember().hasPermission(Permission.ADMINISTRATOR))) {
+                if (delSalt) {
+                    delSalt = false;
+                    channel.sendMessage("No salt mode disabled.").queue();
+                } else {
+                    delSalt = true;
+                    channel.sendMessage("No salt mode enabled!").queue();
+                }
             }
         }
 
-        else if (msg.contains("\uD83E\uDDC2")) {
+        else if (msg.contains("\uD83E\uDDC2") || msg.contains("⏰")) {
             //Deletes messages with salt emoji
-            if(delSalt) {
+            if(delSalt && (! message.getAuthor().isBot())) {
                 Guild guild = event.getGuild();
                 Member selfMember = guild.getSelfMember();
 
