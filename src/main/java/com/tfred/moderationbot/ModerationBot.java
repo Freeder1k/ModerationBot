@@ -196,7 +196,7 @@ public class ModerationBot extends ListenerAdapter
                     serverdata.addModRole(guildID, role.getId());
                     channel.sendMessage("Added " + role.getName() + " to moderator roles.").queue();
                 } else if(args[1].equals("remove")) {
-                    serverdata.addModRole(guildID, role.getId());
+                    serverdata.removeModRole(guildID, role.getId());
                     channel.sendMessage("Removed " + role.getName() + " from moderator roles.").queue();
                 } else
                     channel.sendMessage("Unknown action. Allowed actions: ``add, remove``.").queue();
