@@ -24,12 +24,11 @@ public class ServerData {
         }
     }
 
-    private final List<SingleServer> serverList = new ArrayList<SingleServer>();
+    private List<SingleServer> serverList = new ArrayList<SingleServer>();
     private final SingleServer defaultS = new SingleServer(null, true);
     Path path = Paths.get("servers.data");
 
     public ServerData() {
-
         List<String> list;
         try {
             list = Files.readAllLines(path);
@@ -73,6 +72,8 @@ public class ServerData {
             String content = serverID + " " + noSaltV;
 
             Files.write(path, content.getBytes(), StandardOpenOption.CREATE);
+
+            serverList.add(new SingleServer(serverID, noSaltV));
         } catch (IOException e) {
             System.out.println("IO error when writing server data!");
         }
