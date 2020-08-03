@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.PermissionException;
 import net.dv8tion.jda.api.exceptions.RateLimitedException;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -123,7 +124,7 @@ public class ModerationBot extends ListenerAdapter
             // By calling queue(), we send the Request to the Requester which will send it to discord. Using queue() or any
             // of its different forms will handle ratelimiting for you automatically!
 
-            channel.sendMessage("Help:\n-``!delreaction <emoji>``: delete all reactions with a specified emoji.\n-``!nosalt``: toggle no salt mode.").queue();
+            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!nosalt``: toggle no salt mode.").queue();
         }
 
         else if (msg.startsWith("!delreaction")) {
@@ -136,34 +137,37 @@ public class ModerationBot extends ListenerAdapter
                     return; //We jump out of the method instead of using cascading if/else
                 }
 
-                if(msg.length() < 14) {
-                    channel.sendMessage("Please provide an emoji!").complete();
+                String[] args = msg.split(" ");
+
+                if(args.length != 3) {
+                    channel.sendMessage("Invalid amount of arguments!").complete();
                     return;
                 }
 
-                String emoji = msg.substring(13);
-                //List<Emote> emotes = message.getEmotes();
+                String emoji = args[1];
+
+                int amount ;
+                try {
+                    amount = Integer.parseInt(args[2]);
+                } catch (NumberFormatException e) {
+                    channel.sendMessage("Error parsing amount!").complete();
+                    return;
+                }
+                if(amount > 100 || amount < 1) {
+                    channel.sendMessage("Amount must be in range 1-100").complete();
+                    return;
+                }
 
                 channel.sendMessage("Removing reactions...").complete();
 
-                //channel.sendTyping().complete();
-
-                for(Message m:message.getChannel().getHistory().retrievePast(100).complete()) {
-                    //m.deleteReaction(emoji).queue();
-                    //m.removeReaction(emoji).queue();
-                    m.clearReactions(emoji).complete();
-                    //m.addReaction(emoji).queue();
+                try {
+                    for (Message m : message.getChannel().getHistory().retrievePast(amount).complete()) {
+                        m.clearReactions(emoji).complete();
+                    }
+                } catch (ErrorResponseException e) {
+                    channel.sendMessage("Unknown emoji: " + emoji + ".\nFor custom emojis please add the ID after the emoji. Example: ``:emoji:123456789``.").queue();
+                    return;
                 }
-
-                /*
-                for(Message m: channel.getHistoryBefore(message, 100).complete().getRetrievedHistory()) {
-                    m.addReaction(emoji);
-                }
-                */
-
-                //message.addReaction(emoji).queue();
-
-                //channel.sendMessage(emoji).queue();
 
                 channel.sendMessage("Finished removing reactions with " + emoji + ".").queue();
             }

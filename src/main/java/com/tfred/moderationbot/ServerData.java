@@ -24,9 +24,9 @@ public class ServerData {
         }
     }
 
-    private List<SingleServer> serverList = new ArrayList<SingleServer>();
-    private final SingleServer defaultS = new SingleServer(null, true);
-    Path path = Paths.get("servers.data");
+    private final List<SingleServer> serverList = new ArrayList<SingleServer>();
+    private static final SingleServer defaultS = new SingleServer(null, true);
+    private static final Path path = Paths.get("servers.data");
 
     public ServerData() {
         List<String> list;
