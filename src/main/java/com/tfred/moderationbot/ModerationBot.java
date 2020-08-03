@@ -124,10 +124,10 @@ public class ModerationBot extends ListenerAdapter
             // By calling queue(), we send the Request to the Requester which will send it to discord. Using queue() or any
             // of its different forms will handle ratelimiting for you automatically!
 
-            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove> <role>``: add/remove a modrole.\n-``!nosalt``: toggle no salt mode.").queue();
+            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.").queue();
         }
 
-        else if (msg.startsWith("!delreaction")) {
+        else if (msg.startsWith("!delreaction ")) {
             Guild guild = event.getGuild();
             Member member = message.getMember();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guild.getId(), member)))) {
@@ -174,13 +174,33 @@ public class ModerationBot extends ListenerAdapter
             }
         }
 
-        else if (msg.startsWith("!modrole")) {
+        else if (msg.startsWith("!modrole ")) {
             String guildID = event.getGuild().getId();
             if((message.getMember().hasPermission(Permission.ADMINISTRATOR))) {
                 String[] args = msg.split(" ");
 
-                if(args.length != 3) {
+                if(args.length < 2) {
                     channel.sendMessage("Invalid amount of arguments!").complete();
+                    return;
+                }
+
+                if(args[1].equals("list")) {
+                    List<String> roles = serverdata.getModRoles(guildID);
+
+                    if(roles.isEmpty()) {
+                        channel.sendMessage("There are no moderator roles.").queue();
+                        return;
+                    }
+
+                    String res = "";
+                    for(String s: roles) {
+                        Role r = event.getGuild().getRoleById(s);
+                        if(r != null)
+                            res = res.concat(" ``" + r.getName() + "``,");
+                    }
+                    res = res.substring(0, res.length() - 1);
+
+                    channel.sendMessage("Moderator roles:" + res + ".").queue();
                     return;
                 }
 
@@ -199,7 +219,7 @@ public class ModerationBot extends ListenerAdapter
                     serverdata.removeModRole(guildID, role.getId());
                     channel.sendMessage("Removed " + role.getName() + " from moderator roles.").queue();
                 } else
-                    channel.sendMessage("Unknown action. Allowed actions: ``add, remove``.").queue();
+                    channel.sendMessage("Unknown action. Allowed actions: ``add, remove, list``.").queue();
             }
         }
 
@@ -229,7 +249,7 @@ public class ModerationBot extends ListenerAdapter
         }
     }
 
-    public boolean isModerator(String serverID, Member member) {
+    private boolean isModerator(String serverID, Member member) {
         for(Role r: member.getRoles()) {
             if(serverdata.isModRole(serverID, r.getId()))
                 return true;

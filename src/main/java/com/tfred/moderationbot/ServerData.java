@@ -32,7 +32,7 @@ public class ServerData {
             else
                 noSaltS = "0";
 
-            return id + " " + noSaltS + " " + modRoleIDs.toString();
+            return id + " " + noSaltS + " " + modRoleIDs.toString().replaceAll(" ", "");
         }
     }
 
@@ -143,5 +143,14 @@ public class ServerData {
                 updateFile();
             }
         }
+    }
+
+    public List<String> getModRoles(String serverID) {
+        for(SingleServer s: serverList) {
+            if(s.id.equals(serverID)) {
+                return s.modRoleIDs;
+            }
+        }
+        return new ArrayList<String>();
     }
 }
