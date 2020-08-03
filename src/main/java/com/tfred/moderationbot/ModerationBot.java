@@ -124,12 +124,13 @@ public class ModerationBot extends ListenerAdapter
             // By calling queue(), we send the Request to the Requester which will send it to discord. Using queue() or any
             // of its different forms will handle ratelimiting for you automatically!
 
-            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!nosalt``: toggle no salt mode.").queue();
+            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove> <role>``: add/remove a modrole.\n-``!nosalt``: toggle no salt mode.").queue();
         }
 
         else if (msg.startsWith("!delreaction")) {
-            if(message.getMember().hasPermission(Permission.ADMINISTRATOR)) {
-                Guild guild = event.getGuild();
+            Guild guild = event.getGuild();
+            Member member = message.getMember();
+            if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guild.getId(), member)))) {
                 Member selfMember = guild.getSelfMember();
 
                 if (!selfMember.hasPermission(Permission.MESSAGE_MANAGE)) {
@@ -173,9 +174,39 @@ public class ModerationBot extends ListenerAdapter
             }
         }
 
-        else if (msg.equals("!nosalt")) {
+        else if (msg.startsWith("!modrole")) {
             String guildID = event.getGuild().getId();
             if((message.getMember().hasPermission(Permission.ADMINISTRATOR))) {
+                String[] args = msg.split(" ");
+
+                if(args.length != 3) {
+                    channel.sendMessage("Invalid amount of arguments!").complete();
+                    return;
+                }
+
+                Role role;
+                try {
+                    role = message.getMentionedRoles().get(0);
+                } catch (IndexOutOfBoundsException e) {
+                    channel.sendMessage("Please mention a role!").complete();
+                    return;
+                }
+
+                if (args[1].equals("add")) {
+                    serverdata.addModRole(guildID, role.getId());
+                    channel.sendMessage("Added " + role.getName() + " to moderator roles.").queue();
+                } else if(args[1].equals("remove")) {
+                    serverdata.addModRole(guildID, role.getId());
+                    channel.sendMessage("Removed " + role.getName() + " from moderator roles.").queue();
+                } else
+                    channel.sendMessage("Unknown action. Allowed actions: ``add, remove``.").queue();
+            }
+        }
+
+        else if (msg.equals("!nosalt")) {
+            String guildID = event.getGuild().getId();
+            Member member = message.getMember();
+            if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member)))) {
                 if (serverdata.isNoSalt(guildID)) {
                     serverdata.setNoSalt(guildID, false);
                     channel.sendMessage("No salt mode disabled.").queue();
@@ -196,5 +227,13 @@ public class ModerationBot extends ListenerAdapter
                     message.delete().queue();
             }
         }
+    }
+
+    public boolean isModerator(String serverID, Member member) {
+        for(Role r: member.getRoles()) {
+            if(serverdata.isModRole(serverID, r.getId()))
+                return true;
+        }
+        return false;
     }
 }
