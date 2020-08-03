@@ -16,7 +16,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class ModerationBot extends ListenerAdapter
 {
-    private boolean delSalt = true;
+    private static ServerData serverdata;
 
     public static void main(String[] args)
     {
@@ -42,6 +42,10 @@ public class ModerationBot extends ListenerAdapter
             // you use awaitReady in a thread that has the possibility of being interrupted (async thread usage and interrupts)
             e.printStackTrace();
         }
+
+        //Set up server data
+        serverdata = new ServerData();
+
     }
 
 
@@ -166,12 +170,13 @@ public class ModerationBot extends ListenerAdapter
         }
 
         else if (msg.equals("!nosalt")) {
+            String guildID = event.getGuild().getId();
             if((message.getMember().hasPermission(Permission.ADMINISTRATOR))) {
-                if (delSalt) {
-                    delSalt = false;
+                if (serverdata.isNoSalt(guildID)) {
+                    serverdata.setNoSalt(guildID, false);
                     channel.sendMessage("No salt mode disabled.").queue();
                 } else {
-                    delSalt = true;
+                    serverdata.setNoSalt(guildID, true);
                     channel.sendMessage("No salt mode enabled!").queue();
                 }
             }
@@ -179,8 +184,8 @@ public class ModerationBot extends ListenerAdapter
 
         else if (msg.contains("\uD83E\uDDC2") || msg.contains("⏰")) {
             //Deletes messages with salt emoji
-            if(delSalt && (! message.getAuthor().isBot())) {
-                Guild guild = event.getGuild();
+            Guild guild = event.getGuild();
+            if((! message.getAuthor().isBot()) && serverdata.isNoSalt(guild.getId())) {
                 Member selfMember = guild.getSelfMember();
 
                 if (selfMember.hasPermission(Permission.MESSAGE_MANAGE))
