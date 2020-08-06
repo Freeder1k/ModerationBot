@@ -5,19 +5,14 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.exceptions.ErrorResponseException;
-import net.dv8tion.jda.api.exceptions.PermissionException;
-import net.dv8tion.jda.api.exceptions.RateLimitedException;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 import javax.security.auth.login.LoginException;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class ModerationBot extends ListenerAdapter
 {
     private static ServerData serverdata;
+    private static UserData userdata;
 
     public static void main(String[] args)
     {
@@ -25,9 +20,10 @@ public class ModerationBot extends ListenerAdapter
 
         //We construct a builder for a BOT account. If we wanted to use a CLIENT account
         // we would use AccountType.CLIENT
+        JDA jda = null;
         try
         {
-            JDA jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
+            jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
                     .addEventListeners(new ModerationBot())   // An instance of a class that will handle events.
                     .build();
             jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
@@ -46,6 +42,8 @@ public class ModerationBot extends ListenerAdapter
 
         //Set up server data
         serverdata = new ServerData();
+        if(jda != null)
+        userdata = new UserData(jda);
 
     }
 
@@ -112,7 +110,7 @@ public class ModerationBot extends ListenerAdapter
             System.out.printf("[PRIV]<%s>: %s\n", author.getName(), msg);
         }
         if (msg.startsWith("!"))
-            Commands.process(event, serverdata);
+            Commands.process(event, serverdata, userdata);
 
         else if (msg.contains("\uD83E\uDDC2") || msg.contains("⏰")) {
             //Deletes messages with salt emoji

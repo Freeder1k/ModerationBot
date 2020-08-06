@@ -8,7 +8,7 @@ import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import java.util.List;
 
 public class Commands {
-    public static void process(MessageReceivedEvent event, ServerData serverdata) {
+    public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData) {
         Guild guild = event.getGuild();;
         MessageChannel channel = event.getChannel();
         Message message = event.getMessage();
@@ -17,7 +17,7 @@ public class Commands {
 
 
         if (msg.equals("!help")) {
-            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.").queue();
+            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.\n-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n-``!updatenames``: look for name changes and update the nicknames of users.").queue();
         }
 
         else if (msg.startsWith("!delreaction ")) {
@@ -124,6 +124,47 @@ public class Commands {
                     serverdata.setNoSalt(guildID, true);
                     channel.sendMessage("No salt mode enabled!").queue();
                 }
+            }
+        }
+
+        else if (msg.startsWith("!name ")) {
+            String guildID = guild.getId();
+            if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
+                String[] args = msg.split(" ");
+
+                if(args.length < 3) {
+                    channel.sendMessage("Insufficient amount of arguments!").complete();
+                    return;
+                }
+
+                Member member1;
+                try {
+                    member1 = message.getMentionedMembers().get(0);
+                } catch (IndexOutOfBoundsException e) {
+                    channel.sendMessage("Please mention a member!").complete();
+                    return;
+                }
+
+                //try {
+                    if (args[1].equals("set")) {
+                        userData.setUserInGuild(guildID, member1.getUser().getId(), args[2]);
+                        channel.sendMessage("Set " + args[2] + " as username of " + member1.getEffectiveName() + ".").queue();
+                    } else if (args[1].equals("remove")) {
+                        userData.removeUserFromGuild(guildID, member1.getUser().getId());
+                        channel.sendMessage("Removed " + member1.getEffectiveName() + "'s username.").queue();
+                    } else
+                        channel.sendMessage("Unknown action. Allowed actions: ``set, remove``.").queue();
+                //} catch (IndexOutOfBoundsException e) {
+                //    channel.sendMessage("Insufficient amount of arguments 2!").queue();
+                //}
+            }
+        }
+
+        else if (msg.equals("!updatenames")) {
+            String guildID = guild.getId();
+            if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
+                userData.updateGuildUserData(guildID);
+                channel.sendMessage("Updated usernames.").queue();
             }
         }
     }

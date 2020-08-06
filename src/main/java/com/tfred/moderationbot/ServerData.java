@@ -1,7 +1,5 @@
 package com.tfred.moderationbot;
 
-import net.dv8tion.jda.api.entities.Role;
-
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
@@ -50,7 +48,7 @@ public class ServerData {
             return;
         }
 
-        //Line format: <Server ID> noSalt(0 or 1)
+        //Line format: <Server ID> noSalt(0 or 1) [modroles]
 
         for(String s: list) {
             String[] data = s.split(" ");
