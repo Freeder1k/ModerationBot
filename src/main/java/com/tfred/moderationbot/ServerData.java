@@ -64,6 +64,8 @@ public class ServerData {
 
             serverList.add(x);
         }
+
+        System.out.println("Finished reading saved server data.");
     }
 
     //Line numbers start at 0

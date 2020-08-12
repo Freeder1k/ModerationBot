@@ -198,7 +198,7 @@ public class Commands {
                         if(matcher.find())
                             name = matcher.group(1);
                     }
-                    System.out.println(name);
+                    //System.out.println(name);
                     int x = userData.setUserInGuild(guildID, m.getUser().getId(), name);
                     if(x == 0)
                         failed.add(m);
@@ -231,13 +231,13 @@ public class Commands {
                         output2 += "\n" + m.getEffectiveName();
                 }
                 String output = output1 + output2;
-                String[] parts;
-                parts = output.split("(?<=\\G.{1990})");
+                /*String[] parts;
+                parts = output.split("(?<=\\G.{1990})");*/
                 //channel.sendMessage(output1 + output2).queue();
                 /*for(String s: parts) {
                     channel.sendMessage(s).queue();
                 }*/
-                channel.sendMessage(parts[0]);
+                channel.sendMessage(output.substring(0, 1990));
                 /*EmbedBuilder eb = new EmbedBuilder();
                 eb.addField("**Saved users:**", output1, false);
                 eb.addField("**Users who haven't beed added yet:**",  output2, false);

@@ -279,6 +279,8 @@ public class UserData {
             }
             c++;
         }
+
+        System.out.println("Finished reading saved user data.");
     }
 
     //Returns values of setUser
