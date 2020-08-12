@@ -248,29 +248,28 @@ public class Commands {
                 parts1.add(current1);
                 parts2.add(current2);
 
-                EmbedBuilder eb = new EmbedBuilder();
                 if((parts1.size() > 10) || (parts2.size() > 10)) {
                     channel.sendMessage("Too many members to display! Ask the bot dev to change something.").queue();
                     return;
                 }
 
+                EmbedBuilder eb1 = new EmbedBuilder();
                 if(parts1.isEmpty())
                     parts1.add("**none**");
-                eb.addField("Saved users:", parts1.remove(0), true);
+                eb1.addField("Saved users:", parts1.remove(0), true);
                 for(String s: parts1) {
-                    eb.addField("", s, true);
+                    eb1.addField("", s, true);
                 }
+                channel.sendMessage(eb1.build()).queue();
 
-                eb.addField("", "", false);
-
+                EmbedBuilder eb2 = new EmbedBuilder();
                 if(parts2.isEmpty())
                     parts2.add("**none**");
-                eb.addField("Users who haven't been added yet:", parts2.remove(0), true);
+                eb2.addField("Users who haven't been added yet:", parts2.remove(0), true);
                 for(String s: parts2) {
-                    eb.addField("", s, true);
+                    eb2.addField("", s, true);
                 }
-
-                channel.sendMessage(eb.build()).queue();
+                channel.sendMessage(eb2.build()).queue();
             }
         }
     }
