@@ -20,10 +20,10 @@ public class Commands {
 
 
         if (msg.equals("!help")) {
-            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.\n-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n-``!updatenames``: look for name changes and update the nicknames of users.").queue();
+            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.\n-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n-``!updatenames``: look for name changes and update the nicknames of users.\n-``!listnames``: list the names of members who are/aren't added to the username system.").queue();
         }
 
-        else if (msg.startsWith("!delreaction ")) {
+        else if (msg.startsWith("!delreaction")) {
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guild.getId(), member, serverdata)))) {
                 Member selfMember = guild.getSelfMember();
 
@@ -130,7 +130,7 @@ public class Commands {
             }
         }
 
-        else if (msg.startsWith("!name ")) {
+        else if (msg.startsWith("!name")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
                 String[] args = msg.split(" ");
@@ -150,8 +150,10 @@ public class Commands {
 
                 //try {
                     if (args[1].equals("set")) {
-                        userData.setUserInGuild(guildID, member1.getUser().getId(), args[2]);
-                        channel.sendMessage("Set " + args[2] + " as username of " + member1.getEffectiveName() + ".").queue();
+                        if(userData.setUserInGuild(guildID, member1.getUser().getId(), args[2]) == 1)
+                            channel.sendMessage("Set " + args[2] + " as username of " + member1.getEffectiveName() + ".").queue();
+                        else
+                            channel.sendMessage(args[2] + " isn't a valid Minecraft username.");
                     } else if (args[1].equals("remove")) {
                         userData.removeUserFromGuild(guildID, member1.getUser().getId());
                         channel.sendMessage("Removed " + member1.getEffectiveName() + "'s username.").queue();
@@ -167,7 +169,7 @@ public class Commands {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
                 userData.updateGuildUserData(guildID);
-                channel.sendMessage("Updated usernames.").queue();
+                channel.sendMessage("Updated usernames (please note that the bot cannot change the nicknames of users with a higher role).").queue();
             }
         }
 
@@ -207,6 +209,22 @@ public class Commands {
                     }
                 }
                 channel.sendMessage(donemessage).queue();
+            }
+        }
+
+        else if (msg.equals("!listnames")) {
+            String guildID = guild.getId();
+            if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
+                String output1 = "**Saved users:**";
+                String output2 = "\n\n**Users who haven't beed added yet:**";
+                List<String> ids = userData.getGuildSavedUserIds(guildID);
+                for(Member m: guild.getMembers()) {
+                    if(ids.contains(m.getUser().getId()))
+                        output1 += "\n" + m.getEffectiveName();
+                    else
+                        output2 += "\n" + m.getEffectiveName();
+                }
+                channel.sendMessage(output1 + output2).queue();
             }
         }
     }
