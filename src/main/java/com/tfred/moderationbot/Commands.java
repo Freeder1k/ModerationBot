@@ -153,7 +153,7 @@ public class Commands {
                         if(userData.setUserInGuild(guildID, member1.getUser().getId(), args[2]) == 1)
                             channel.sendMessage("Set " + args[2] + " as username of " + member1.getEffectiveName() + ".").queue();
                         else
-                            channel.sendMessage(args[2] + " isn't a valid Minecraft username.");
+                            channel.sendMessage(args[2] + " isn't a valid Minecraft username.").queue();
                     } else if (args[1].equals("remove")) {
                         userData.removeUserFromGuild(guildID, member1.getUser().getId());
                         channel.sendMessage("Removed " + member1.getEffectiveName() + "'s username.").queue();
@@ -168,8 +168,9 @@ public class Commands {
         else if (msg.equals("!updatenames")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
+                channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
                 userData.updateGuildUserData(guildID);
-                channel.sendMessage("Updated usernames (please note that the bot cannot change the nicknames of users with a higher role).").queue();
+                channel.sendMessage("Finished updating usernames.").queue();
             }
         }
 
