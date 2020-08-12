@@ -51,7 +51,7 @@ public class ModerationBot extends ListenerAdapter
         if(jda != null)
             userdata = new UserData(jda);
         else
-            System.out.println("JDA NULL");
+            System.out.println("JDA NULL!");
 
     }
 

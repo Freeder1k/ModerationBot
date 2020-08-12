@@ -1,5 +1,6 @@
 package com.tfred.moderationbot;
 
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -216,8 +217,8 @@ public class Commands {
         else if (msg.equals("!listnames")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
-                String output1 = "**Saved users:**";
-                String output2 = "\n\n**Users who haven't beed added yet:**";
+                String output1 = "";
+                String output2 = "";
                 if(userData == null) {
                     channel.sendMessage("UserData is null!").queue();
                     return;
@@ -225,11 +226,15 @@ public class Commands {
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
                 for(Member m: guild.getMembers()) {
                     if(ids.contains(m.getUser().getId()))
-                        output1 += "\n" + m.getEffectiveName();
+                        output1 += m.getEffectiveName() + "\n";
                     else
-                        output2 += "\n" + m.getEffectiveName();
+                        output2 += m.getEffectiveName() + "\n";
                 }
-                channel.sendMessage(output1 + output2).queue();
+                EmbedBuilder eb = new EmbedBuilder();
+                eb.addField("**Saved users:**", output1, false);
+                eb.addField("**Users who haven't beed added yet:**",  output2, false);
+                //channel.sendMessage(output1 + output2).queue();
+                channel.sendMessage(eb.build()).queue();
             }
         }
     }
