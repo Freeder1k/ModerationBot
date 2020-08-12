@@ -238,7 +238,7 @@ public class Commands {
                     }
                     else {
                         if(current2.length() > 950) {
-                            String part = current1;
+                            String part = current2;
                             parts2.add(part);
                             current2 = "";
                         }
@@ -265,7 +265,7 @@ public class Commands {
 
                 if(parts2.isEmpty())
                     parts2.add("**none**");
-                eb.addField("Users who haven't beed added yet:", parts2.remove(0), true);
+                eb.addField("Users who haven't been added yet:", parts2.remove(0), true);
                 for(String s: parts2) {
                     eb.addField("", s, true);
                 }
