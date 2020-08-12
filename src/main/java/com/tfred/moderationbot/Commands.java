@@ -248,21 +248,6 @@ public class Commands {
                 parts1.add(current1);
                 parts2.add(current2);
 
-                /*
-                Pattern p = Pattern.compile("(?<=^)(.|\\n){0,1000}(?=$)");
-
-                Matcher m1 = p.matcher(output1);
-                List<String> parts1 = new ArrayList<>();
-                while(m1.find()) {
-                    parts1.add(m1.group(0));
-                }
-
-                Matcher m2 = p.matcher(output2);
-                List<String> parts2 = new ArrayList<>();
-                while(m2.find()) {
-                    parts2.add(m2.group(0));
-                }*/
-
                 EmbedBuilder eb = new EmbedBuilder();
                 if((parts1.size() > 10) || (parts2.size() > 10)) {
                     channel.sendMessage("Too many members to display! Ask the bot dev to change something.").queue();
@@ -271,14 +256,16 @@ public class Commands {
 
                 if(parts1.isEmpty())
                     parts1.add("**none**");
-                eb.addField("Saved users:", parts1.remove(0), false);
+                eb.addField("Saved users:", parts1.remove(0), true);
                 for(String s: parts1) {
                     eb.addField("", s, true);
                 }
 
+                eb.addField("", "", false);
+
                 if(parts2.isEmpty())
                     parts2.add("**none**");
-                eb.addField("Users who haven't beed added yet:", parts2.remove(0), false);
+                eb.addField("Users who haven't beed added yet:", parts2.remove(0), true);
                 for(String s: parts2) {
                     eb.addField("", s, true);
                 }
