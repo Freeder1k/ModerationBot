@@ -232,11 +232,12 @@ public class Commands {
                 }
                 String output = output1 + output2;
                 String[] parts;
-                parts = output.split("(?<=\\G.{1999})");
+                parts = output.split("(?<=\\G.{1990})");
                 //channel.sendMessage(output1 + output2).queue();
-                for(String s: parts) {
+                /*for(String s: parts) {
                     channel.sendMessage(s).queue();
-                }
+                }*/
+                channel.sendMessage(parts[0]);
                 /*EmbedBuilder eb = new EmbedBuilder();
                 eb.addField("**Saved users:**", output1, false);
                 eb.addField("**Users who haven't beed added yet:**",  output2, false);
