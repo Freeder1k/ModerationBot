@@ -217,8 +217,8 @@ public class Commands {
         else if (msg.equals("!listnames")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
-                String output1 = "";
-                String output2 = "";
+                String output1 = "**Saved users:**";
+                String output2 = "\n\n**Users who haven't beed added yet:**";
                 if(userData == null) {
                     channel.sendMessage("UserData is null!").queue();
                     return;
@@ -226,15 +226,21 @@ public class Commands {
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
                 for(Member m: guild.getMembers()) {
                     if(ids.contains(m.getUser().getId()))
-                        output1 += m.getEffectiveName() + "\n";
+                        output1 += "\n" + m.getEffectiveName();
                     else
-                        output2 += m.getEffectiveName() + "\n";
+                        output2 += "\n" + m.getEffectiveName();
                 }
-                EmbedBuilder eb = new EmbedBuilder();
+                String output = output1 + output2;
+                String[] parts;
+                parts = output.split("(?<=\\G.{" + 1999 + "})");
+                channel.sendMessage(output1 + output2).queue();
+                for(String s: parts) {
+                    channel.sendMessage(s).queue();
+                }
+                /*EmbedBuilder eb = new EmbedBuilder();
                 eb.addField("**Saved users:**", output1, false);
                 eb.addField("**Users who haven't beed added yet:**",  output2, false);
-                //channel.sendMessage(output1 + output2).queue();
-                channel.sendMessage(eb.build()).queue();
+                channel.sendMessage(eb.build()).queue();*/
             }
         }
     }
