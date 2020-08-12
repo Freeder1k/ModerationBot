@@ -1,5 +1,6 @@
 package com.tfred.moderationbot;
 
+import com.sun.deploy.security.SelectableSecurityManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
@@ -21,7 +22,7 @@ public class Commands {
 
 
         if (msg.equals("!help")) {
-            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.\n-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n-``!updatenames``: look for name changes and update the nicknames of users.\n-``!listnames``: list the names of members who are/aren't added to the username system.").queue();
+            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.\n-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n-``!updatenames``: look for name changes and update the nicknames of users.\n-``!listnames [role]``: list the names of members who are/aren't added to the username system with optional role requirement.").queue();
         }
 
         else if (msg.startsWith("!delreaction")) {
@@ -226,20 +227,28 @@ public class Commands {
             }
         }
 
-        else if (msg.equals("!listnames")) {
+        else if (msg.startsWith("!listnames")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
                 if(userData == null) {
                     channel.sendMessage("UserData is null! Please try again in a bit.").queue();
                     return;
                 }
+
+                List<Role> r = message.getMentionedRoles();
+                List<Member> members;
+                if(r.isEmpty())
+                    members = guild.getMembers();
+                else
+                    members = guild.getMembersWithRoles(r.get(0));
+
                 List<String> parts1 = new ArrayList<>();
                 List<String> parts2 = new ArrayList<>();
                 String current1 = "";
                 String current2 = "";
 
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
-                for(Member m: guild.getMembers()) {
+                for(Member m: members) {
                     if(ids.contains(m.getUser().getId())) {
                         if(current1.length() > 950) {
                             String part = current1;
