@@ -5,7 +5,10 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Commands {
     public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData) {
@@ -165,6 +168,45 @@ public class Commands {
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
                 userData.updateGuildUserData(guildID);
                 channel.sendMessage("Updated usernames.").queue();
+            }
+        }
+
+        else if (msg.startsWith("!addallmembers")) {
+            String guildID = guild.getId();
+            if((member.hasPermission(Permission.ADMINISTRATOR))) {
+                List<Member> failed = new ArrayList<>();
+
+                Role role;
+                try {
+                    role = message.getMentionedRoles().get(0);
+                } catch (IndexOutOfBoundsException e) {
+                    channel.sendMessage("Please mention a role!").complete();
+                    return;
+                }
+
+                channel.sendMessage("Adding members to internal save data.").complete();
+
+                for(Member m: guild.getMembersWithRoles(role)) {
+                    String name = m.getEffectiveName();
+                    if(name.endsWith(")")) {
+                        Pattern pattern = Pattern.compile("\\((.*?)\\)");
+                        Matcher matcher = pattern.matcher(name);
+                        if(matcher.find())
+                            name = matcher.group(1);
+                    }
+                    System.out.println(name);
+                    int x = userData.setUserInGuild(guildID, m.getUser().getId(), name);
+                    if(x == 0)
+                        failed.add(m);
+                }
+                String donemessage = "Done.";
+                if(!failed.isEmpty()) {
+                    donemessage += "\nFailed to add following users:\n";
+                    for(Member m: failed) {
+                        donemessage += m.getAsMention() + "\n";
+                    }
+                }
+                channel.sendMessage(donemessage).queue();
             }
         }
     }

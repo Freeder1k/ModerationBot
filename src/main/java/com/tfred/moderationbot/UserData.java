@@ -3,6 +3,9 @@ package com.tfred.moderationbot;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.exceptions.HierarchyException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -87,18 +90,24 @@ public class UserData {
             }
         }
 
-        void setUser(String userID, String name) {
+        //returns 1 if successful, 0 if failed
+        int setUser(String userID, String name) {
             String uuid = getUUID(name);
             if((uuid == null) || (uuid.equals("!")))
-                return;
+                return 0;
 
             SingleUser u = new SingleUser(userID, uuid);
             userList.remove(u);
             userList.add(u);
 
-            updateMember(guild.retrieveMemberById(userID).complete(), getUUID(name));
+            int x = updateMember(guild.retrieveMemberById(userID).complete(), getUUID(name));
 
-            updateFile();
+            if(x == 1) {
+                updateFile();
+                return 1;
+            }
+            else
+                return 0;
         }
 
         void removeUser(String userID) {
@@ -110,11 +119,14 @@ public class UserData {
         void updateGuild() {
             for(int i = 0; i < userList.size(); i++) {
                 SingleUser user = userList.get(i);
-                Member member = guild.retrieveMemberById(user.userID).complete();
-                if(member == null) {
-                    userList.remove(user);
-                    i--;
+                Member member;
+                try {
+                    member = guild.retrieveMemberById(user.userID).complete();
+                } catch (ErrorResponseException e) {
+                    member = null;
                 }
+                if(member == null)
+                    i--;
                 else {
                     if(updateMember(member, user.uuid) == 2) {
                         userList.remove(user);
@@ -127,44 +139,47 @@ public class UserData {
 
         //returns 1 if succesful, 2 if entry should be deleted, 0 if other error
         private int updateMember(Member m, String uuid) {
-            String currentName = getName(uuid);
+            try {
+                String currentName = getName(uuid);
 
-            if(currentName == null)
-                return 0;
+                if (currentName == null)
+                    return 0;
 
-            if(currentName.equals("!")) {
-                return 2;
-            }
+                if (currentName.equals("!")) {
+                    return 2;
+                }
 
-            if(m.getNickname() == null) {
-                m.modifyNickname(currentName).queue();
+                if (m.getNickname() == null) {
+                    m.modifyNickname(currentName).queue();
+                    return 1;
+                }
+
+                String nickname;
+                if (m.getNickname().endsWith(")")) {
+                    Pattern pattern = Pattern.compile("\\((.*?)\\)");
+                    Matcher matcher = pattern.matcher(m.getNickname());
+                    if (matcher.find())
+                        nickname = matcher.group(1);
+                    else
+                        nickname = "";
+                } else
+                    nickname = m.getNickname();
+
+                if (!(nickname.equals(currentName))) {
+                    if (m.getNickname().endsWith(")")) {
+                        Pattern pattern = Pattern.compile(".*?\\(");
+                        Matcher matcher = pattern.matcher(m.getNickname());
+                        if (matcher.find()) {
+                            m.modifyNickname(matcher.group() + currentName + ")").queue();
+                            return 1;
+                        }
+                    }
+                    m.modifyNickname(currentName).queue();
+                }
+                return 1;
+            } catch(HierarchyException e) {
                 return 1;
             }
-
-            String nickname;
-            if(m.getNickname().endsWith(")")) {
-                Pattern pattern = Pattern.compile("\\((.*?)\\)");
-                Matcher matcher = pattern.matcher(m.getNickname());
-                if(matcher.find())
-                    nickname = matcher.group();
-                else
-                    nickname = "";
-            }
-            else
-                nickname = m.getNickname();
-
-            if(!(nickname.equals(currentName))) {
-                if(m.getNickname().endsWith(")")) {
-                    Pattern pattern = Pattern.compile(".*?\\(");
-                    Matcher matcher = pattern.matcher(m.getNickname());
-                    if(matcher.find()) {
-                        m.modifyNickname(matcher.group() + currentName + ")").queue();
-                        return 1;
-                    }
-                }
-                m.modifyNickname(currentName).queue();
-            }
-            return 1;
         }
 
         static String getName(String uuid) {
@@ -266,12 +281,12 @@ public class UserData {
         }
     }
 
-    //TODO error handling stuff
-    public void setUserInGuild(String guildID, String userID, String name) {
+    //Returns values of setUser
+    public int setUserInGuild(String guildID, String userID, String name) {
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID)) {
-                data.setUser(userID, name);
-                return;
+                return data.setUser(userID, name);
+
             }
         }
         //add new guild to the userdata if it doesn't exist yet
@@ -280,8 +295,9 @@ public class UserData {
         if(guild != null) {
             SingleGuildUserData newGuild = new SingleGuildUserData(guild, new ArrayList<>(), userData.size());
             userData.add(newGuild);
-            newGuild.setUser(userID, name);
+            return newGuild.setUser(userID, name);
         }
+        return 0;
     }
 
     public void removeUserFromGuild(String guildID, String userID) {
