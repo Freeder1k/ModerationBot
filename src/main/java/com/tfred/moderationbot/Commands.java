@@ -220,7 +220,7 @@ public class Commands {
                 String output1 = "**Saved users:**";
                 String output2 = "\n\n**Users who haven't beed added yet:**";
                 if(userData == null) {
-                    channel.sendMessage("UserData is null!").queue();
+                    channel.sendMessage("UserData is null! Please try again in a bit.").queue();
                     return;
                 }
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
@@ -231,13 +231,11 @@ public class Commands {
                         output2 += "\n" + m.getEffectiveName();
                 }
                 String output = output1 + output2;
-                /*String[] parts;
-                parts = output.split("(?<=\\G.{1990})");*/
-                //channel.sendMessage(output1 + output2).queue();
-                /*for(String s: parts) {
-                    channel.sendMessage(s).queue();
-                }*/
-                channel.sendMessage(output.substring(0, 1990)).queue();
+                int partcount = output.length() % 2000;
+                for(int i = 0; i < partcount; i += 2000) {
+                    channel.sendMessage(output.substring(i, i + 2000)).queue();
+                }
+                //channel.sendMessage(output.substring(0, 1990)).queue();
                 /*EmbedBuilder eb = new EmbedBuilder();
                 eb.addField("**Saved users:**", output1, false);
                 eb.addField("**Users who haven't beed added yet:**",  output2, false);
