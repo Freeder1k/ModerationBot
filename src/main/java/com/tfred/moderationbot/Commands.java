@@ -231,17 +231,40 @@ public class Commands {
                         output2 += "\n" + m.getEffectiveName();
                 }
                 //String output = output1 + output2;
-                int partcount1 = output1.length() / 1000;
 
-                /*Pattern p = Pattern.compile("(?<=^)(.|\\n){0,2000}(?=$)");
-                Matcher m = p.matcher(response);
-                if (m.find())
-                    return m.group(1);
-                else
-                for(int i = 0; i < partcount; i += 2000) {
-                    channel.sendMessage(output.substring(i, i + 2000)).queue();
-                }*/
-                channel.sendMessage(output1.substring(0, 2000)).queue();
+                Pattern p = Pattern.compile("(?<=^)(.|\\n){0,2000}(?=$)", Pattern.MULTILINE);
+
+                Matcher m1 = p.matcher(output1);
+                List<String> parts1 = new ArrayList<>();
+                while(m1.find()) {
+                    parts1.add(m1.group(0));
+                }
+
+                Matcher m2 = p.matcher(output2);
+                List<String> parts2 = new ArrayList<>();
+                while(m2.find()) {
+                    parts2.add(m1.group(0));
+                }
+
+                EmbedBuilder eb = new EmbedBuilder();
+                if((parts1.size() > 10) || (parts2.size() > 10)) {
+                    channel.sendMessage("Too many members to display! Ask the bot dev to change something.").queue();
+                    return;
+                }
+
+                eb.addField("Saved users:", null, false);
+                for(String s: parts1) {
+                    eb.addField(null, s, true);
+                }
+
+                eb.addField("Users who haven't beed added yet:", null, false);
+                for(String s: parts2) {
+                    eb.addField(null, s, true);
+                }
+
+                channel.sendMessage(eb.build()).queue();
+
+                //channel.sendMessage(output1.substring(0, 2000)).queue();
                 /*EmbedBuilder eb = new EmbedBuilder();
                 eb.addField("**Saved users:**", output1, false);
                 eb.addField("**Users who haven't beed added yet:**",  output2, false);
