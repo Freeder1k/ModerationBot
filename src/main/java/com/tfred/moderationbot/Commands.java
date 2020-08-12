@@ -232,7 +232,7 @@ public class Commands {
                 }
                 //String output = output1 + output2;
 
-                Pattern p = Pattern.compile("(?<=^)(.|\\n){0,2000}(?=$)", Pattern.MULTILINE);
+                Pattern p = Pattern.compile("(?<=^)(.|\\n){0,1000}(?=$)");
 
                 Matcher m1 = p.matcher(output1);
                 List<String> parts1 = new ArrayList<>();
