@@ -237,7 +237,7 @@ public class Commands {
                 /*for(String s: parts) {
                     channel.sendMessage(s).queue();
                 }*/
-                channel.sendMessage(output.substring(0, 1990));
+                channel.sendMessage(output.substring(0, 1990)).queue();
                 /*EmbedBuilder eb = new EmbedBuilder();
                 eb.addField("**Saved users:**", output1, false);
                 eb.addField("**Users who haven't beed added yet:**",  output2, false);
