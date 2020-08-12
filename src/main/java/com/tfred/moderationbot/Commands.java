@@ -217,8 +217,8 @@ public class Commands {
         else if (msg.equals("!listnames")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
-                String output1 = "**Saved users:**";
-                String output2 = "\n\n**Users who haven't beed added yet:**";
+                String output1 = "";
+                String output2 = "";
                 if(userData == null) {
                     channel.sendMessage("UserData is null! Please try again in a bit.").queue();
                     return;
@@ -226,11 +226,10 @@ public class Commands {
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
                 for(Member m: guild.getMembers()) {
                     if(ids.contains(m.getUser().getId()))
-                        output1 += "\n" + m.getEffectiveName();
+                        output1 += "\n" + m.getAsMention();
                     else
-                        output2 += "\n" + m.getEffectiveName();
+                        output2 += "\n" + m.getAsMention();
                 }
-                //String output = output1 + output2;
 
                 Pattern p = Pattern.compile("(?<=^)(.|\\n){0,1000}(?=$)");
 
@@ -243,7 +242,7 @@ public class Commands {
                 Matcher m2 = p.matcher(output2);
                 List<String> parts2 = new ArrayList<>();
                 while(m2.find()) {
-                    parts2.add(m1.group(0));
+                    parts2.add(m2.group(0));
                 }
 
                 EmbedBuilder eb = new EmbedBuilder();
@@ -252,23 +251,21 @@ public class Commands {
                     return;
                 }
 
-                eb.addField("Saved users:", null, false);
+                if(parts1.isEmpty())
+                    parts1.add("**none**");
+                eb.addField("Saved users:", parts1.remove(0), false);
                 for(String s: parts1) {
-                    eb.addField(null, s, true);
+                    eb.addField("", s, true);
                 }
 
-                eb.addField("Users who haven't beed added yet:", null, false);
+                if(parts2.isEmpty())
+                    parts2.add("**none**");
+                eb.addField("Users who haven't beed added yet:", parts2.remove(0), false);
                 for(String s: parts2) {
-                    eb.addField(null, s, true);
+                    eb.addField("", s, true);
                 }
 
                 channel.sendMessage(eb.build()).queue();
-
-                //channel.sendMessage(output1.substring(0, 2000)).queue();
-                /*EmbedBuilder eb = new EmbedBuilder();
-                eb.addField("**Saved users:**", output1, false);
-                eb.addField("**Users who haven't beed added yet:**",  output2, false);
-                channel.sendMessage(eb.build()).queue();*/
             }
         }
     }
