@@ -217,20 +217,38 @@ public class Commands {
         else if (msg.equals("!listnames")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
-                String output1 = "";
-                String output2 = "";
                 if(userData == null) {
                     channel.sendMessage("UserData is null! Please try again in a bit.").queue();
                     return;
                 }
+                List<String> parts1 = new ArrayList<>();
+                List<String> parts2 = new ArrayList<>();
+                String current1 = "";
+                String current2 = "";
+
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
                 for(Member m: guild.getMembers()) {
-                    if(ids.contains(m.getUser().getId()))
-                        output1 += "\n" + m.getAsMention();
-                    else
-                        output2 += "\n" + m.getAsMention();
+                    if(ids.contains(m.getUser().getId())) {
+                        if(current1.length() > 950) {
+                            String part = current1;
+                            parts1.add(part);
+                            current1 = "";
+                        }
+                        current1 += "\n" + m.getAsMention();
+                    }
+                    else {
+                        if(current2.length() > 950) {
+                            String part = current1;
+                            parts2.add(part);
+                            current2 = "";
+                        }
+                        current2 += "\n" + m.getAsMention();
+                    }
                 }
+                parts1.add(current1);
+                parts2.add(current2);
 
+                /*
                 Pattern p = Pattern.compile("(?<=^)(.|\\n){0,1000}(?=$)");
 
                 Matcher m1 = p.matcher(output1);
@@ -243,7 +261,7 @@ public class Commands {
                 List<String> parts2 = new ArrayList<>();
                 while(m2.find()) {
                     parts2.add(m2.group(0));
-                }
+                }*/
 
                 EmbedBuilder eb = new EmbedBuilder();
                 if((parts1.size() > 10) || (parts2.size() > 10)) {
