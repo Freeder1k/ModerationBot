@@ -230,12 +230,18 @@ public class Commands {
                     else
                         output2 += "\n" + m.getEffectiveName();
                 }
-                String output = output1 + output2;
-                int partcount = output.length() / 2000;
+                //String output = output1 + output2;
+                int partcount1 = output1.length() / 1000;
+
+                /*Pattern p = Pattern.compile("(?<=^)(.|\\n){0,2000}(?=$)");
+                Matcher m = p.matcher(response);
+                if (m.find())
+                    return m.group(1);
+                else
                 for(int i = 0; i < partcount; i += 2000) {
                     channel.sendMessage(output.substring(i, i + 2000)).queue();
-                }
-                //channel.sendMessage(output.substring(0, 1990)).queue();
+                }*/
+                channel.sendMessage(output1.substring(0, 2000)).queue();
                 /*EmbedBuilder eb = new EmbedBuilder();
                 eb.addField("**Saved users:**", output1, false);
                 eb.addField("**Users who haven't beed added yet:**",  output2, false);
