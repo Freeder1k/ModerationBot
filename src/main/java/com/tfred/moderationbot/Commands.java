@@ -232,7 +232,7 @@ public class Commands {
                 }
                 String output = output1 + output2;
                 String[] parts;
-                parts = output.split("(?<=\\G.{" + 1999 + "})");
+                parts = output.split("(?<=\\G.{1999})");
                 //channel.sendMessage(output1 + output2).queue();
                 for(String s: parts) {
                     channel.sendMessage(s).queue();
