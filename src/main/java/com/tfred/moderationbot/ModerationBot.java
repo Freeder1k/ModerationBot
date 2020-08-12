@@ -49,7 +49,9 @@ public class ModerationBot extends ListenerAdapter
         //Set up server data
         serverdata = new ServerData();
         if(jda != null)
-        userdata = new UserData(jda);
+            userdata = new UserData(jda);
+        else
+            System.out.println("JDA NULL");
 
     }
 
