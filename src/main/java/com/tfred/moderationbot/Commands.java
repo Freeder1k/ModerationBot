@@ -231,7 +231,7 @@ public class Commands {
                         output2 += "\n" + m.getEffectiveName();
                 }
                 String output = output1 + output2;
-                int partcount = output.length() % 2000;
+                int partcount = output.length() / 2000;
                 for(int i = 0; i < partcount; i += 2000) {
                     channel.sendMessage(output.substring(i, i + 2000)).queue();
                 }
