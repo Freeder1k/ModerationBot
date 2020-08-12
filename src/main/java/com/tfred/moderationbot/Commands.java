@@ -134,6 +134,10 @@ public class Commands {
         else if (msg.startsWith("!name")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
+                if(userData == null) {
+                    channel.sendMessage("UserData is null! Please try again in a bit.").queue();
+                    return;
+                }
                 String[] args = msg.split(" ");
 
                 if(args.length < 3) {
@@ -169,6 +173,10 @@ public class Commands {
         else if (msg.equals("!updatenames")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
+                if(userData == null) {
+                    channel.sendMessage("UserData is null! Please try again in a bit.").queue();
+                    return;
+                }
                 channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
                 userData.updateGuildUserData(guildID);
                 channel.sendMessage("Finished updating usernames.").queue();
@@ -178,6 +186,10 @@ public class Commands {
         else if (msg.startsWith("!addallmembers")) {
             String guildID = guild.getId();
             if((member.hasPermission(Permission.ADMINISTRATOR))) {
+                if(userData == null) {
+                    channel.sendMessage("UserData is null! Please try again in a bit.").queue();
+                    return;
+                }
                 List<Member> failed = new ArrayList<>();
 
                 Role role;
@@ -248,7 +260,7 @@ public class Commands {
                 parts1.add(current1);
                 parts2.add(current2);
 
-                if((parts1.size() > 10) || (parts2.size() > 10)) {
+                if((parts1.size() > 6) || (parts2.size() > 6)) {
                     channel.sendMessage("Too many members to display! Ask the bot dev to change something.").queue();
                     return;
                 }
