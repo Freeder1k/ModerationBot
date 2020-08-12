@@ -218,6 +218,10 @@ public class Commands {
             if((member.hasPermission(Permission.ADMINISTRATOR) || (isModerator(guildID, member, serverdata)))) {
                 String output1 = "**Saved users:**";
                 String output2 = "\n\n**Users who haven't beed added yet:**";
+                if(userData == null) {
+                    channel.sendMessage("UserData is null!").queue();
+                    return;
+                }
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
                 for(Member m: guild.getMembers()) {
                     if(ids.contains(m.getUser().getId()))
