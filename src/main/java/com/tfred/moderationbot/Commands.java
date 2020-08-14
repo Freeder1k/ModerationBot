@@ -182,7 +182,7 @@ public class Commands {
                 EmbedBuilder eb = new EmbedBuilder();
                 eb.setTitle("Results of !updatenames:");
                 if(changed.isEmpty())
-                    eb.addField("No users were updated.", "", false);
+                    eb.setDescription("No users were updated.");
                 else if (changed.size() < 100) {
                     String mentions = "";
                     for(String s: changed) {
@@ -193,7 +193,7 @@ public class Commands {
                     eb.addField("Updated Users:", mentions, false);
                 }
                 else
-                    eb.addField(changed.size() + " users were updated.", "", false);
+                    eb.setDescription(changed.size() + " users were updated.");
                 channel.sendMessage(eb.build()).queue();
             }
         }
