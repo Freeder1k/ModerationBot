@@ -5,7 +5,6 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
-import net.dv8tion.jda.api.requests.ErrorResponse;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -102,7 +101,7 @@ public class UserData {
 
             int x = updateMember(guild.retrieveMemberById(userID).complete(), getUUID(name));
 
-            if(x == 1) {
+            if(x == 1 || x == 0) {
                 updateFile();
                 return 1;
             }
@@ -116,7 +115,8 @@ public class UserData {
             updateFile();
         }
 
-        void updateGuild() {
+        List<String> updateGuild() {
+            List<String> updated = new ArrayList<>();
             for(int i = 0; i < userList.size(); i++) {
                 SingleUser user = userList.get(i);
                 Member member;
@@ -125,33 +125,39 @@ public class UserData {
                 } catch (ErrorResponseException e) {
                     member = null;
                 }
-                if(member == null)
-                    i--;
-                else {
-                    if(updateMember(member, user.uuid) == 2) {
+                if(member != null) {
+                    int res = updateMember(member, user.uuid);
+                    if(res == 1)
+                        updated.add(user.userID);
+                    else if(res == 2) {
                         userList.remove(user);
                         i--;
                     }
                 }
             }
             updateFile();
+            return updated;
         }
 
-        //returns 1 if succesful, 2 if entry should be deleted, 0 if other error
+        //returns 0 if nothing changed, 1 if changed, 2 if entry should be deleted, 3 if other error
         private int updateMember(Member m, String uuid) {
             try {
                 String currentName = getName(uuid);
 
                 if (currentName == null)
-                    return 0;
+                    return 3;
 
                 if (currentName.equals("!")) {
                     return 2;
                 }
 
                 if (m.getNickname() == null) {
-                    m.modifyNickname(currentName).queue();
-                    return 1;
+                    if(m.getEffectiveName().equals(currentName))
+                        return 0;
+                    else {
+                        m.modifyNickname(currentName).queue();
+                        return 1;
+                    }
                 }
 
                 String nickname;
@@ -171,14 +177,15 @@ public class UserData {
                         Matcher matcher = pattern.matcher(m.getNickname());
                         if (matcher.find()) {
                             m.modifyNickname(matcher.group() + currentName + ")").queue();
-                            return 1;
                         }
                     }
-                    m.modifyNickname(currentName).queue();
+                    else
+                        m.modifyNickname(currentName).queue();
+                    return 1;
                 }
-                return 1;
+                return 0;
             } catch(HierarchyException e) {
-                return 1;
+                return 0;
             }
         }
 
@@ -309,11 +316,13 @@ public class UserData {
         }
     }
 
-    public void updateGuildUserData(String guildID) {
+    //returns a list of updated users
+    public List<String> updateGuildUserData(String guildID) {
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID))
-                data.updateGuild();
+                return data.updateGuild();
         }
+        return new ArrayList<>();
     }
 
     public List<String> getGuildSavedUserIds(String guildID) {

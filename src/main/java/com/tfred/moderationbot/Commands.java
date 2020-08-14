@@ -178,8 +178,23 @@ public class Commands {
                     return;
                 }
                 channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
-                userData.updateGuildUserData(guildID);
-                channel.sendMessage("Finished updating usernames.").queue();
+                List<String> changed = userData.updateGuildUserData(guildID);
+                EmbedBuilder eb = new EmbedBuilder();
+                eb.setTitle("Results of !updatenames:");
+                if(changed.isEmpty())
+                    eb.addField("No users were updated.", "", false);
+                else if (changed.size() < 100) {
+                    String mentions = "";
+                    for(String s: changed) {
+                        Member m = guild.getMemberById(s);
+                        if(m != null)
+                            mentions += m.getAsMention() + "\n";
+                    }
+                    eb.addField("Updated Users:", mentions, false);
+                }
+                else
+                    eb.addField(changed.size() + " users were updated.", "", false);
+                channel.sendMessage(eb.build()).queue();
             }
         }
 
