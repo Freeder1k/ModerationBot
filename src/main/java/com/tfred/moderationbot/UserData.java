@@ -61,8 +61,6 @@ public class UserData {
             this.guild = guild;
             this.userList = userList;
             this.lineNumber = lineNumber;
-
-            updateGuild();
         }
 
         //Line numbers start at 0
@@ -127,8 +125,10 @@ public class UserData {
                 }
                 if(member != null) {
                     int res = updateMember(member, user.uuid);
-                    if(res == 1)
+                    if(res == 1) {
                         updated.add(user.userID);
+                        System.out.println(member.getEffectiveName());
+                    }
                     else if(res == 2) {
                         userList.remove(user);
                         i--;
