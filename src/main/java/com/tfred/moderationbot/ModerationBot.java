@@ -48,8 +48,10 @@ public class ModerationBot extends ListenerAdapter
 
         //Set up server data
         serverdata = new ServerData();
-        if(jda != null)
+        if(jda != null) {
             userdata = new UserData(jda);
+            jda.getPresence().setActivity(Activity.watching("BlockHunt"));
+        }
         else
             System.out.println("JDA NULL!");
 
