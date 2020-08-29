@@ -21,7 +21,7 @@ public class Commands {
 
 
         if (msg.equals("!help")) {
-            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.\n-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n-``!updatenames``: look for name changes and update the nicknames of users.\n-``!listnames [role]``: list the names of members who are/aren't added to the username system with optional role requirement.").queue();
+            channel.sendMessage("Help:\n-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n-``!modrole <add|remove|list> [role]``: add/remove a modrole or list the mod roles for this server.\n-``!nosalt``: toggle no salt mode.\n-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n-``!updatenames``: look for name changes and update the nicknames of users.\n-``!listnames [@role/roleID]``: list the names of members who are/aren't added to the username system with optional role requirement.").queue();
         }
 
         else if (msg.startsWith("!delreaction")) {
@@ -255,12 +255,29 @@ public class Commands {
                     return;
                 }
 
-                List<Role> r = message.getMentionedRoles();
+                String[] args = msg.split(" ");
+
                 List<Member> members;
-                if(r.isEmpty())
-                    members = guild.getMembers();
+                Role r = null;
+
+                if(args.length > 1) {
+                    try {
+                        r = message.getMentionedRoles().get(0);
+                        members = guild.getMembersWithRoles(r);
+                    } catch (IndexOutOfBoundsException e1) {
+                        try {
+                            r = guild.getRoleById(args[1]);
+                            if(r == null)
+                                members = guild.getMembers();
+                            else
+                                members = guild.getMembersWithRoles(r);
+                        } catch (NumberFormatException e2) {
+                            members = guild.getMembers();
+                        }
+                    }
+                }
                 else
-                    members = guild.getMembersWithRoles(r.get(0));
+                    members = guild.getMembers();
 
                 List<String> parts1 = new ArrayList<>();
                 List<String> parts2 = new ArrayList<>();
