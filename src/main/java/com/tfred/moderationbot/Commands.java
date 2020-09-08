@@ -193,7 +193,7 @@ public class Commands {
                     for(String s: changed) {
                         Member m = guild.getMemberById(s);
                         if(m != null)
-                            mentions += m.getAsMention() + "\n";
+                            mentions += m.getAsMention() + " (" + m.getNickname() + ")\n";
                     }
                     eb.addField("Updated Users:", mentions, false);
                 }
