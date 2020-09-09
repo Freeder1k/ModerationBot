@@ -12,7 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Commands {
-    public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData) {
+    public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData, Leaderboards leaderboards) {
         Guild guild = event.getGuild();;
         MessageChannel channel = event.getChannel();
         Message message = event.getMessage();
@@ -328,6 +328,35 @@ public class Commands {
                     eb2.addField("", s, true);
                 }
                 channel.sendMessage(eb2.build()).queue();
+            }
+        }
+        else if (msg.startsWith("!lb ")) {
+            String guildID = guild.getId();
+            if((member.hasPermission(Permission.ADMINISTRATOR))) {
+                if (msg.length() != 5) {
+                    channel.sendMessage("Single number argument required.").queue();
+                    return;
+                }
+                int board = Character.getNumericValue(msg.charAt(4));
+                if ((board != 0) && (board != 1) && (board != 2)) {
+                    channel.sendMessage("Board number must be between 0 and 2!").queue();
+                    return;
+                }
+
+                List<String> lb = leaderboards.lbToString(board, guildID, userData);
+                EmbedBuilder eb1 = new EmbedBuilder();
+                eb1.addField("Leaderboard:", lb.remove(0), false);
+                for (String s : lb) {
+                    eb1.addField("", s, false);
+                }
+                channel.sendMessage(eb1.build()).queue();
+            }
+        }
+        else if (msg.equals("!updatelb")) {
+            String guildID = guild.getId();
+            if((member.hasPermission(Permission.ADMINISTRATOR))) {
+                leaderboards.updateLeaderboards();
+                channel.sendMessage("Updating leaderbaord file").queue();
             }
         }
     }

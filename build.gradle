@@ -18,6 +18,7 @@ repositories {
 
 dependencies {
     compile "net.dv8tion:JDA:$jdaVersion"
+    compile 'com.google.code.gson:gson:2.8.6'
 }
 
 compileJava.options.encoding = 'UTF-8'

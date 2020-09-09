@@ -16,6 +16,7 @@ public class ModerationBot extends ListenerAdapter
 {
     private static ServerData serverdata;
     private static UserData userdata;
+    private static Leaderboards leaderboards;
 
     public static void main(String[] args)
     {
@@ -54,6 +55,8 @@ public class ModerationBot extends ListenerAdapter
         }
         else
             System.out.println("JDA NULL!");
+
+        leaderboards = new Leaderboards();
 
     }
 
@@ -120,7 +123,7 @@ public class ModerationBot extends ListenerAdapter
             System.out.printf("[PRIV]<%s>: %s\n", author.getName(), msg);
         }
         if (msg.startsWith("!"))
-            Commands.process(event, serverdata, userdata);
+            Commands.process(event, serverdata, userdata, leaderboards);
 
         else if (msg.contains("\uD83E\uDDC2") || msg.contains("⏰")) {
             //Deletes messages with salt emoji

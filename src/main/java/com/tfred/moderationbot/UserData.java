@@ -337,4 +337,30 @@ public class UserData {
         }
         return output;
     }
+
+    public List<String> getGuildSavedUuids(String guildID) {
+        List<String> output = new ArrayList<>();
+        for(SingleGuildUserData data: userData) {
+            if(data.guild.getId().equals(guildID)) {
+                for (SingleUser u: data.userList) {
+                    output.add(u.uuid);
+                }
+                return output;
+            }
+        }
+        return output;
+    }
+
+    public String getGuildSavedUuidUserID(String guildID, String uuid) {
+        List<String> output = new ArrayList<>();
+        for(SingleGuildUserData data: userData) {
+            if(data.guild.getId().equals(guildID)) {
+                for (SingleUser u: data.userList) {
+                    if(u.uuid.equals(uuid))
+                        return u.userID;
+                }
+            }
+        }
+        return "";
+    }
 }
