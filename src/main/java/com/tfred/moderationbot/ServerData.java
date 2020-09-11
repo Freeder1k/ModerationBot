@@ -19,7 +19,7 @@ public class ServerData {
         }
 
         static SingleServer createDefault(String id) {
-            return new SingleServer(id, defaultS.noSalt, new ArrayList<String>());
+            return new SingleServer(id, defaultS.noSalt, new ArrayList<>());
         }
 
         @Override
@@ -34,7 +34,7 @@ public class ServerData {
         }
     }
 
-    private final List<SingleServer> serverList = new ArrayList<SingleServer>();
+    private final List<SingleServer> serverList = new ArrayList<>();
     private static final Path path = Paths.get("servers.data");
 
 
@@ -48,12 +48,12 @@ public class ServerData {
             return;
         }
 
-        //Line format: <Server ID> noSalt(0 or 1) [modroles]
+        //Line format: <Server ID> noSalt(0 or 1) [modroles] [lbMessages(lbNum:channelID:messageID)] //TODO implement lbMessages
 
         for(String s: list) {
             String[] data = s.split(" ");
 
-            List<String> modRoleIDs = new ArrayList<String>();
+            List<String> modRoleIDs = new ArrayList<>();
 
             if(data.length >= 3) {
                 String[] ids = (data[2].substring(1, data[2].length() - 1)).split(",");
@@ -151,6 +151,6 @@ public class ServerData {
                 return s.modRoleIDs;
             }
         }
-        return new ArrayList<String>();
+        return new ArrayList<>();
     }
 }
