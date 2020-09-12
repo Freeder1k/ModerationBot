@@ -352,7 +352,6 @@ public class UserData {
     }
 
     public String getGuildSavedUuidUserID(String guildID, String uuid) {
-        List<String> output = new ArrayList<>();
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID)) {
                 for (SingleUser u: data.userList) {
