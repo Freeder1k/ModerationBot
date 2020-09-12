@@ -10,7 +10,9 @@ import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.*;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -76,12 +78,6 @@ public class Leaderboards {
 
     private static final Path path = Paths.get("leaderboards.data");
 
-    private static final String[] lbURLs = {
-            "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hider%20wins&board=all&filtering=true&startPosition=1&endPosition=50",
-            "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hunterwins&board=all&filtering=true&startPosition=1&endPosition=50",
-            "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=kills&board=all&filtering=true&startPosition=1&endPosition=50"
-    };
-
     private long date;
     private List<LbSpot> hiderLb = new ArrayList<>(50);
     private List<LbSpot> hunterLb = new ArrayList<>(50);
@@ -90,6 +86,15 @@ public class Leaderboards {
     public Leaderboards() {
         updateLeaderboards();
         System.out.println("Finished reading saved leaderboards data!");
+    }
+
+    private String[] lbURLs() {
+        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
+        return new String[]{
+                "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hider%20wins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
+                "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hunterwins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
+                "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=kills&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50"
+        };
     }
 
     //returns 1 if unsuccessful
@@ -114,8 +119,9 @@ public class Leaderboards {
     private JsonElement[] getJsonLbData() {
         JsonElement[] data = new JsonElement[3];
         try {
+            String[] lbUrls = lbURLs();
             for (int i = 0; i < 3; i++) {
-                URL urlForGetRequest = new URL(lbURLs[i]);
+                URL urlForGetRequest = new URL(lbUrls[i]);
 
                 HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
                 connection.setRequestMethod("GET");
@@ -132,7 +138,7 @@ public class Leaderboards {
 
                     data[i] = jsonObject.get("leaderboard");
                 } else {
-                    System.out.println("BLAH" + responseCode);
+                    System.out.println("BLAH" + responseCode + lbUrls[i]);
                     return null;
                 }
             }
