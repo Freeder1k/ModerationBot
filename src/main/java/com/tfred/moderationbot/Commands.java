@@ -33,8 +33,8 @@ public class Commands {
                     "-``!nosalt``: toggle no salt mode.\n" +
                     "-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n" +
                     "-``!updatenames``: look for name changes and update the nicknames of users.\n" +
-                    "-``!listnames [@role/roleID]``: list the names of members who are/aren't added to the username system with optional role requirement." +
-                    "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills)." +
+                    "-``!listnames [@role/roleID]``: list the names of members who are/aren't added to the username system with optional role requirement.\n" +
+                    "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills).\n" +
                     "-``!updatelb``: updated the lb messages."
             ).queue();
         }
