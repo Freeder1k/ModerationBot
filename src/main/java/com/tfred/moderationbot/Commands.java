@@ -6,8 +6,11 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 
+import java.awt.*;
+import java.nio.channels.Channel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,7 +33,9 @@ public class Commands {
                     "-``!nosalt``: toggle no salt mode.\n" +
                     "-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n" +
                     "-``!updatenames``: look for name changes and update the nicknames of users.\n" +
-                    "-``!listnames [@role/roleID]``: list the names of members who are/aren't added to the username system with optional role requirement."
+                    "-``!listnames [@role/roleID]``: list the names of members who are/aren't added to the username system with optional role requirement." +
+                    "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills)." +
+                    "-``!updatelb``: updated the lb messages."
             ).queue();
         }
 
@@ -324,20 +329,43 @@ public class Commands {
                 }
 
                 List<String> lb = leaderboards.lbToString(Character.getNumericValue(board), guildID, userData);
-                EmbedBuilder eb1 = new EmbedBuilder();
-                eb1.addField("Leaderboard:", lb.remove(0), false); //TODO specify which leaderboard
+                EmbedBuilder eb = new EmbedBuilder();
+                eb.addField("Leaderboard:", lb.remove(0), false); //TODO specify which leaderboard
                 for (String s : lb) {
-                    eb1.addField("", s, false);
+                    eb.addField("", s, false);
                 }
-                //String msgID = channel.sendMessage(eb1.build()).complete().getId();
-                //String channelID = channel.getId();
-                //TODO save ids in ServerData
+
+                String msgID = channel.sendMessage(eb.build()).complete().getId();
+                String channelID = channel.getId();
+
+                serverdata.setLbData(guildID, Character.getNumericValue(board), channelID, msgID);
             }
         }
 
         else if (msg.equals("!updatelb")) {
             if((member.hasPermission(Permission.ADMINISTRATOR))) {
                 leaderboards.updateLeaderboards();
+
+                String[][] data = serverdata.getAllLbData(guildID);
+                for(int i = 0; i < 3; i++) {
+                    if(data[i] == null)
+                        continue;
+
+                    TextChannel editChannel = guild.getTextChannelById(data[i][0]);
+                    if(editChannel == null)
+                        continue;
+
+                    List<String> lb = leaderboards.lbToString(i, guildID, userData);
+                    EmbedBuilder eb = new EmbedBuilder();
+                    eb.addField("Leaderboard:", lb.remove(0), false); //TODO specify which leaderboard
+                    for (String s : lb) {
+                        eb.addField("", s, false);
+                    }
+                    try {
+                        channel.editMessageById(data[i][1], eb.build()).queue();
+                    } catch (IllegalArgumentException ignored) {}
+                    System.out.println("updated lb " + i);
+                }
                 channel.sendMessage("Updated leaderboards.").queue();
             }
         }

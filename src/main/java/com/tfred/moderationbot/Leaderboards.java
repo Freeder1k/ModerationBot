@@ -182,7 +182,7 @@ public class Leaderboards {
             if (oldIndex == -1)
                 changes.add(100);
             else
-                changes.add(i - oldIndex);
+                changes.add(-(i - oldIndex));
         }
 
         return changes;
