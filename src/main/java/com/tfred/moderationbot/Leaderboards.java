@@ -247,7 +247,7 @@ public class Leaderboards {
         else
             date_old = date;
 
-        if(date - date_old > 594800000) {
+        if(date - date_old > 544800000) {
             updateFile();
             try {
                 lines = Files.readAllLines(path);

@@ -88,6 +88,18 @@ public class UserData {
             }
         }
 
+        String getUser(String userID) {
+            String name = "";
+            for(SingleUser u: userList) {
+                if(u.userID.equals(userID))
+                    name = getName(u.uuid);
+            }
+            if(name == null || name.equals("!"))
+                return "";
+
+            return name;
+        }
+
         //returns 1 if successful, 0 if failed
         int setUser(String userID, String name) {
             String uuid = getUUID(name);
@@ -289,6 +301,15 @@ public class UserData {
         }
 
         System.out.println("Finished reading saved user data.");
+    }
+
+    public String getUserInGuild(String guildID, String userID) {
+        for(SingleGuildUserData data: userData) {
+            if(data.guild.getId().equals(guildID)) {
+                return data.getUser(userID);
+            }
+        }
+        return "";
     }
 
     //Returns values of setUser

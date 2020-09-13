@@ -76,6 +76,8 @@ public class Commands {
 
                 channel.sendMessage("Removed reactions with " + emoji + " on " + amount + " messages.").queue();
             }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!modrole ")) {
@@ -124,6 +126,8 @@ public class Commands {
                 } else
                     channel.sendMessage("Unknown action. Allowed actions: ``add, remove, list``.").queue();
             }
+            else
+                channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
         else if (msg.equals("!nosalt")) {
@@ -139,6 +143,8 @@ public class Commands {
                     channel.sendMessage("No salt mode enabled!").queue();
                 }
             }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!name ")) {
@@ -169,49 +175,15 @@ public class Commands {
                 } else
                     channel.sendMessage("Unknown action! Allowed actions: ``set, remove``.").queue();
             }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.equals("!updatenames")) {
             if(isModerator(guildID, member, serverdata))
                 updateNames(channel, userData, guild);
-        }
-
-        else if (msg.startsWith("!addallmembers ")) {
-            if(member.hasPermission(Permission.ADMINISTRATOR)) {
-                List<Member> failed = new ArrayList<>();
-
-                Role role;
-                try {
-                    role = message.getMentionedRoles().get(0);
-                } catch (IndexOutOfBoundsException e) {
-                    channel.sendMessage("Please mention a role!").complete();
-                    return;
-                }
-
-                channel.sendMessage("Adding members to internal save data.").complete();
-
-                for(Member m: guild.getMembersWithRoles(role)) {
-                    String name = m.getEffectiveName();
-                    if(name.endsWith(")")) {
-                        Pattern pattern = Pattern.compile("\\((.*?)\\)");
-                        Matcher matcher = pattern.matcher(name);
-                        if(matcher.find())
-                            name = matcher.group(1);
-                    }
-                    //System.out.println(name);
-                    int x = userData.setUserInGuild(guildID, m.getUser().getId(), name);
-                    if(x == 0)
-                        failed.add(m);
-                }
-                StringBuilder donemessage = new StringBuilder("Done.");
-                if(!failed.isEmpty()) {
-                    donemessage.append("\nFailed to add following users:\n");
-                    for(Member m: failed) {
-                        donemessage.append(m.getAsMention()).append("\n");
-                    }
-                }
-                channel.sendMessage(donemessage.toString()).queue();
-            }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!listnames")) {
@@ -288,6 +260,8 @@ public class Commands {
                 }
                 channel.sendMessage(eb2.build()).queue();
             }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!lb ")) {
@@ -314,11 +288,15 @@ public class Commands {
 
                 serverdata.setLbData(guildID, Character.getNumericValue(board), channelID, msgID);
             }
+            else
+                channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
         else if (msg.equals("!updatelb")) {
             if(member.hasPermission(Permission.ADMINISTRATOR))
                 updateLeaderboards(channel, leaderboards, serverdata, userData, guild);
+            else
+                channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
         else if (msg.equals("!setlogchannel")) {
@@ -326,6 +304,49 @@ public class Commands {
                 serverdata.setLogChannelID(guildID, channel.getId());
                 channel.sendMessage("Set log channel to " + channel.getAsMention() + ".").queue();
             }
+            else
+                channel.sendMessage("You need to be a server admin to use this command!").queue();
+        }
+
+        //secret commands
+        else if (msg.startsWith("!addallmembers ")) {
+            if(member.hasPermission(Permission.ADMINISTRATOR)) {
+                List<Member> failed = new ArrayList<>();
+
+                Role role;
+                try {
+                    role = message.getMentionedRoles().get(0);
+                } catch (IndexOutOfBoundsException e) {
+                    channel.sendMessage("Please mention a role!").complete();
+                    return;
+                }
+
+                channel.sendMessage("Adding members to internal save data.").complete();
+
+                for(Member m: guild.getMembersWithRoles(role)) {
+                    String name = m.getEffectiveName();
+                    if(name.endsWith(")")) {
+                        Pattern pattern = Pattern.compile("\\((.*?)\\)");
+                        Matcher matcher = pattern.matcher(name);
+                        if(matcher.find())
+                            name = matcher.group(1);
+                    }
+                    //System.out.println(name);
+                    int x = userData.setUserInGuild(guildID, m.getUser().getId(), name);
+                    if(x == 0)
+                        failed.add(m);
+                }
+                StringBuilder donemessage = new StringBuilder("Done.");
+                if(!failed.isEmpty()) {
+                    donemessage.append("\nFailed to add following users:\n");
+                    for(Member m: failed) {
+                        donemessage.append(m.getAsMention()).append("\n");
+                    }
+                }
+                channel.sendMessage(donemessage.toString()).queue();
+            }
+            else
+                channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
         else if (msg.equals("!forceupdate")) {
@@ -333,6 +354,8 @@ public class Commands {
                 System.out.println("Force updating!");
                 ModerationBot.autoRunDaily();
             }
+            else
+                channel.sendMessage("You do not have permission to run this command!").queue();
         }
     }
 
@@ -366,6 +389,21 @@ public class Commands {
         }
     }
 
+    private static String getName(String nickname) {
+        String name;
+        if (nickname.endsWith(")")) {
+            Pattern pattern = Pattern.compile("\\((.*?)\\)");
+            Matcher matcher = pattern.matcher(nickname);
+            if (matcher.find())
+                name = matcher.group(1);
+            else
+                name = nickname;
+        } else
+            name = nickname;
+
+        return name;
+    }
+
     public static void updateNames(TextChannel channel, UserData userData, Guild guild) {
         String guildID = guild.getId();
 
@@ -386,7 +424,7 @@ public class Commands {
             for(String s: changed) {
                 Member m = guild.getMemberById(s);
                 if(m != null)
-                    mentions.append(m.getAsMention()).append(" (").append(m.getNickname()).append(")\n");
+                    mentions.append(m.getAsMention()).append(" (").append(getName(m.getEffectiveName())).append(" -> ").append(userData.getUserInGuild(guildID, m.getId())).append(")\n");
             }
             eb.addField("Updated Users:", mentions.toString(), false);
         }
