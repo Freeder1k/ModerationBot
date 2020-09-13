@@ -39,12 +39,14 @@ public class ServerData {
         boolean noSalt;
         List<String> modRoleIDs;
         List<LbData> lbData;
+        String logchannelID;
 
-        SingleServer(String id, boolean noSalt, List<String> modRoleIDs, List<LbData> lbData) {
+        SingleServer(String id, boolean noSalt, List<String> modRoleIDs, List<LbData> lbData, String logchannelID) {
             this.id = id;
             this.noSalt = noSalt;
             this.modRoleIDs = modRoleIDs;
             this.lbData = lbData;
+            this.logchannelID = logchannelID;
         }
 
         static SingleServer createDefault(String id) {
@@ -52,7 +54,7 @@ public class ServerData {
             for (int i = 0; i < 3; i++)
                 lbData.add(new LbData(-1, null, null));
 
-            return new SingleServer(id, true, new ArrayList<>(), lbData);
+            return new SingleServer(id, true, new ArrayList<>(), lbData, "");
         }
 
         @Override
@@ -63,7 +65,7 @@ public class ServerData {
             else
                 noSaltS = "0";
 
-            return id + " " + noSaltS + " &" + String.join(",", modRoleIDs) + " &" + lbData.stream().map(LbData::toString).collect(Collectors.joining(","));
+            return id + " " + noSaltS + " &" + String.join(",", modRoleIDs) + " &" + lbData.stream().map(LbData::toString).collect(Collectors.joining(",")) + " &" + logchannelID;
         }
     }
 
@@ -80,7 +82,7 @@ public class ServerData {
             return;
         }
 
-        //Line format: <Server ID> noSalt(0 or 1) &modroles &lbMessages(boardNum:channelID:messageID)
+        //Line format: <Server ID> noSalt(0 or 1) &modroles &lbMessages(boardNum:channelID:messageID) &logchannel
 
         for (String s : lines) {
             String[] data = s.split(" ");
@@ -98,11 +100,18 @@ public class ServerData {
                 if (lbData.size() != 3)
                     while (lbData.size() < 3)
                         lbData.add(new LbData(-1, null, null));
-            } else
-                for (int i = 0; i < 3; i++)
+            } else {
+                for (int i = 0; i < 3; i++) {
                     lbData.add(new LbData(-1, null, null));
+                }
+            }
 
-            SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData);
+            String logChannelID = "";
+            if(data.length >= 5)
+                logChannelID = data[4].substring(1);
+
+
+            SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID);
 
             serverList.add(x);
         }
@@ -241,5 +250,23 @@ public class ServerData {
             temp[i] = getLbData(serverID, i);
         }
         return temp;
+    }
+
+    public void setLogChannelID(String serverID, String logChannelID) {
+        for (SingleServer s : serverList) {
+            if (s.id.equals(serverID)) {
+                s.logchannelID = logChannelID;
+                updateFile();
+            }
+        }
+    }
+
+    public String getLogChannelID(String serverID) {
+        for (SingleServer s : serverList) {
+            if (s.id.equals(serverID)) {
+                return s.logchannelID;
+            }
+        }
+        return "0";
     }
 }

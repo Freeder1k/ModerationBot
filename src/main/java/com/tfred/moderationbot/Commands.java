@@ -6,11 +6,8 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 
-import java.awt.*;
-import java.nio.channels.Channel;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,7 +32,8 @@ public class Commands {
                     "-``!updatenames``: look for name changes and update the nicknames of users.\n" +
                     "-``!listnames [@role/roleID]``: list the names of members who are/aren't added to the username system with optional role requirement.\n" +
                     "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills).\n" +
-                    "-``!updatelb``: updated the lb messages."
+                    "-``!updatelb``: updated the lb messages.\n" +
+                    "-``!setlogchannel``: set this channel to be the log channel for automatic updates."
             ).queue();
         }
 
@@ -81,7 +79,7 @@ public class Commands {
         }
 
         else if (msg.startsWith("!modrole ")) {
-            if((member.hasPermission(Permission.ADMINISTRATOR))) {
+            if(member.hasPermission(Permission.ADMINISTRATOR)) {
                 String[] args = msg.split(" ");
 
                 if(args.length < 2) {
@@ -174,36 +172,12 @@ public class Commands {
         }
 
         else if (msg.equals("!updatenames")) {
-            if(isModerator(guildID, member, serverdata)) {
-                channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
-
-                List<String> changed = userData.updateGuildUserData(guildID);
-
-                EmbedBuilder eb = new EmbedBuilder();
-                eb.setTitle("Results of !updatenames:");
-
-                if(changed.isEmpty())
-                    eb.setDescription("No users were updated.");
-
-                else if (changed.size() < 100) {
-                    StringBuilder mentions = new StringBuilder();
-
-                    for(String s: changed) {
-                        Member m = guild.getMemberById(s);
-                        if(m != null)
-                            mentions.append(m.getAsMention()).append(" (").append(m.getNickname()).append(")\n");
-                    }
-                    eb.addField("Updated Users:", mentions.toString(), false);
-                }
-                else
-                    eb.setDescription(changed.size() + " users were updated.");
-
-                channel.sendMessage(eb.build()).queue();
-            }
+            if(isModerator(guildID, member, serverdata))
+                updateNames(channel, userData, guild);
         }
 
         else if (msg.startsWith("!addallmembers ")) {
-            if((member.hasPermission(Permission.ADMINISTRATOR))) {
+            if(member.hasPermission(Permission.ADMINISTRATOR)) {
                 List<Member> failed = new ArrayList<>();
 
                 Role role;
@@ -343,30 +317,21 @@ public class Commands {
         }
 
         else if (msg.equals("!updatelb")) {
-            if((member.hasPermission(Permission.ADMINISTRATOR))) {
-                leaderboards.updateLeaderboards();
+            if(member.hasPermission(Permission.ADMINISTRATOR))
+                updateLeaderboards(channel, leaderboards, serverdata, userData, guild);
+        }
 
-                String[][] data = serverdata.getAllLbData(guildID);
-                for(int i = 0; i < 3; i++) {
-                    if(data[i] == null)
-                        continue;
+        else if (msg.equals("!setlogchannel")) {
+            if(member.hasPermission(Permission.ADMINISTRATOR)) {
+                serverdata.setLogChannelID(guildID, channel.getId());
+                channel.sendMessage("Set log channel to " + channel.getAsMention() + ".").queue();
+            }
+        }
 
-                    TextChannel editChannel = guild.getTextChannelById(data[i][0]);
-                    if(editChannel == null)
-                        continue;
-
-                    List<String> lb = leaderboards.lbToString(i, guildID, userData);
-                    EmbedBuilder eb = new EmbedBuilder();
-                    eb.addField("Leaderboard:", lb.remove(0), false); //TODO specify which leaderboard
-                    for (String s : lb) {
-                        eb.addField("", s, false);
-                    }
-                    try {
-                        channel.editMessageById(data[i][1], eb.build()).queue();
-                    } catch (IllegalArgumentException ignored) {}
-                    System.out.println("updated lb " + i);
-                }
-                channel.sendMessage("Updated leaderboards.").queue();
+        else if (msg.equals("!forceupdate")) {
+            if(member.getId().equals("470696578403794967")) {
+                System.out.println("Force updating!");
+                ModerationBot.autoRunDaily();
             }
         }
     }
@@ -399,5 +364,65 @@ public class Commands {
             channel.sendMessage("To use this command please give me the following permissions: " + missingPerms.toString()).queue();
             return true;
         }
+    }
+
+    public static void updateNames(TextChannel channel, UserData userData, Guild guild) {
+        String guildID = guild.getId();
+
+        if(channel != null)
+            channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
+
+        List<String> changed = userData.updateGuildUserData(guildID);
+
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.setTitle("Results of !updatenames:");
+
+        if(changed.isEmpty())
+            eb.setDescription("No users were updated.");
+
+        else if (changed.size() < 100) {
+            StringBuilder mentions = new StringBuilder();
+
+            for(String s: changed) {
+                Member m = guild.getMemberById(s);
+                if(m != null)
+                    mentions.append(m.getAsMention()).append(" (").append(m.getNickname()).append(")\n");
+            }
+            eb.addField("Updated Users:", mentions.toString(), false);
+        }
+        else
+            eb.setDescription(changed.size() + " users were updated.");
+
+        if(channel != null)
+            channel.sendMessage(eb.build()).queue();
+    }
+
+    public static void updateLeaderboards(TextChannel channel, Leaderboards leaderboards, ServerData serverdata, UserData userData, Guild guild) {
+        String guildID = guild.getId();
+
+        leaderboards.updateLeaderboards();
+
+        String[][] data = serverdata.getAllLbData(guildID);
+        for(int i = 0; i < 3; i++) {
+            if(data[i] == null)
+                continue;
+
+            TextChannel editChannel = guild.getTextChannelById(data[i][0]);
+            if(editChannel == null)
+                continue;
+
+            List<String> lb = leaderboards.lbToString(i, guildID, userData);
+            EmbedBuilder eb = new EmbedBuilder();
+            eb.addField("Leaderboard:", lb.remove(0), false); //TODO specify which leaderboard
+            for (String s : lb) {
+                eb.addField("", s, false);
+            }
+            try {
+                editChannel.editMessageById(data[i][1], eb.build()).queue();
+                System.out.println("updated lb " + i);
+            } catch (IllegalArgumentException ignored) {}
+        }
+        if(channel != null)
+            channel.sendMessage("Updated leaderboards.").queue();
     }
 }

@@ -11,12 +11,19 @@ import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import javax.security.auth.login.LoginException;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class ModerationBot extends ListenerAdapter
 {
     private static ServerData serverdata;
     private static UserData userdata;
     private static Leaderboards leaderboards;
+    private static JDA jda;
 
     public static void main(String[] args)
     {
@@ -24,7 +31,6 @@ public class ModerationBot extends ListenerAdapter
 
         //We construct a builder for a BOT account. If we wanted to use a CLIENT account
         // we would use AccountType.CLIENT
-        JDA jda;
         try
         {
             jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
@@ -54,7 +60,8 @@ public class ModerationBot extends ListenerAdapter
         jda.getPresence().setActivity(Activity.watching("BlockHunt"));
 
         leaderboards = new Leaderboards();
-        //TODO auto update stuff
+        
+        autoRunStart();
     }
 
 
@@ -128,6 +135,52 @@ public class ModerationBot extends ListenerAdapter
             //PrivateChannel privateChannel = event.getPrivateChannel();
 
             System.out.printf("[PRIV]<%s>: %s\n", author.getName(), msg);
+        }
+    }
+
+    private static void autoRunStart() {
+        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
+        if(now.compareTo(RunHour) > 0)
+            RunHour = RunHour.plusDays(1);
+
+        Duration duration = Duration.between(now, RunHour);
+        long initialDelay = duration.getSeconds();
+
+        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+        scheduler.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        autoRunDaily();
+                    }catch(Exception ex) {
+                        ex.printStackTrace(); //or logger would be better
+                    }
+                },
+                initialDelay,
+                TimeUnit.DAYS.toSeconds(1),
+                TimeUnit.SECONDS);
+    }
+
+    public static void autoRunDaily() {
+        boolean weekly = false;
+        if(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
+            weekly = true;
+
+        for(Guild guild: jda.getGuilds()) {
+            TextChannel channel;
+            try {
+                channel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
+            } catch (IllegalArgumentException e) {
+                channel = null;
+            }
+
+            if(channel != null)
+                channel.sendMessage("Daily update in progress...").complete();
+
+            Commands.updateNames(channel, userdata, guild);
+
+            if(weekly)
+                Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);
         }
     }
 }

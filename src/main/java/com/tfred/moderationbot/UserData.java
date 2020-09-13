@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
+import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -184,7 +185,7 @@ public class UserData {
                     return 1;
                 }
                 return 0;
-            } catch(HierarchyException e) {
+            } catch(HierarchyException | InsufficientPermissionException e) {
                 return 0;
             }
         }

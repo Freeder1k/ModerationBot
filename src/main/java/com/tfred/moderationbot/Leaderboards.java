@@ -11,6 +11,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.*;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -88,8 +89,8 @@ public class Leaderboards {
         System.out.println("Finished reading saved leaderboards data!");
     }
 
-    private String[] lbURLs() {
-        String time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
+    private String[] lbURLs(long date) {
+        String time = LocalDateTime.ofEpochSecond(date/1000, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
         return new String[]{
                 "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hider%20wins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
                 "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hunterwins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
@@ -99,14 +100,13 @@ public class Leaderboards {
 
     //returns 1 if unsuccessful
     private int fetchNewLeaderboards() {
-        JsonElement[] leaderboard = getJsonLbData();
+        JsonElement[] leaderboard = getJsonLbData(date);
         if (leaderboard == null)
             return 1;
         try {
             Type listType = new TypeToken<ArrayList<LbSpot>>() {
             }.getType();
 
-            date = ZonedDateTime.now().toInstant().toEpochMilli();
             hiderLb = new Gson().fromJson(leaderboard[0], listType);
             hunterLb = new Gson().fromJson(leaderboard[1], listType);
             killsLb = new Gson().fromJson(leaderboard[2], listType);
@@ -116,10 +116,10 @@ public class Leaderboards {
         return 0;
     }
 
-    private JsonElement[] getJsonLbData() {
+    private JsonElement[] getJsonLbData(long date) {
         JsonElement[] data = new JsonElement[3];
         try {
-            String[] lbUrls = lbURLs();
+            String[] lbUrls = lbURLs(date);
             for (int i = 0; i < 3; i++) {
                 URL urlForGetRequest = new URL(lbUrls[i]);
 
@@ -195,14 +195,33 @@ public class Leaderboards {
     }
 
     private void updateFile() {
+        List<LbSpot> hiderLbOld;
+        List<LbSpot> hunterLbOld;
+        List<LbSpot> killsLbOld;
+
+        JsonElement[] leaderboard = getJsonLbData(date - 604800000);
+        if (leaderboard == null) {
+            System.out.println("Error fetching leaderboards!");
+            return;
+        }
+        try {
+            Type listType = new TypeToken<ArrayList<LbSpot>>(){}.getType();
+
+            hiderLbOld = new Gson().fromJson(leaderboard[0], listType);
+            hunterLbOld = new Gson().fromJson(leaderboard[1], listType);
+            killsLbOld = new Gson().fromJson(leaderboard[2], listType);
+        } catch (JsonSyntaxException e) {
+            System.out.println("Json error while parsing old leaderboard data!");
+            return;
+        }
         try {
             Files.deleteIfExists(path);
 
             List<String> data = new ArrayList<>(3);
             data.add(Long.toString(date));
-            data.add("Hider:" + hiderLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
-            data.add("Hunter:" + hunterLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
-            data.add("Kills:" + killsLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
+            data.add("Hider:" + hiderLbOld.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
+            data.add("Hunter:" + hunterLbOld.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
+            data.add("Kills:" + killsLbOld.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
 
             Files.write(path, data, StandardOpenOption.CREATE);
 
@@ -213,10 +232,7 @@ public class Leaderboards {
     }
 
     public void updateLeaderboards() {
-        if (fetchNewLeaderboards() == 1) {
-            System.out.println("Error reading new Leaderboards!");
-            return;
-        }
+        date = ZonedDateTime.now().toInstant().toEpochMilli();
 
         List<String> lines = new ArrayList<>();
         try {
@@ -226,23 +242,40 @@ public class Leaderboards {
         }
 
         long date_old;
-
-        if (!lines.isEmpty()) {
+        if (!lines.isEmpty())
             date_old = Long.parseLong(lines.remove(0));
-            for (String s : lines) {
-                lbListSetChanges(s.split(":"));
+        else
+            date_old = date;
+
+        if(date - date_old > 594800000) {
+            updateFile();
+            try {
+                lines = Files.readAllLines(path);
+            } catch (IOException e) {
+                System.out.println("IO error! Change will be set to 0 and a new leaderboards.data file weill be created next time.");
+                lines.clear();
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ioException) {
+                    System.out.println("Couldn't delete old leaderboards.data file!");
+                }
             }
         }
+
+        if (fetchNewLeaderboards() == 1) {
+            System.out.println("Error reading new Leaderboards!");
+            return;
+        }
+
+        if (!lines.isEmpty()) {
+            for (String s : lines)
+                lbListSetChanges(s.split(":"));
+        }
         else {
-            updateFile();
-            date_old = date;
             hiderLb.forEach(s -> s.setChange(0));
             hunterLb.forEach(s -> s.setChange(0));
             killsLb.forEach(s -> s.setChange(0));
         }
-
-        if(date - date_old > 604800000)
-            updateFile();
     }
 
     /*public List<String> lbToString(int board) {
