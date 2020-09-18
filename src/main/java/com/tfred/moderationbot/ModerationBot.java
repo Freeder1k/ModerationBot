@@ -60,6 +60,8 @@ public class ModerationBot extends ListenerAdapter
         jda.getPresence().setActivity(Activity.watching("BlockHunt"));
 
         leaderboards = new Leaderboards();
+
+        System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName));
         
         autoRunStart();
     }
