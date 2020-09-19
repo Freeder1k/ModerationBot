@@ -85,7 +85,7 @@ public class Leaderboards {
     private List<LbSpot> killsLb = new ArrayList<>(50);
 
     public Leaderboards() {
-        updateLeaderboards();
+        updateLeaderboards(false);
         System.out.println("Finished reading saved leaderboards data!");
     }
 
@@ -232,6 +232,10 @@ public class Leaderboards {
     }
 
     public void updateLeaderboards() {
+        updateLeaderboards(true);
+    }
+
+    public void updateLeaderboards(boolean updateFile) {
         date = ZonedDateTime.now().toInstant().toEpochMilli();
 
         List<String> lines = new ArrayList<>();
@@ -247,7 +251,7 @@ public class Leaderboards {
         else
             date_old = date;
 
-        if(date - date_old > 544800000) {
+        if((date - date_old > 544800000) && updateFile) {
             updateFile();
             try {
                 lines = Files.readAllLines(path);
