@@ -84,8 +84,14 @@ public class Leaderboards {
     private List<LbSpot> hunterLb = new ArrayList<>(50);
     private List<LbSpot> killsLb = new ArrayList<>(50);
 
+    /**
+     * True if {@link Leaderboards#updateLeaderboards() Leaderboards.updateLeaderboards()} failed to fetch new leaderboard data.
+     */
     public boolean failed = false;
 
+    /**
+     * Represents the bots saved user leaderboard data. The three saved leaderboards are hider wins, hunter wins and kills.
+     */
     public Leaderboards() {
         updateLeaderboards();
         if(!failed)
@@ -238,6 +244,10 @@ public class Leaderboards {
         }
     }
 
+    /**
+     * Updates the saved leaderboards data. If one week has passed since the reference data for the change has been updated this gets updated too with data from 1 week ago.
+     * If no new data could be fetched {@link Leaderboards#failed Leaderbaords.failed} gets set to true.
+     */
     public void updateLeaderboards() {
         date = ZonedDateTime.now().toInstant().toEpochMilli();
 
@@ -269,6 +279,8 @@ public class Leaderboards {
             failed = true;
             return;
         }
+        else
+            failed = false;
 
         if (!lines.isEmpty()) {
             for (String s : lines)
@@ -281,11 +293,21 @@ public class Leaderboards {
         }
     }
 
-    /*public List<String> lbToString(int board) {
-        return lbToString(board, null, null);
-    }*/
-
-    // 0 = hider, 1 = hunter, 2 = kills
+    /**
+     * Returns a list of string representations of each position on a specified leaderboard with optional user mentions.
+     *
+     * @param board
+     *          The board to be used. 0: hider wins, 1: hunter wins, 2: kills.
+     * @param guildID
+     *          The ID of the {@link net.dv8tion.jda.api.entities.Guild guild} to get saved user data from. If null the string doesn't have mentions.
+     * @param userData
+     *          The saved {@link UserData user data} to get user IDs associated with minecraft uuids so they can be mentioned if they're on the leaderboard. If null the string doesn't have mentions.
+     * @return
+     *          A {@link List<String> list} of string representations of each position on the leaderboard.
+     *
+     * @throws IllegalArgumentException
+     *          If the specified board isn't in the range of 0-2.
+     */
     public List<String> lbToString(int board, String guildID, UserData userData) {
         List<LbSpot> lb;
         switch (board) {

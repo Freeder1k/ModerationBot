@@ -172,6 +172,9 @@ public class ModerationBot extends ListenerAdapter
                 TimeUnit.SECONDS);
     }
 
+    /**
+     * This method gets called daily and handles the daily username and weekly leaderboard updating.
+     */
     public static void autoRunDaily() {
         boolean weekly = false;
         if(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
@@ -195,11 +198,17 @@ public class ModerationBot extends ListenerAdapter
         }
     }
 
-    //Returns the reinitialized Leaderboards.
+    /**
+     * Attempts to reinitialize the leaderboards data if it is null.
+     *
+     * @return the reinitialized leaderboards data (or null if it failed)
+     */
     public static Leaderboards reinitializeLb() {
-        leaderboards = new Leaderboards();
-        if(leaderboards.failed)
-            leaderboards = null;
+        if(leaderboards == null) {
+            leaderboards = new Leaderboards();
+            if (leaderboards.failed)
+                leaderboards = null;
+        }
         return leaderboards;
     }
 }

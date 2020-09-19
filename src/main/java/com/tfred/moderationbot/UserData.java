@@ -269,6 +269,9 @@ public class UserData {
     private static final Path path = Paths.get("users.data");
     private final JDA jda;
 
+    /**
+     * Represents the bots saved user data for each server. This contains member IDs and their associated minecraft uuid.
+     */
     public UserData(JDA jda) {
         List<String> list;
         this.jda = jda;
@@ -303,6 +306,17 @@ public class UserData {
         System.out.println("Finished reading saved user data.");
     }
 
+    /**
+     * Returns the specified member's associated minecraft ign in the specified guild or an empty string if this member doesn't have one or there was an error.
+     *
+     * @param guildID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param userID
+     *          The specified {@link Member member's} ID.
+     * @return
+     *          possibly-empty string containing a minecraft ign.
+     * @see SingleGuildUserData#getUser(String)
+     */
     public String getUserInGuild(String guildID, String userID) {
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID)) {
@@ -312,7 +326,18 @@ public class UserData {
         return "";
     }
 
-    //Returns values of setUser
+    /**
+     * Sets a specified user's associated minecraft ign in a specified guild.
+     *
+     * @param guildID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param userID
+     *          The specified {@link Member member's} ID.
+     * @param name
+     *          This minecraft ign to be associated with this member.
+     * @return
+     *          1 if successful, 0 if failed due to some error like for example the minecraft ign not existing.
+     */
     public int setUserInGuild(String guildID, String userID, String name) {
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID)) {
@@ -331,6 +356,14 @@ public class UserData {
         return 0;
     }
 
+    /**
+     * Removes a specified user's associated minecraft ign in a specified guild.
+     *
+     * @param guildID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param userID
+     *          The specified {@link Member member's} ID.
+     */
     public void removeUserFromGuild(String guildID, String userID) {
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID))
@@ -338,7 +371,14 @@ public class UserData {
         }
     }
 
-    //returns a list of updated users
+    /**
+     * Updates the nicknames of members in a specified guild if they changed their minecraft ign.
+     *
+     * @param guildID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          possibly-empty list of all updated user's IDs.
+     */
     public List<String> updateGuildUserData(String guildID) {
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID))
@@ -347,6 +387,14 @@ public class UserData {
         return new ArrayList<>();
     }
 
+    /**
+     * Returns a list of all user's IDs who have an associated minecraft account.
+     *
+     * @param guildID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          possibly-empty list of user IDs.
+     */
     public List<String> getGuildSavedUserIds(String guildID) {
         List<String> output = new ArrayList<>();
         for(SingleGuildUserData data: userData) {
@@ -360,6 +408,14 @@ public class UserData {
         return output;
     }
 
+    /**
+     * Returns a list of all saved minecraft uuids.
+     *
+     * @param guildID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          possibly-empty list of minecraft uuids.
+     */
     public List<String> getGuildSavedUuids(String guildID) {
         List<String> output = new ArrayList<>();
         for(SingleGuildUserData data: userData) {
@@ -373,6 +429,16 @@ public class UserData {
         return output;
     }
 
+    /**
+     * Returns the user ID associated with a minecraft uuid.
+     *
+     * @param guildID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param uuid
+     *          The uuid to search the associated user of.
+     * @return
+     *          possibly-empty string containing a {@link Member member's} ID.
+     */
     public String getGuildSavedUuidUserID(String guildID, String uuid) {
         for(SingleGuildUserData data: userData) {
             if(data.guild.getId().equals(guildID)) {

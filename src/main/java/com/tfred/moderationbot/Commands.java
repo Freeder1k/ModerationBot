@@ -13,6 +13,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Commands {
+    /**
+     * The command processing function.
+     *
+     * @param event
+     *          An event containing information about a {@link net.dv8tion.jda.api.entities.Message Message} that was
+     *          sent in a channel.
+     * @param serverdata
+     *          The {@link ServerData server data} to work with.
+     * @param userData
+     *          The {@link UserData user data} to work with.
+     * @param leaderboards
+     *          The {@link Leaderboards leaderboards data} to work with.
+     */
     public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData, Leaderboards leaderboards) {
         Guild guild = event.getGuild();
         String guildID = guild.getId();
@@ -452,7 +465,7 @@ public class Commands {
             return true;
 
         for(Role r: member.getRoles()) {
-            if(serverdata.isModRole(serverID, r.getId()))
+            if(serverdata.getModRoles(serverID).contains(r.getId()))
                 return true;
         }
         return false;
@@ -492,6 +505,16 @@ public class Commands {
         return name;
     }
 
+    /**
+     * Updates the nicknames of users in a specified guild.
+     *
+     * @param channel
+     *          The {@link TextChannel channel} to send the results to (can be null).
+     * @param userData
+     *          The {@link UserData user data} to be processed.
+     * @param guild
+     *          The specified {@link Guild guild}.
+     */
     public static void updateNames(TextChannel channel, UserData userData, Guild guild) {
         String guildID = guild.getId();
 
@@ -523,6 +546,20 @@ public class Commands {
             channel.sendMessage(eb.build()).queue();
     }
 
+    /**
+     * Updates the leaderboard messages in a specified guild.
+     *
+     * @param channel
+     *          The {@link TextChannel channel} to send the results to (can be null).
+     * @param leaderboards
+     *          The {@link Leaderboards leaderboards data} to be used.
+     * @param serverdata
+     *          The {@link ServerData server data} to be used.
+     * @param userData
+     *          The {@link UserData user data} to be used.
+     * @param guild
+     *          The specified {@link Guild guild}.
+     */
     public static void updateLeaderboards(TextChannel channel, Leaderboards leaderboards, ServerData serverdata, UserData userData, Guild guild) {
         String guildID = guild.getId();
 

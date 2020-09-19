@@ -1,5 +1,8 @@
 package com.tfred.moderationbot;
 
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.TextChannel;
+
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
@@ -54,7 +57,7 @@ public class ServerData {
             for (int i = 0; i < 3; i++)
                 lbData.add(new LbData(-1, null, null));
 
-            return new SingleServer(id, true, new ArrayList<>(), lbData, "");
+            return new SingleServer(id, false, new ArrayList<>(), lbData, "");
         }
 
         @Override
@@ -72,7 +75,9 @@ public class ServerData {
     private final List<SingleServer> serverList = new ArrayList<>();
     private static final Path path = Paths.get("servers.data");
 
-
+    /**
+     * Represents the bots saved server data. This contains mostly data like moderator roles and log channels.
+     */
     public ServerData() {
         List<String> lines;
         try {
@@ -120,7 +125,7 @@ public class ServerData {
     }
 
     //Line numbers start at 0
-    public void updateFile() {
+    private void updateFile() {
         try {
             Files.deleteIfExists(path);
             for (SingleServer s : serverList) {
@@ -131,14 +136,30 @@ public class ServerData {
         }
     }
 
+    /**
+     * Returns true if the specified guild has no salt mode enabled. Default is false.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          True if the specified guild has no salt mode enabled.
+     */
     public boolean isNoSalt(String serverID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID))
                 return s.noSalt;
         }
-        return true;
+        return false;
     }
 
+    /**
+     * Enable/Disable no salt mode in the specified guild.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param noSalt
+     *          True to enable, false to disable.
+     */
     public void setNoSalt(String serverID, boolean noSalt) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
@@ -158,14 +179,14 @@ public class ServerData {
         }
     }
 
-    public boolean isModRole(String serverID, String roleID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID))
-                return s.modRoleIDs.contains(roleID);
-        }
-        return false;
-    }
-
+    /**
+     * Adds a role to the list of moderator roles in a specified server. Members with moderator roles can use moderator only commands.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param roleID
+     *          The specified {@link net.dv8tion.jda.api.entities.Role role's} ID.
+     */
     public void addModRole(String serverID, String roleID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
@@ -187,6 +208,14 @@ public class ServerData {
         }
     }
 
+    /**
+     * Remove a role from the list of moderator roles in a specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param roleID
+     *          The specified {@link net.dv8tion.jda.api.entities.Role role's} ID.
+     */
     public void removeModRole(String serverID, String roleID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
@@ -196,6 +225,14 @@ public class ServerData {
         }
     }
 
+    /**
+     * Returns a list of all moderator roles in a specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          possibly-empty {@link List<String> list} of all moderator role IDs in the specified server.
+     */
     public List<String> getModRoles(String serverID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
@@ -205,6 +242,19 @@ public class ServerData {
         return new ArrayList<>();
     }
 
+    /**
+     * Set a specified message to show a leaderboard in a specified server. This message will be edited in the future when {@link Commands#updateLeaderboards(TextChannel, Leaderboards, ServerData, UserData, Guild) Commands.upateLeaderboards} is called.
+     * 
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param board
+     *          Which board to use.
+     *          0: hider wins, 1: hunter wins, 2: kills.
+     * @param channelID
+     *          The {@link TextChannel channel's} ID in which the message is.
+     * @param messageID
+     *          The {@link net.dv8tion.jda.api.entities.Message message's} ID.
+     */
     public void setLbData(String serverID, int board, String channelID, String messageID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
@@ -230,7 +280,23 @@ public class ServerData {
         }
     }
 
-    public String[] getLbData(String serverID, int board) {
+    /**
+     * Returns an array with the data pertaining to the leaderboard messages in a specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          An array containing 3 arrays of Strings containing the daa. Each string array contains a channel ID and a message ID or is null if it hasn't been set yet with {@link ServerData#setLbData(String, int, String, String) ServerData.setLbData}.
+     */
+    public String[][] getAllLbData(String serverID) {
+        String[][] temp = new String[3][2];
+        for(int i = 0; i < 3; i++) {
+            temp[i] = getLbData(serverID, i);
+        }
+        return temp;
+    }
+
+    private String[] getLbData(String serverID, int board) {
         String channelID = null;
         String messageID = null;
         for (SingleServer s : serverList) {
@@ -244,14 +310,14 @@ public class ServerData {
         return new String[]{channelID, messageID};
     }
 
-    public String[][] getAllLbData(String serverID) {
-        String[][] temp = new String[3][2];
-        for(int i = 0; i < 3; i++) {
-            temp[i] = getLbData(serverID, i);
-        }
-        return temp;
-    }
-
+    /**
+     * Set the specified channel to be the log channel for the specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param logChannelID
+     *          The specified {@link TextChannel log channel's} ID.
+     */
     public void setLogChannelID(String serverID, String logChannelID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
@@ -261,6 +327,14 @@ public class ServerData {
         }
     }
 
+    /**
+     * Get the ID of the log channel in a specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          The {@link TextChannel log channel's} ID or "0" if none is set.
+     */
     public String getLogChannelID(String serverID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
