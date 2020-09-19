@@ -61,6 +61,14 @@ public class ModerationBot extends ListenerAdapter
         jda.getPresence().setActivity(Activity.watching("BlockHunt"));
 
         leaderboards = new Leaderboards();
+        if(leaderboards.failed) {
+            System.out.println("Trying to initialize leaderboards again.");
+            leaderboards = new Leaderboards();
+            if(leaderboards.failed) {
+                System.out.println("Leaderboards set to null!");
+                leaderboards = null;
+            }
+        }
 
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
         
@@ -185,5 +193,13 @@ public class ModerationBot extends ListenerAdapter
             if(weekly)
                 Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);
         }
+    }
+
+    //Returns the reinitialized Leaderboards.
+    public static Leaderboards reinitializeLb() {
+        leaderboards = new Leaderboards();
+        if(leaderboards.failed)
+            leaderboards = null;
+        return leaderboards;
     }
 }

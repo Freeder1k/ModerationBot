@@ -84,9 +84,12 @@ public class Leaderboards {
     private List<LbSpot> hunterLb = new ArrayList<>(50);
     private List<LbSpot> killsLb = new ArrayList<>(50);
 
+    public boolean failed = false;
+
     public Leaderboards() {
-        updateLeaderboards(false);
-        System.out.println("Finished reading saved leaderboards data!");
+        updateLeaderboards();
+        if(!failed)
+            System.out.println("Finished reading saved leaderboards data!");
     }
 
     private String[] lbURLs(long date) {
@@ -137,12 +140,17 @@ public class Leaderboards {
                     JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
 
                     data[i] = jsonObject.get("leaderboard");
+                    if(data[i] == null) {
+                        System.out.println("Leaderboard null! Url: " + lbUrls[i] + "\nServer response: " + response);
+                        return null;
+                    }
                 } else {
-                    System.out.println("BLAH" + responseCode + lbUrls[i]);
+                    System.out.println("Http error when fetching leaderboard: " + responseCode + lbUrls[i]);
                     return null;
                 }
             }
         } catch (IOException e) {
+            System.out.println("IO Error when fetching leaderboards!");
             return null;
         }
         return data;
@@ -199,23 +207,22 @@ public class Leaderboards {
         List<LbSpot> hunterLbOld;
         List<LbSpot> killsLbOld;
 
-        JsonElement[] leaderboard = getJsonLbData(date - 604800000);
-        if (leaderboard == null) {
-            System.out.println("Error fetching leaderboards!");
+        JsonElement[] leaderboardOld = getJsonLbData(date - 604800000);
+        if (leaderboardOld == null)
             return;
-        }
+
         try {
             Type listType = new TypeToken<ArrayList<LbSpot>>(){}.getType();
 
-            hiderLbOld = new Gson().fromJson(leaderboard[0], listType);
-            hunterLbOld = new Gson().fromJson(leaderboard[1], listType);
-            killsLbOld = new Gson().fromJson(leaderboard[2], listType);
+            hiderLbOld = new Gson().fromJson(leaderboardOld[0], listType);
+            hunterLbOld = new Gson().fromJson(leaderboardOld[1], listType);
+            killsLbOld = new Gson().fromJson(leaderboardOld[2], listType);
         } catch (JsonSyntaxException e) {
             System.out.println("Json error while parsing old leaderboard data!");
             return;
         }
         try {
-            Files.deleteIfExists(path);
+            //Files.deleteIfExists(path);
 
             List<String> data = new ArrayList<>(3);
             data.add(Long.toString(date));
@@ -232,10 +239,6 @@ public class Leaderboards {
     }
 
     public void updateLeaderboards() {
-        updateLeaderboards(true);
-    }
-
-    public void updateLeaderboards(boolean updateFile) {
         date = ZonedDateTime.now().toInstant().toEpochMilli();
 
         List<String> lines = new ArrayList<>();
@@ -251,23 +254,19 @@ public class Leaderboards {
         else
             date_old = date;
 
-        if((date - date_old > 544800000) && updateFile) {
+        if((date - date_old > 544800000)) {
             updateFile();
             try {
                 lines = Files.readAllLines(path);
             } catch (IOException e) {
-                System.out.println("IO error! Change will be set to 0 and a new leaderboards.data file weill be created next time.");
+                System.out.println("IO error! Change will be set to 0.");
                 lines.clear();
-                try {
-                    Files.deleteIfExists(path);
-                } catch (IOException ioException) {
-                    System.out.println("Couldn't delete old leaderboards.data file!");
-                }
             }
         }
 
         if (fetchNewLeaderboards() == 1) {
-            System.out.println("Error reading new Leaderboards!");
+            System.out.println("[FATAL] Error reading new Leaderboards!");
+            failed = true;
             return;
         }
 

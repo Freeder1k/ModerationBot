@@ -526,6 +526,14 @@ public class Commands {
     public static void updateLeaderboards(TextChannel channel, Leaderboards leaderboards, ServerData serverdata, UserData userData, Guild guild) {
         String guildID = guild.getId();
 
+        if(leaderboards == null) {
+            leaderboards = ModerationBot.reinitializeLb();
+            if (leaderboards == null) {
+                channel.sendMessage("Leaderboards data is null! Please try again in a bit or if that doesn't work contact the bot dev.").queue();
+                return;
+            }
+        }
+
         leaderboards.updateLeaderboards();
 
         String[][] data = serverdata.getAllLbData(guildID);
