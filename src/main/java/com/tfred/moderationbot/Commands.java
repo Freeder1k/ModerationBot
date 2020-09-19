@@ -5,11 +5,14 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.internal.utils.Checks;
+import net.dv8tion.jda.internal.utils.EncodingUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Commands {
     public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData, Leaderboards leaderboards) {
@@ -26,6 +29,7 @@ public class Commands {
         if (msg.equals("!help")) {
             channel.sendMessage("Help:\n" +
                     "-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n" +
+                    "-``!getreactions <messageID>``: get the reactions with IDs on a specified message.\n" +
                     "-``!modrole <add|remove|list> [role]``: add/remove a mod role or list the mod roles for this server.\n" +
                     "-``!nosalt``: toggle no salt mode.\n" +
                     "-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n" +
@@ -44,37 +48,95 @@ public class Commands {
 
                 String[] args = msg.split(" ");
 
-                if(args.length != 3) {
+                if (args.length != 3) {
                     channel.sendMessage("Invalid amount of arguments!").queue();
                     return;
                 }
 
                 String emoji = args[1];
 
-                int amount ;
+                List<Emote> customEmojis = message.getEmotes();
+                Emote customEmoji = null;
+                if (!customEmojis.isEmpty())
+                    customEmoji = customEmojis.get(0);
+
+                int amount;
                 try {
                     amount = Integer.parseInt(args[2]);
                 } catch (NumberFormatException e) {
                     channel.sendMessage("Error parsing amount!").queue();
                     return;
                 }
-                if(amount > 100 || amount < 1) {
+                if (amount > 100 || amount < 1) {
                     channel.sendMessage("Amount must be in range 1-100!").queue();
                     return;
                 }
 
-                channel.sendMessage("Removing reactions...").complete();
-
-                try {
+                if (customEmoji == null) {
+                    try {
+                        message.clearReactions(emoji).complete();
+                    } catch (ErrorResponseException e) {
+                        channel.sendMessage("Unknown emoji: " + emoji + "! If you don't have access to the emoji send it in the format ``:emoji:id``! Example: ``:test:756833424655777842``.").queue();
+                        return;
+                    }
                     for (Message m : channel.getHistory().retrievePast(amount).complete()) {
                         m.clearReactions(emoji).queue();
                     }
-                } catch (ErrorResponseException e) {
-                    channel.sendMessage("Unknown emoji: " + emoji + "!\nFor custom emojis please add the ID after the emoji. Example: ``:emoji:123456789``.").queue();
+                    channel.sendMessage("Removing reactions with " + emoji + " on " + amount + " messages.").queue();
+                }
+                else {
+                    try {
+                        message.clearReactions(customEmoji).complete();
+                    } catch (ErrorResponseException e) {
+                        channel.sendMessage("Unknown emoji: " + emoji + "!").queue();
+                        return;
+                    }
+                    for (Message m : channel.getHistory().retrievePast(amount).complete()) {
+                        m.clearReactions(customEmoji).queue();
+                    }
+                    channel.sendMessage("Removing reactions with " + emoji + customEmoji.getId() + " on " + amount + " messages.").queue();
+                }
+            }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
+        }
+
+        else if (msg.startsWith("!getreactions ")) {
+            if(isModerator(guildID, member, serverdata)) {
+                String[] args = msg.split(" ");
+                if(args.length < 2) {
+                    channel.sendMessage("Please specify a which message to retrieve the reactions from!").queue();
                     return;
                 }
+                String msgID = args[1];
 
-                channel.sendMessage("Removed reactions with " + emoji + " on " + amount + " messages.").queue();
+                Message m = null;
+
+                for(TextChannel c: guild.getTextChannels()) {
+                    try {
+                        m = channel.retrieveMessageById(msgID).complete();
+                    } catch (ErrorResponseException e) {
+                        continue;
+                    }
+                    break;
+                }
+                if(m == null) {
+                    channel.sendMessage("Couldn't find the message with ID ``" + msgID + "``.").queue();
+                    return;
+                }
+                List<MessageReaction> reactions = m.getReactions();
+                List<String> emojis = new ArrayList<>();
+                for(MessageReaction r: reactions) {
+                    MessageReaction.ReactionEmote reactionEmote = r.getReactionEmote();
+                    String emoji;
+                    if(reactionEmote.isEmote())
+                        emoji = ":" + reactionEmote.getName() + ":" + reactionEmote.getId();
+                    else
+                        emoji = reactionEmote.getName();
+                    emojis.add(emoji);
+                }
+
+                channel.sendMessage("Reactions: " + emojis + ".").queue();
             }
             else
                 channel.sendMessage("You need to be a server moderator to use this command!").queue();
