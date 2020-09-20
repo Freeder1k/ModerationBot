@@ -208,33 +208,17 @@ public class Leaderboards {
         return changes;
     }
 
-    private void updateFile() {
-        List<LbSpot> hiderLbOld;
-        List<LbSpot> hunterLbOld;
-        List<LbSpot> killsLbOld;
-
-        JsonElement[] leaderboardOld = getJsonLbData(date - 604800000);
-        if (leaderboardOld == null)
-            return;
-
+    private void updateFile(List<String> lines) {
+        int lineNum = lines.size() == 6? 3: 0; //If the file only had 3 lines it reuses those
         try {
-            Type listType = new TypeToken<ArrayList<LbSpot>>(){}.getType();
-
-            hiderLbOld = new Gson().fromJson(leaderboardOld[0], listType);
-            hunterLbOld = new Gson().fromJson(leaderboardOld[1], listType);
-            killsLbOld = new Gson().fromJson(leaderboardOld[2], listType);
-        } catch (JsonSyntaxException e) {
-            System.out.println("Json error while parsing old leaderboard data!");
-            return;
-        }
-        try {
-            //Files.deleteIfExists(path);
-
             List<String> data = new ArrayList<>(3);
             data.add(Long.toString(date));
-            data.add("Hider:" + hiderLbOld.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
-            data.add("Hunter:" + hunterLbOld.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
-            data.add("Kills:" + killsLbOld.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
+            data.add(lines.get(lineNum));
+            data.add(lines.get(lineNum+1));
+            data.add(lines.get(lineNum+2));
+            data.add("Hider:" + hiderLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
+            data.add("Hunter:" + hunterLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
+            data.add("Kills:" + killsLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
 
             Files.write(path, data, StandardOpenOption.CREATE);
 
@@ -250,29 +234,7 @@ public class Leaderboards {
      */
     public void updateLeaderboards() {
         date = ZonedDateTime.now().toInstant().toEpochMilli();
-
-        List<String> lines = new ArrayList<>();
-        try {
-            lines = Files.readAllLines(path);
-        } catch (IOException e) {
-            System.out.println("IO error when reading leaderboards data! Creating new leaderboards.data file.");
-        }
-
-        long date_old;
-        if (!lines.isEmpty())
-            date_old = Long.parseLong(lines.remove(0));
-        else
-            date_old = date;
-
-        if((date - date_old > 544800000)) {
-            updateFile();
-            try {
-                lines = Files.readAllLines(path);
-            } catch (IOException e) {
-                System.out.println("IO error! Change will be set to 0.");
-                lines.clear();
-            }
-        }
+        boolean empty = false;
 
         if (fetchNewLeaderboards() == 1) {
             System.out.println("[FATAL] Error reading new Leaderboards!");
@@ -282,9 +244,30 @@ public class Leaderboards {
         else
             failed = false;
 
-        if (!lines.isEmpty()) {
-            for (String s : lines)
-                lbListSetChanges(s.split(":"));
+        List<String> lines = new ArrayList<>();
+        try {
+            lines = Files.readAllLines(path);
+        } catch (IOException e) {
+            System.out.println("IO error when reading leaderboards data! Creating new leaderboards.data file.");
+            empty = true;
+        }
+        if(lines.size() < 4) {
+            System.out.println("Leaderboards.data is empty! Change will be set to 0.");
+            empty = true;
+        }
+
+        long date_old = empty? date: Long.parseLong(lines.remove(0));
+
+        int lineNum = 0;
+        if((date - date_old > 600000000)) {
+            updateFile(lines);
+            if(lines.size() == 6)
+                lineNum = 3;
+        }
+
+        if (!empty) {
+            for (int i = 0; i < 3; i ++)
+                lbListSetChanges(lines.get(i+lineNum).split(":"));
         }
         else {
             hiderLb.forEach(s -> s.setChange(0));
@@ -294,7 +277,7 @@ public class Leaderboards {
     }
 
     /**
-     * Returns a list of string representations of each position on a specified leaderboard with optional user mentions.
+     * Returns a list of containing strings each with 10 positions of a specified leaderboard with optional user mentions.
      *
      * @param board
      *          The board to be used. 0: hider wins, 1: hunter wins, 2: kills.
@@ -303,7 +286,7 @@ public class Leaderboards {
      * @param userData
      *          The saved {@link UserData user data} to get user IDs associated with minecraft uuids so they can be mentioned if they're on the leaderboard. If null the string doesn't have mentions.
      * @return
-     *          A {@link List<String> list} of string representations of each position on the leaderboard.
+     *          A {@link List<String> list} of strings.
      *
      * @throws IllegalArgumentException
      *          If the specified board isn't in the range of 0-2.
@@ -356,5 +339,15 @@ public class Leaderboards {
         }
 
         return output;
+    }
+
+    /**
+     * Get the date of the last update.
+     *
+     * @return
+     *          the date of the last update in milliseconds since epoch.
+     */
+    public long getDate() {
+        return date;
     }
 }

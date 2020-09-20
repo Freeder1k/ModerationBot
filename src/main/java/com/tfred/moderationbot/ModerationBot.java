@@ -63,11 +63,9 @@ public class ModerationBot extends ListenerAdapter
         leaderboards = new Leaderboards();
         if(leaderboards.failed) {
             System.out.println("Trying to initialize leaderboards again.");
-            leaderboards = new Leaderboards();
-            if(leaderboards.failed) {
-                System.out.println("Leaderboards set to null!");
-                leaderboards = null;
-            }
+            leaderboards.updateLeaderboards();
+            if(!leaderboards.failed)
+                System.out.println("Finished reading saved leaderboards data!");
         }
 
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
@@ -196,19 +194,5 @@ public class ModerationBot extends ListenerAdapter
             if(weekly)
                 Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);
         }
-    }
-
-    /**
-     * Attempts to reinitialize the leaderboards data if it is null.
-     *
-     * @return the reinitialized leaderboards data (or null if it failed)
-     */
-    public static Leaderboards reinitializeLb() {
-        if(leaderboards == null) {
-            leaderboards = new Leaderboards();
-            if (leaderboards.failed)
-                leaderboards = null;
-        }
-        return leaderboards;
     }
 }

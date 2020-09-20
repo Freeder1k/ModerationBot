@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -373,17 +374,25 @@ public class Commands {
                     return;
                 }
                 char board = msg.charAt(4);
-                if ((board != '0') && (board != '1') && (board != '2')) {
+                if (!((board == '0') || (board == '1') || (board == '2'))) {
                     channel.sendMessage("Board number must be between 0 and 2!").queue();
                     return;
                 }
 
+                if (leaderboards.failed) {
+                    channel.sendMessage("Leaderboard data invalid! Please try using ``!updatelb`` to fix the data.").queue();
+                    return;
+                }
+
                 List<String> lb = leaderboards.lbToString(Character.getNumericValue(board), guildID, userData);
+
                 EmbedBuilder eb = new EmbedBuilder();
-                eb.addField("Leaderboard:", lb.remove(0), false); //TODO specify which leaderboard
+                eb.addField("Leaderboard:", lb.remove(0), false);
                 for (String s : lb) {
                     eb.addField("", s, false);
                 }
+                eb.setFooter("Last update ");
+                eb.setTimestamp(new Date(leaderboards.getDate()).toInstant());
 
                 channel.sendMessage(eb.build()).queue((m) -> serverdata.setLbData(guildID, Character.getNumericValue(board), channel.getId(), m.getId()));
             }
@@ -563,15 +572,13 @@ public class Commands {
     public static void updateLeaderboards(TextChannel channel, Leaderboards leaderboards, ServerData serverdata, UserData userData, Guild guild) {
         String guildID = guild.getId();
 
-        if(leaderboards == null) {
-            leaderboards = ModerationBot.reinitializeLb();
-            if (leaderboards == null) {
-                channel.sendMessage("Leaderboards data is null! Please try again in a bit or if that doesn't work contact the bot dev.").queue();
-                return;
-            }
-        }
-
         leaderboards.updateLeaderboards();
+
+        if (leaderboards.failed) {
+            if(channel != null)
+                channel.sendMessage("Leaderboard updating failed! Please try again in a bit or if that doesn't work contact the bot dev.").queue();
+            return;
+        }
 
         String[][] data = serverdata.getAllLbData(guildID);
         for(int i = 0; i < 3; i++) {
@@ -583,15 +590,23 @@ public class Commands {
                 continue;
 
             List<String> lb = leaderboards.lbToString(i, guildID, userData);
+
             EmbedBuilder eb = new EmbedBuilder();
-            eb.addField("Leaderboard:", lb.remove(0), false); //TODO specify which leaderboard
+            eb.addField("Leaderboard:", lb.remove(0), false);
             for (String s : lb) {
                 eb.addField("", s, false);
             }
+            eb.setFooter("Last update: ");
+            eb.setTimestamp(new Date(leaderboards.getDate()).toInstant());
+
             try {
                 editChannel.editMessageById(data[i][1], eb.build()).queue();
                 System.out.println("updated lb " + i);
-            } catch (IllegalArgumentException ignored) {}
+            } catch (IllegalArgumentException ignored) {
+            } catch (ErrorResponseException e) {
+                if(channel != null)
+                    channel.sendMessage("An error occurred when updating lb " + i + ": " + e.getMessage()).queue();
+            }
         }
         if(channel != null)
             channel.sendMessage("Updated leaderboards.").queue();
