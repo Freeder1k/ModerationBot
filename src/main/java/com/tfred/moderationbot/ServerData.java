@@ -42,14 +42,15 @@ public class ServerData {
         boolean noSalt;
         List<String> modRoleIDs;
         List<LbData> lbData;
-        String logchannelID;
+        String logChannelID, joinChannelID;
 
-        SingleServer(String id, boolean noSalt, List<String> modRoleIDs, List<LbData> lbData, String logchannelID) {
+        SingleServer(String id, boolean noSalt, List<String> modRoleIDs, List<LbData> lbData, String logChannelID, String joinChannelID) {
             this.id = id;
             this.noSalt = noSalt;
             this.modRoleIDs = modRoleIDs;
             this.lbData = lbData;
-            this.logchannelID = logchannelID;
+            this.logChannelID = logChannelID;
+            this.joinChannelID = joinChannelID;
         }
 
         static SingleServer createDefault(String id) {
@@ -57,7 +58,7 @@ public class ServerData {
             for (int i = 0; i < 3; i++)
                 lbData.add(new LbData(-1, null, null));
 
-            return new SingleServer(id, false, new ArrayList<>(), lbData, "");
+            return new SingleServer(id, false, new ArrayList<>(), lbData, "", "");
         }
 
         @Override
@@ -68,7 +69,7 @@ public class ServerData {
             else
                 noSaltS = "0";
 
-            return id + " " + noSaltS + " &" + String.join(",", modRoleIDs) + " &" + lbData.stream().map(LbData::toString).collect(Collectors.joining(",")) + " &" + logchannelID;
+            return id + " " + noSaltS + " &" + String.join(",", modRoleIDs) + " &" + lbData.stream().map(LbData::toString).collect(Collectors.joining(",")) + " &" + logChannelID + " &" + joinChannelID;
         }
     }
 
@@ -87,7 +88,7 @@ public class ServerData {
             return;
         }
 
-        //Line format: <Server ID> noSalt(0 or 1) &modroles &lbMessages(boardNum:channelID:messageID) &logchannel
+        //Line format: <Server ID> noSalt(0 or 1) &modroles &lbMessages(boardNum:channelID:messageID) &logchannel &joinchannel
 
         for (String s : lines) {
             String[] data = s.split(" ");
@@ -115,8 +116,12 @@ public class ServerData {
             if(data.length >= 5)
                 logChannelID = data[4].substring(1);
 
+            String joinChannelID = "";
+            if(data.length >= 6)
+                logChannelID = data[5].substring(1);
 
-            SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID);
+
+            SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID, joinChannelID);
 
             serverList.add(x);
         }
@@ -128,9 +133,7 @@ public class ServerData {
     private void updateFile() {
         try {
             Files.deleteIfExists(path);
-            for (SingleServer s : serverList) {
-                Files.write(path, s.toString().getBytes(), StandardOpenOption.CREATE);
-            }
+            Files.write(path, serverList.stream().map(SingleServer::toString).collect(Collectors.toList()), StandardOpenOption.CREATE);
         } catch (IOException e) {
             System.out.println("IO error when writing server data!");
         }
@@ -321,7 +324,7 @@ public class ServerData {
     public void setLogChannelID(String serverID, String logChannelID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
-                s.logchannelID = logChannelID;
+                s.logChannelID = logChannelID;
                 updateFile();
             }
         }
@@ -338,7 +341,43 @@ public class ServerData {
     public String getLogChannelID(String serverID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
-                return s.logchannelID;
+                if(!s.logChannelID.equals(""))
+                    return s.logChannelID;
+            }
+        }
+        return "0";
+    }
+
+    /**
+     * Set the specified channel to be the join channel for the specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param joinChannelID
+     *          The specified {@link TextChannel log channel's} ID.
+     */
+    public void setJoinChannelID(String serverID, String joinChannelID) {
+        for (SingleServer s : serverList) {
+            if (s.id.equals(serverID)) {
+                s.joinChannelID = joinChannelID;
+                updateFile();
+            }
+        }
+    }
+
+    /**
+     * Get the ID of the join channel in a specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          The {@link TextChannel log channel's} ID or "0" if none is set.
+     */
+    public String getJoinChannelID(String serverID) {
+        for (SingleServer s : serverList) {
+            if (s.id.equals(serverID)) {
+                if(!s.joinChannelID.equals(""))
+                    return s.joinChannelID;
             }
         }
         return "0";

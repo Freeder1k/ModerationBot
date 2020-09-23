@@ -46,12 +46,13 @@ public class Commands {
                     "-``!nosalt``: toggle no salt mode.\n" +
                     "-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n" +
                     "-``!updatenames``: look for name changes and update the nicknames of users.\n" +
-                    "-``!listnames [@role/roleID]``: list the names of members who are/aren't added to the username system with optional role requirement.\n" +
+                    "-``!listnames [@role|roleID]``: list the names of members who are/aren't added to the username system with optional role requirement.\n" +
                     "__Admin commands:__\n" +
                     "-``!modrole <add|remove|list> [role]``: add/remove a mod role or list the mod roles for this server.\n" +
                     "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills).\n" +
                     "-``!updatelb``: updated the lb messages.\n" +
-                    "-``!setlogchannel``: set this channel to be the log channel for automatic updates."
+                    "-``!setlogchannel``: set this channel to be the log channel for automatic updates.\n" +
+                    "-``!setjoinchannel``: set this channel to be the join channel for infos on new joins."
             ).queue();
         }
 
@@ -411,6 +412,15 @@ public class Commands {
             if(member.hasPermission(Permission.ADMINISTRATOR)) {
                 serverdata.setLogChannelID(guildID, channel.getId());
                 channel.sendMessage("Set log channel to " + channel.getAsMention() + ".").queue();
+            }
+            else
+                channel.sendMessage("You need to be a server admin to use this command!").queue();
+        }
+
+        else if (msg.equals("!setjoinchannel")) {
+            if(member.hasPermission(Permission.ADMINISTRATOR)) {
+                serverdata.setJoinChannelID(guildID, channel.getId());
+                channel.sendMessage("Set join channel to " + channel.getAsMention() + ".").queue();
             }
             else
                 channel.sendMessage("You need to be a server admin to use this command!").queue();

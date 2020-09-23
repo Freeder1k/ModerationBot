@@ -2,8 +2,10 @@ package com.tfred.moderationbot;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -14,6 +16,7 @@ import javax.security.auth.login.LoginException;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +42,7 @@ public class ModerationBot extends ListenerAdapter
                     .setChunkingFilter(ChunkingFilter.ALL)          //
                     .setMemberCachePolicy(MemberCachePolicy.ALL)    // These three are needed for !addallmembers so that all members are effected
                     .enableIntents(GatewayIntent.GUILD_MEMBERS)     //
+                    .setActivity(Activity.watching("BlockHunt"))
                     .build();
             jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
             System.out.println("Finished Building JDA!");
@@ -55,10 +59,8 @@ public class ModerationBot extends ListenerAdapter
             return;
         }
 
-        //Set up server data
         serverdata = new ServerData();
         userdata = new UserData(jda);
-        jda.getPresence().setActivity(Activity.watching("BlockHunt"));
 
         leaderboards = new Leaderboards();
         if(leaderboards.failed) {
@@ -145,6 +147,26 @@ public class ModerationBot extends ListenerAdapter
 
             System.out.printf("[PRIV]<%s>: %s\n", author.getName(), msg);
         }
+    }
+
+    @Override
+    public void onGuildMemberJoin(GuildMemberJoinEvent event) {
+        System.out.println("new join");
+        Member user = event.getMember();
+        Guild guild = event.getGuild();
+        TextChannel channel = guild.getTextChannelById(serverdata.getJoinChannelID(guild.getId()));
+        if(channel == null)
+            return;
+        if(!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE))
+            return;
+
+        String mcName = userdata.getUserInGuild(guild.getId(), user.getId());
+
+        if(!mcName.isEmpty())
+            channel.sendMessage("<@" + user.getId() + ">'s minecraft name is saved as " + mcName + ".").queue();
+
+        if(guild.getSelfMember().hasPermission(Permission.NICKNAME_MANAGE))
+            user.modifyNickname(mcName).queue();
     }
 
     private static void autoRunStart() {

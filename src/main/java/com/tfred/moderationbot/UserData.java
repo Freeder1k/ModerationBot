@@ -21,8 +21,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
-//this all isn't coded to be efficient with a lot of servers!
+//this isn't coded to be efficient with a lot of servers!
 public class UserData {
     private static class SingleUser {
         private static final SingleUser defaultUser = new SingleUser(null, null);
@@ -54,7 +53,7 @@ public class UserData {
     }
 
     private static class SingleGuildUserData {
-        private final Guild guild;
+        private final Guild guild; //TODO change this to guildID
         private final List<SingleUser> userList;
         private final int lineNumber;
 
@@ -81,7 +80,7 @@ public class UserData {
                 }
                 else
                     lines.set(lineNumber, data);
-                Files.delete(path);
+                Files.deleteIfExists(path);
                 Files.write(path, lines, StandardOpenOption.CREATE);
             } catch (IOException e) {
                 System.out.println("IO error when writing server data!");
