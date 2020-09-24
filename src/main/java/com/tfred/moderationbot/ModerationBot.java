@@ -149,6 +149,13 @@ public class ModerationBot extends ListenerAdapter
         }
     }
 
+    /**
+     * Checks whether every user that joins a server is saved in the username system and if they are it
+     * updates their nickname accordingly and sends a message to the join channel.
+     *
+     * @param event
+     *          An event containing information about a new join.
+     */
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
         System.out.println("new join");

@@ -96,6 +96,8 @@ public class ServerData {
             List<String> modRoleIDs = new ArrayList<>();
             String[] ids = data[2].substring(1).split(",");
             Collections.addAll(modRoleIDs, ids);
+            if(modRoleIDs.get(0).isEmpty())
+                modRoleIDs.remove(0);
 
             List<LbData> lbData = new ArrayList<>(3);
             if (data.length >= 4) {
@@ -171,15 +173,11 @@ public class ServerData {
                 return;
             }
         }
-        try {
-            SingleServer s_new = SingleServer.createDefault(serverID);
-            s_new.noSalt = noSalt;
-            Files.write(path, s_new.toString().getBytes(), StandardOpenOption.CREATE);
+        SingleServer s_new = SingleServer.createDefault(serverID);
+        s_new.noSalt = noSalt;
+        serverList.add(s_new);
 
-            serverList.add(s_new);
-        } catch (IOException e) {
-            System.out.println("IO error when writing server data!");
-        }
+        updateFile();
     }
 
     /**
@@ -200,15 +198,11 @@ public class ServerData {
                 return;
             }
         }
-        try {
-            SingleServer s_new = SingleServer.createDefault(serverID);
-            s_new.modRoleIDs.add(roleID);
-            Files.write(path, s_new.toString().getBytes(), StandardOpenOption.CREATE);
+        SingleServer s_new = SingleServer.createDefault(serverID);
+        s_new.modRoleIDs.add(roleID);
+        serverList.add(s_new);
 
-            serverList.add(s_new);
-        } catch (IOException e) {
-            System.out.println("IO error when writing server data!");
-        }
+        updateFile();
     }
 
     /**
@@ -269,18 +263,14 @@ public class ServerData {
                 return;
             }
         }
-        try {
-            SingleServer s_new = SingleServer.createDefault(serverID);
-            LbData lb = s_new.lbData.get(board);
-            lb.board = board;
-            lb.channelID = channelID;
-            lb.messageID = messageID;
-            Files.write(path, s_new.toString().getBytes(), StandardOpenOption.CREATE);
+        SingleServer s_new = SingleServer.createDefault(serverID);
+        LbData lb = s_new.lbData.get(board);
+        lb.board = board;
+        lb.channelID = channelID;
+        lb.messageID = messageID;
+        serverList.add(s_new);
 
-            serverList.add(s_new);
-        } catch (IOException e) {
-            System.out.println("IO error when writing server data!");
-        }
+        updateFile();
     }
 
     /**
@@ -326,8 +316,14 @@ public class ServerData {
             if (s.id.equals(serverID)) {
                 s.logChannelID = logChannelID;
                 updateFile();
+                return;
             }
         }
+        SingleServer s_new = SingleServer.createDefault(serverID);
+        s_new.logChannelID = logChannelID;
+        serverList.add(s_new);
+
+        updateFile();
     }
 
     /**
@@ -363,6 +359,11 @@ public class ServerData {
                 updateFile();
             }
         }
+        SingleServer s_new = SingleServer.createDefault(serverID);
+        s_new.joinChannelID = joinChannelID;
+        serverList.add(s_new);
+
+        updateFile();
     }
 
     /**

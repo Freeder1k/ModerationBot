@@ -330,13 +330,14 @@ public class Commands {
                 if(args[1].equals("list")) {
                     List<String> roles = serverdata.getModRoles(guildID);
 
-                    if(roles.isEmpty()) {
+                    if(roles == null || roles.isEmpty()) {
                         channel.sendMessage("There are no moderator roles.").queue();
                         return;
                     }
 
                     StringBuilder res = new StringBuilder();
                     for(String s: roles) {
+                        System.out.println("Role: \"" + s + "\"");
                         Role r = event.getGuild().getRoleById(s);
                         if(r != null)
                             res.append(", ``").append(r.getName()).append("``");
