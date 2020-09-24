@@ -337,7 +337,6 @@ public class Commands {
 
                     StringBuilder res = new StringBuilder();
                     for(String s: roles) {
-                        System.out.println("Role: \"" + s + "\"");
                         Role r = event.getGuild().getRoleById(s);
                         if(r != null)
                             res.append(", ``").append(r.getName()).append("``");

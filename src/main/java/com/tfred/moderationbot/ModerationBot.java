@@ -170,7 +170,7 @@ public class ModerationBot extends ListenerAdapter
         String mcName = userdata.getUserInGuild(guild.getId(), user.getId());
 
         if(!mcName.isEmpty())
-            channel.sendMessage("<@" + user.getId() + ">'s minecraft name is saved as " + mcName + ".").queue();
+            channel.sendMessage("<@" + user.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
 
         if(guild.getSelfMember().hasPermission(Permission.NICKNAME_MANAGE))
             user.modifyNickname(mcName).queue();
