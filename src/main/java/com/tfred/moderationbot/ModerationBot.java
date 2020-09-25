@@ -20,6 +20,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+//TODO update modroles (and other stuff) on deletion
 public class ModerationBot extends ListenerAdapter
 {
     private static ServerData serverdata;

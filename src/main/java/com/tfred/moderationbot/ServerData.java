@@ -279,7 +279,7 @@ public class ServerData {
      * @param serverID
      *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
      * @return
-     *          An array containing 3 arrays of Strings containing the daa. Each string array contains a channel ID and a message ID or is null if it hasn't been set yet with {@link ServerData#setLbData(String, int, String, String) ServerData.setLbData}.
+     *          An array containing 3 arrays of Strings containing the data. Each string array contains a channel ID and a message ID or is null if it hasn't been set yet with {@link ServerData#setLbData(String, int, String, String) ServerData.setLbData}.
      */
     public String[][] getAllLbData(String serverID) {
         String[][] temp = new String[3][2];

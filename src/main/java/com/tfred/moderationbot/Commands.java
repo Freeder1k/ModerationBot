@@ -7,6 +7,9 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -20,7 +23,7 @@ public class Commands {
      * The command processing function.
      *
      * @param event
-     *          An event containing information about a {@link net.dv8tion.jda.api.entities.Message Message} that was
+     *          An event containing information about a {@link Message Message} that was
      *          sent in a channel.
      * @param serverdata
      *          The {@link ServerData server data} to work with.
@@ -43,6 +46,7 @@ public class Commands {
         if (msg.equals("!help")) {
             channel.sendMessage("Help:\n" +
                     "__Moderator commands:__\n" +
+                    "-``!settings``: show the current settings for this server.\n" +
                     "-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n" +
                     "-``!getreactions <messageID> [channelID|channel Mention]``: get the reactions on a specified message. Please specify the channel ID or mention the channel if the message is in another channel.\n" +
                     "-``!nosalt``: toggle no salt mode.\n" +
@@ -54,7 +58,7 @@ public class Commands {
                     "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills).\n" +
                     "-``!updatelb``: updated the lb messages.\n" +
                     "-``!setlogchannel``: set this channel to be the log channel for automatic updates.\n" +
-                    "-``!setjoinchannel``: set this channel to be the join channel for infos on new joins."
+                    "-``!setjoinchannel``: set this channel to be the join channel for info on new joins."
             ).queue();
         }
 
@@ -437,23 +441,24 @@ public class Commands {
                     channel.sendMessage("Board number must be between 0 and 2!").queue();
                     return;
                 }
+                int boardNum = Character.getNumericValue(board);
 
                 if (leaderboards.failed) {
                     channel.sendMessage("Leaderboard data invalid! Please try using ``!updatelb`` to fix the data.").queue();
                     return;
                 }
 
-                List<String> lb = leaderboards.lbToString(Character.getNumericValue(board), guildID, userData);
+                List<String> lb = leaderboards.lbToString(boardNum, guildID, userData);
 
                 EmbedBuilder eb = new EmbedBuilder();
-                eb.addField("Leaderboard:", lb.remove(0), false);
+                eb.addField(leaderboardNames[boardNum] + " Leaderboard:", lb.remove(0), false);
                 for (String s : lb) {
                     eb.addField("", s, false);
                 }
                 eb.setFooter("Last update ");
                 eb.setTimestamp(new Date(leaderboards.getDate()).toInstant());
 
-                channel.sendMessage(eb.build()).queue((m) -> serverdata.setLbData(guildID, Character.getNumericValue(board), channel.getId(), m.getId()));
+                channel.sendMessage(eb.build()).queue((m) -> serverdata.setLbData(guildID, boardNum, channel.getId(), m.getId()));
             }
             else
                 channel.sendMessage("You need to be a server admin to use this command!").queue();
@@ -535,6 +540,30 @@ public class Commands {
             else
                 channel.sendMessage("You do not have permission to run this command!").queue();
         }
+
+        else if (msg.startsWith("!debug ")) {
+            if(member.getId().equals("470696578403794967")) {
+                ScriptEngineManager manager = new ScriptEngineManager();
+                ScriptEngine engine = manager.getEngineByName("js");
+                try {
+                    engine.put("event", event);
+                    engine.put("serverdata", serverdata);
+                    engine.put("userData", userData);
+                    engine.put("leaderboards", leaderboards);
+
+                    Object result = engine.eval("load(\"nashorn:mozilla_compat.js\"); importPackage(Packages.net.dv8tion.jda.api.entities); " + msg.substring(7));
+                    try {
+                        channel.sendMessage(result.toString()).queue();
+                    } catch (NullPointerException ignored) {
+                        channel.sendMessage("null").queue();
+                    }
+                } catch (ScriptException e) {
+                    channel.sendMessage(e.getMessage()).queue();
+                }
+            }
+            else
+                channel.sendMessage("You do not have permission to run this command!").queue();
+        }
     }
 
     private static boolean isModerator(String serverID, Member member, ServerData serverdata) {
@@ -548,7 +577,7 @@ public class Commands {
         return false;
     }
 
-    //checks if the bot has the specified perms and send a message to the channel if not (true if doesnt have perms)
+    //checks if the bot has the specified perms and send a message to the channel if not (true if doesn't have perms)
     private static boolean checkPerms(TextChannel channel, Permission ... permissions) {
         Member selfMember = channel.getGuild().getSelfMember();
 
@@ -582,6 +611,7 @@ public class Commands {
         return name;
     }
 
+    //TODO error handling
     /**
      * Updates the nicknames of users in a specified guild.
      *
@@ -660,7 +690,7 @@ public class Commands {
             List<String> lb = leaderboards.lbToString(i, guildID, userData);
 
             EmbedBuilder eb = new EmbedBuilder();
-            eb.addField("Leaderboard:", lb.remove(0), false);
+            eb.addField(leaderboardNames[i] + " Leaderboard:", lb.remove(0), false);
             for (String s : lb) {
                 eb.addField("", s, false);
             }
@@ -669,7 +699,6 @@ public class Commands {
 
             try {
                 editChannel.editMessageById(data[i][1], eb.build()).queue();
-                System.out.println("updated lb " + i);
             } catch (IllegalArgumentException ignored) {
             } catch (ErrorResponseException e) {
                 if(channel != null)
