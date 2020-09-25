@@ -541,7 +541,7 @@ public class Commands {
                 channel.sendMessage("You do not have permission to run this command!").queue();
         }
 
-        else if (msg.startsWith("!debug ")) {
+        else if (msg.startsWith("!eval ")) {
             if(member.getId().equals("470696578403794967")) {
                 ScriptEngineManager manager = new ScriptEngineManager();
                 ScriptEngine engine = manager.getEngineByName("js");
@@ -551,7 +551,7 @@ public class Commands {
                     engine.put("userData", userData);
                     engine.put("leaderboards", leaderboards);
 
-                    Object result = engine.eval("load(\"nashorn:mozilla_compat.js\"); importPackage(Packages.net.dv8tion.jda.api.entities); " + msg.substring(7));
+                    Object result = engine.eval("load(\"nashorn:mozilla_compat.js\"); " + msg.substring(6));
                     try {
                         channel.sendMessage(result.toString()).queue();
                     } catch (NullPointerException ignored) {
