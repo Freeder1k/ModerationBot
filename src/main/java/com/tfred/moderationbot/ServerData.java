@@ -120,7 +120,7 @@ public class ServerData {
 
             String joinChannelID = "";
             if(data.length >= 6)
-                logChannelID = data[5].substring(1);
+                joinChannelID = data[5].substring(1);
 
 
             SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID, joinChannelID);
