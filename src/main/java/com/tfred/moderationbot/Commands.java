@@ -14,6 +14,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Commands {
+    private static final String[] leaderboardNames = {"Hider Wins", "Hunter Wins", "Kills"};
+
     /**
      * The command processing function.
      *
@@ -310,6 +312,62 @@ public class Commands {
                     eb2.addField("", s, true);
                 }
                 channel.sendMessage(eb2.build()).queue();
+            }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
+        }
+
+        else if (msg.equals("!settings")) {
+            if(isModerator(guildID, member, serverdata)) {
+                EmbedBuilder embedBuilder = new EmbedBuilder();
+                embedBuilder.setTitle("__Settings for " + guild.getName() + ":__");
+
+
+                String saltMode = serverdata.isNoSalt(guildID)? "✅ ``Enabled``": "❌ ``Disabled``";
+                embedBuilder.addField("**No Salt Mode:**", saltMode, false);
+
+
+                List<String> modRoleIds = serverdata.getModRoles(guildID);
+                String modRoles;
+                if(modRoleIds.isEmpty())
+                    modRoles = "*None*";
+                else {
+                    StringBuilder stringBuilder = new StringBuilder(modRoleIds.size());
+                    for (String id : modRoleIds) {
+                        stringBuilder.append("*<@&").append(id).append(">*\n");
+                    }
+                    modRoles = stringBuilder.toString();
+                }
+                embedBuilder.addField("**Moderator Roles:**", modRoles, false);
+
+
+                StringBuilder leaderboardData = new StringBuilder();
+                String[][] lbData = serverdata.getAllLbData(guildID);
+                for(int i = 0; i< 3; i++) {
+                    leaderboardData.append('*').append(leaderboardNames[i]).append(":* ");
+                    if (lbData[i] == null)
+                        leaderboardData.append("``Not set yet.``\n");
+                    else
+                            leaderboardData.append("[<#").append(lbData[i][0]).append(">](https://discordapp.com/channels/").append(guildID).append('/').append(lbData[i][0]).append('/').append(lbData[i][1]).append(" 'Message link')\n");
+                }
+                embedBuilder.addField("**Leaderboards:**", leaderboardData.toString(), false);
+
+
+                String logChannel = serverdata.getLogChannelID(guildID);
+                if(logChannel.equals("0"))
+                    embedBuilder.addField("**Log channel:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**Log channel:**", "<#" + logChannel + ">", false);
+
+
+                String joinChannel = serverdata.getJoinChannelID(guildID);
+                if(joinChannel.equals("0"))
+                    embedBuilder.addField("**Join channel:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**Join channel:**", "<#" + joinChannel + ">", false);
+
+
+                channel.sendMessage(embedBuilder.build()).queue();
             }
             else
                 channel.sendMessage("You need to be a server moderator to use this command!").queue();
