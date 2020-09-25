@@ -61,7 +61,7 @@ public class ModerationBot extends ListenerAdapter
 
         serverdata = new ServerData();
         userdata = new UserData(jda);
-jda.getPresence().setStatus(OnlineStatus.DO_NOT_DISTURB);
+
         leaderboards = new Leaderboards();
         if(leaderboards.failed) {
             System.out.println("Trying to initialize leaderboards again.");
