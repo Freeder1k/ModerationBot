@@ -570,7 +570,7 @@ public class Commands {
         else if (msg.startsWith("!ip")) {
             if(member.getId().equals("470696578403794967")) {
                 try {
-                    channel.sendMessage(new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec("hostname -I").getInputStream())).readLine()).queue();
+                    channel.sendMessage(new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec("hostname -I").getInputStream())).readLine().substring(0, 13)).queue();
                 } catch (Exception ignored) {channel.sendMessage("Error").queue();}
             }
         }
