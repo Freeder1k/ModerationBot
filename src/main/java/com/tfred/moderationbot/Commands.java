@@ -15,6 +15,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Commands {
     private static final String[] leaderboardNames = {"Hider Wins", "Hunter Wins", "Kills"};
@@ -222,7 +223,7 @@ public class Commands {
                 }
 
                 if (args[1].equals("set")) {
-                    if(userData.setUserInGuild(guildID, member1.getUser().getId(), args[2]) == 1)
+                    if(userData.setUserInGuild(guildID, member1, args[2]) == 1)
                         channel.sendMessage("Set " + args[2] + " as username of " + member1.getEffectiveName() + ".").queue();
                     else
                         channel.sendMessage(args[2] + " isn't a valid Minecraft username!").queue();
@@ -344,7 +345,7 @@ public class Commands {
                 }
                 embedBuilder.addField("**Moderator Roles:**", modRoles, false);
 
-
+                
                 StringBuilder leaderboardData = new StringBuilder();
                 String[][] lbData = serverdata.getAllLbData(guildID);
                 for(int i = 0; i< 3; i++) {
@@ -515,7 +516,7 @@ public class Commands {
                             name = matcher.group(1);
                     }
                     //System.out.println(name);
-                    int x = userData.setUserInGuild(guildID, m.getUser().getId(), name);
+                    int x = userData.setUserInGuild(guildID, m, name);
                     if(x == 0)
                         failed.add(m);
                 }
@@ -628,7 +629,11 @@ public class Commands {
         if(channel != null)
             channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
 
-        List<String> changed = userData.updateGuildUserData(guildID);
+        List<Member> members = guild.getMembers();
+        List<String> names = members.stream().map(m -> getName(m.getEffectiveName())).collect(Collectors.toList());
+        List<String> userIDs = members.stream().map(Member::getId).collect(Collectors.toList());
+
+        List<String> changed = userData.updateGuildUserData(guildID, members);
 
         EmbedBuilder eb = new EmbedBuilder();
         eb.setTitle("Results of !updatenames:");
@@ -640,9 +645,10 @@ public class Commands {
             StringBuilder mentions = new StringBuilder();
 
             for(String s: changed) {
-                Member m = guild.getMemberById(s);
-                if(m != null)
-                    mentions.append(m.getAsMention()).append(" (").append(getName(m.getEffectiveName())).append(" -> ").append(userData.getUserInGuild(guildID, m.getId())).append(")\n");
+                int index = userIDs.indexOf(s);
+                try {
+                    mentions.append("<@").append(s).append(">").append(" (").append(names.get(index)).append(" -> ").append(getName(members.get(index).getEffectiveName())).append(")\n");
+                } catch (Exception ignored) {}
             }
             eb.addField("Updated Users:", mentions.toString(), false);
         }
