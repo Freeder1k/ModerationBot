@@ -2,7 +2,6 @@ package com.tfred.moderationbot;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
@@ -60,7 +59,7 @@ public class ModerationBot extends ListenerAdapter
         }
 
         serverdata = new ServerData();
-        userdata = new UserData(jda);
+        userdata = new UserData();
 
         leaderboards = new Leaderboards();
         if(leaderboards.failed) {

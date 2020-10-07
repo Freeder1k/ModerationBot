@@ -1,9 +1,7 @@
 package com.tfred.moderationbot;
 
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 
@@ -20,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 //this isn't coded to be efficient with a lot of servers!
 public class UserData {
@@ -53,12 +52,12 @@ public class UserData {
     }
 
     private static class SingleGuildUserData {
-        private final Guild guild; //TODO change this to guildID
+        private final String guildID;
         private final List<SingleUser> userList;
         private final int lineNumber;
 
-        SingleGuildUserData(Guild guild, List<SingleUser> userList, int lineNumber) {
-            this.guild = guild;
+        SingleGuildUserData(String guildID, List<SingleUser> userList, int lineNumber) {
+            this.guildID = guildID;
             this.userList = userList;
             this.lineNumber = lineNumber;
         }
@@ -69,7 +68,7 @@ public class UserData {
                 return;
             try {
                 String data = "";
-                data = data.concat(guild.getId());
+                data = data.concat(guildID);
                 for(SingleUser u: userList) {
                     data = data.concat(" " + u.toString());
                 }
@@ -100,16 +99,16 @@ public class UserData {
         }
 
         //returns 1 if successful, 0 if failed
-        int setUser(String userID, String name) {
+        int setUser(Member member, String name) {
             String uuid = getUUID(name);
             if((uuid == null) || (uuid.equals("!")))
                 return 0;
 
-            SingleUser u = new SingleUser(userID, uuid);
+            SingleUser u = new SingleUser(member.getId(), uuid);
             userList.remove(u);
             userList.add(u);
 
-            int x = updateMember(guild.retrieveMemberById(userID).complete(), getUUID(name));
+            int x = updateMember(member, getUUID(name));
 
             if(x == 1 || x == 0) {
                 updateFile();
@@ -125,17 +124,14 @@ public class UserData {
             updateFile();
         }
 
-        List<String> updateGuild() {
+        List<String> updateGuild(List<Member> members) {
             List<String> updated = new ArrayList<>();
+            List<String> userIDs = members.stream().map(ISnowflake::getId).collect(Collectors.toList());
             for(int i = 0; i < userList.size(); i++) {
                 SingleUser user = userList.get(i);
-                Member member;
-                try {
-                    member = guild.retrieveMemberById(user.userID).complete();
-                } catch (ErrorResponseException e) {
-                    member = null;
-                }
-                if(member != null) {
+                int index = userIDs.indexOf(user.userID);
+                if(index != -1) {
+                    Member member = members.get(index);
                     int res = updateMember(member, user.uuid);
                     if(res == 1) {
                         updated.add(user.userID);
@@ -266,14 +262,12 @@ public class UserData {
 
     private final List<SingleGuildUserData> userData = new ArrayList<>();
     private static final Path path = Paths.get("users.data");
-    private final JDA jda;
 
     /**
      * Represents the bots saved user data for each server. This contains member IDs and their associated minecraft uuid.
      */
-    public UserData(JDA jda) {
+    public UserData() {
         List<String> list;
-        this.jda = jda;
         try {
             list = Files.readAllLines(path);
         } catch (IOException e) {
@@ -290,15 +284,13 @@ public class UserData {
             String[] data = s.split(" ");
 
             //TODO existing data of guild that was joined again
-            Guild guild = jda.getGuildById(data[0]);
-            if (guild != null) {
-                for(int i = 1; i < data.length; i++) {
-                    String[] user = data[i].split(":");
+            String guildId = data[0];
+            for(int i = 1; i < data.length; i++) {
+                String[] user = data[i].split(":");
 
-                    userList.add(new SingleUser(user[0], user[1]));
-                }
-                userData.add(new SingleGuildUserData(guild, userList, c));
+                userList.add(new SingleUser(user[0], user[1]));
             }
+            userData.add(new SingleGuildUserData(guildId, userList, c));
             c++;
         }
 
@@ -318,7 +310,7 @@ public class UserData {
      */
     public String getUserInGuild(String guildID, String userID) {
         for(SingleGuildUserData data: userData) {
-            if(data.guild.getId().equals(guildID)) {
+            if(data.guildID.equals(guildID)) {
                 return data.getUser(userID);
             }
         }
@@ -326,33 +318,27 @@ public class UserData {
     }
 
     /**
-     * Sets a specified user's associated minecraft ign in a specified guild.
+     * Sets a specified member's associated minecraft ign in a specified guild.
      *
      * @param guildID
      *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param userID
-     *          The specified {@link Member member's} ID.
+     * @param member
+     *          The specified {@link Member member}.
      * @param name
      *          This minecraft ign to be associated with this member.
      * @return
      *          1 if successful, 0 if failed due to some error like for example the minecraft ign not existing.
      */
-    public int setUserInGuild(String guildID, String userID, String name) {
+    public int setUserInGuild(String guildID, Member member, String name) {
         for(SingleGuildUserData data: userData) {
-            if(data.guild.getId().equals(guildID)) {
-                return data.setUser(userID, name);
+            if(data.guildID.equals(guildID)) {
+                return data.setUser(member, name);
 
             }
         }
-        //add new guild to the userdata if it doesn't exist yet
-        Guild guild = jda.getGuildById(guildID);
-
-        if(guild != null) {
-            SingleGuildUserData newGuild = new SingleGuildUserData(guild, new ArrayList<>(), userData.size());
-            userData.add(newGuild);
-            return newGuild.setUser(userID, name);
-        }
-        return 0;
+        SingleGuildUserData newGuild = new SingleGuildUserData(guildID, new ArrayList<>(), userData.size());
+        userData.add(newGuild);
+        return newGuild.setUser(member, name);
     }
 
     /**
@@ -365,7 +351,7 @@ public class UserData {
      */
     public void removeUserFromGuild(String guildID, String userID) {
         for(SingleGuildUserData data: userData) {
-            if(data.guild.getId().equals(guildID))
+            if(data.guildID.equals(guildID))
                 data.removeUser(userID);
         }
     }
@@ -375,13 +361,15 @@ public class UserData {
      *
      * @param guildID
      *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param members
+     *          A list of all the members to be checked.
      * @return
      *          possibly-empty list of all updated user's IDs.
      */
-    public List<String> updateGuildUserData(String guildID) {
+    public List<String> updateGuildUserData(String guildID, List<Member> members) {
         for(SingleGuildUserData data: userData) {
-            if(data.guild.getId().equals(guildID))
-                return data.updateGuild();
+            if(data.guildID.equals(guildID))
+                return data.updateGuild(members);
         }
         return new ArrayList<>();
     }
@@ -397,7 +385,7 @@ public class UserData {
     public List<String> getGuildSavedUserIds(String guildID) {
         List<String> output = new ArrayList<>();
         for(SingleGuildUserData data: userData) {
-            if(data.guild.getId().equals(guildID)) {
+            if(data.guildID.equals(guildID)) {
                 for (SingleUser u: data.userList) {
                     output.add(u.userID);
                 }
@@ -418,7 +406,7 @@ public class UserData {
     public List<String> getGuildSavedUuids(String guildID) {
         List<String> output = new ArrayList<>();
         for(SingleGuildUserData data: userData) {
-            if(data.guild.getId().equals(guildID)) {
+            if(data.guildID.equals(guildID)) {
                 for (SingleUser u: data.userList) {
                     output.add(u.uuid);
                 }
@@ -440,7 +428,7 @@ public class UserData {
      */
     public String getGuildSavedUuidUserID(String guildID, String uuid) {
         for(SingleGuildUserData data: userData) {
-            if(data.guild.getId().equals(guildID)) {
+            if(data.guildID.equals(guildID)) {
                 for (SingleUser u: data.userList) {
                     if(u.uuid.equals(uuid))
                         return u.userID;
