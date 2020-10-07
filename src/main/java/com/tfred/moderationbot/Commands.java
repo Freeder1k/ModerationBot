@@ -10,6 +10,8 @@ import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -558,12 +560,19 @@ public class Commands {
                     } catch (NullPointerException ignored) {
                         channel.sendMessage("null").queue();
                     }
-                } catch (ScriptException e) {
+                } catch (Exception e) {
                     channel.sendMessage(e.getMessage()).queue();
                 }
             }
             else
                 channel.sendMessage("You do not have permission to run this command!").queue();
+        }
+        else if (msg.startsWith("!ip")) {
+            if(member.getId().equals("470696578403794967")) {
+                try {
+                    channel.sendMessage(new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec("hostname -I").getInputStream())).readLine()).queue();
+                } catch (Exception ignored) {channel.sendMessage("Error").queue();}
+            }
         }
     }
 
