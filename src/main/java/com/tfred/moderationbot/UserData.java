@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -108,9 +109,9 @@ public class UserData {
             userList.remove(u);
             userList.add(u);
 
-            int x = updateMember(member, getUUID(name));
+            String s = updateMember(member, getUUID(name));
 
-            if(x == 1 || x == 0) {
+            if(!s.equals("-1")) {
                 updateFile();
                 return 1;
             }
@@ -124,22 +125,22 @@ public class UserData {
             updateFile();
         }
 
-        List<String> updateGuild(List<Member> members) {
-            List<String> updated = new ArrayList<>();
+        List<String[]> updateGuild(List<Member> members) {
+            List<String[]> updated = new LinkedList<>();
             List<String> userIDs = members.stream().map(ISnowflake::getId).collect(Collectors.toList());
             for(int i = 0; i < userList.size(); i++) {
                 SingleUser user = userList.get(i);
                 int index = userIDs.indexOf(user.userID);
                 if(index != -1) {
                     Member member = members.get(index);
-                    int res = updateMember(member, user.uuid);
-                    if(res == 1) {
-                        updated.add(user.userID);
-                        System.out.println(member.getEffectiveName());
-                    }
-                    else if(res == 2) {
+                    String res = updateMember(member, user.uuid);
+                    if(res.equals("-1")) {
                         userList.remove(user);
                         i--;
+                    }
+                    else if(!res.isEmpty()) {
+                        updated.add(new String[]{user.userID, res});
+                        System.out.println(member.getEffectiveName());
                     }
                 }
             }
@@ -147,24 +148,24 @@ public class UserData {
             return updated;
         }
 
-        //returns 0 if nothing changed, 1 if changed, 2 if entry should be deleted, 3 if other error
-        private int updateMember(Member m, String uuid) {
+        //returns "" if nothing changed, new username if changed, "-1" if entry should be deleted, "" if other error
+        private String updateMember(Member m, String uuid) {
             try {
                 String currentName = getName(uuid);
 
                 if (currentName == null)
-                    return 3;
+                    return "";
 
                 if (currentName.equals("!")) {
-                    return 2;
+                    return "-1";
                 }
 
                 if (m.getNickname() == null) {
                     if(m.getEffectiveName().equals(currentName))
-                        return 0;
+                        return "";
                     else {
                         m.modifyNickname(currentName).queue();
-                        return 1;
+                        return currentName;
                     }
                 }
 
@@ -189,11 +190,11 @@ public class UserData {
                     }
                     else
                         m.modifyNickname(currentName).queue();
-                    return 1;
+                    return currentName;
                 }
-                return 0;
+                return "";
             } catch(HierarchyException | InsufficientPermissionException e) {
-                return 0;
+                return "";
             }
         }
 
@@ -366,7 +367,7 @@ public class UserData {
      * @return
      *          possibly-empty list of all updated user's IDs.
      */
-    public List<String> updateGuildUserData(String guildID, List<Member> members) {
+    public List<String[]> updateGuildUserData(String guildID, List<Member> members) {
         for(SingleGuildUserData data: userData) {
             if(data.guildID.equals(guildID))
                 return data.updateGuild(members);

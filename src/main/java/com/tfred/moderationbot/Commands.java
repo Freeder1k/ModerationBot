@@ -633,7 +633,7 @@ public class Commands {
         List<String> names = members.stream().map(m -> getName(m.getEffectiveName())).collect(Collectors.toList());
         List<String> userIDs = members.stream().map(Member::getId).collect(Collectors.toList());
 
-        List<String> changed = userData.updateGuildUserData(guildID, members);
+        List<String[]> changed = userData.updateGuildUserData(guildID, members);
 
         EmbedBuilder eb = new EmbedBuilder();
         eb.setTitle("Results of !updatenames:");
@@ -644,10 +644,9 @@ public class Commands {
         else if (changed.size() < 100) {
             StringBuilder mentions = new StringBuilder();
 
-            for(String s: changed) {
-                int index = userIDs.indexOf(s);
+            for(String[] s: changed) {
                 try {
-                    mentions.append("<@").append(s).append(">").append(" (").append(names.get(index)).append(" -> ").append(getName(members.get(index).getEffectiveName())).append(")\n");
+                    mentions.append("<@").append(s[0]).append(">").append(" (").append(names.get(userIDs.indexOf(s[0]))).append(" -> ").append(s[1]).append(")\n");
                 } catch (Exception ignored) {}
             }
             eb.addField("Updated Users:", mentions.toString(), false);
