@@ -9,7 +9,6 @@ import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
-import javax.script.ScriptException;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -567,6 +566,7 @@ public class Commands {
             else
                 channel.sendMessage("You do not have permission to run this command!").queue();
         }
+        
         else if (msg.startsWith("!ip")) {
             if(member.getId().equals("470696578403794967")) {
                 try {
@@ -621,7 +621,6 @@ public class Commands {
         return name;
     }
 
-    //TODO error handling
     /**
      * Updates the nicknames of users in a specified guild.
      *
@@ -647,21 +646,29 @@ public class Commands {
         EmbedBuilder eb = new EmbedBuilder();
         eb.setTitle("Results of !updatenames:");
 
-        if(changed.isEmpty())
-            eb.setDescription("No users were updated.");
-
-        else if (changed.size() < 100) {
-            StringBuilder mentions = new StringBuilder();
-
-            for(String[] s: changed) {
-                try {
-                    mentions.append("<@").append(s[0]).append(">").append(" (").append(names.get(userIDs.indexOf(s[0]))).append(" -> ").append(s[1]).append(")\n");
-                } catch (Exception ignored) {}
+        if(!changed.isEmpty()) {
+            StringBuilder updated = new StringBuilder();
+            StringBuilder removed = new StringBuilder();
+            StringBuilder failed = new StringBuilder();
+            for (String[] s : changed) {
+                if(s[1].equals("-"))
+                    removed.append("<@").append(s[0]).append(">\n");
+                else if(s[1].equals("e"))
+                    failed.append("<@").append(s[0]).append(">\n");
+                else
+                    updated.append("<@").append(s[0]).append(">").append(" (").append(names.get(userIDs.indexOf(s[0]))).append(" -> ").append(s[1]).append(")\n");
             }
-            eb.addField("Updated Users:", mentions.toString(), false);
+            if(updated.length() != 0)
+                eb.addField("Updated Users:", updated.length() < 1024? updated.toString(): updated.length() + " users were updated.", false);
+            else
+                eb.addField("No users were updated.", "", false);
+            if(removed.length() != 0)
+                eb.addField("Removed Users:", removed.length() < 1024? removed.toString(): removed.length() + " users were removed.", false);
+            if(failed.length() != 0)
+                eb.addField("Failed Users:", failed.length() < 1024? failed.toString(): "Updating failed on " + failed.length() + " users.", false);
         }
         else
-            eb.setDescription(changed.size() + " users were updated.");
+            eb.addField("No users were updated.", "", false);
 
         if(channel != null)
             channel.sendMessage(eb.build()).queue();

@@ -134,27 +134,26 @@ public class UserData {
                 if(index != -1) {
                     Member member = members.get(index);
                     String res = updateMember(member, user.uuid);
-                    if(res.equals("-1")) {
+                    if(res.equals("-")) {
                         userList.remove(user);
                         i--;
-                    }
-                    else if(!res.isEmpty()) {
                         updated.add(new String[]{user.userID, res});
-                        System.out.println(member.getEffectiveName());
                     }
+                    else if(!res.isEmpty())
+                        updated.add(new String[]{user.userID, res});
                 }
             }
             updateFile();
             return updated;
         }
 
-        //returns "" if nothing changed, new username if changed, "-1" if entry should be deleted, "" if other error
+        //returns "" if nothing changed, new username if changed, "-" if entry should be deleted, "e" if other error
         private String updateMember(Member m, String uuid) {
             try {
                 String currentName = getName(uuid);
 
                 if (currentName == null)
-                    return "";
+                    return "e";
 
                 if (currentName.equals("!")) {
                     return "-1";
@@ -201,7 +200,6 @@ public class UserData {
         static String getName(String uuid) {
             try {
                 URL urlForGetRequest = new URL("https://api.mojang.com/user/profiles/" + uuid + "/names");
-                //String readLine = null;
 
                 HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
                 connection.setRequestMethod("GET");
@@ -250,7 +248,6 @@ public class UserData {
                     else
                         return "!"; //name invalid
                 } else {
-                    System.out.println("GET NOT WORKED");
                     if(responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //name invalid
                         return "!";
                 }
@@ -284,7 +281,6 @@ public class UserData {
 
             String[] data = s.split(" ");
 
-            //TODO existing data of guild that was joined again
             String guildId = data[0];
             for(int i = 1; i < data.length; i++) {
                 String[] user = data[i].split(":");
@@ -365,7 +361,7 @@ public class UserData {
      * @param members
      *          A list of all the members to be checked.
      * @return
-     *          possibly-empty list of all updated user's IDs.
+     *          possibly-empty list of all updated user's IDs and their new username. If the associated uuid doesn't exist anymore the second value is "-" and if an error occurred it's "e".
      */
     public List<String[]> updateGuildUserData(String guildID, List<Member> members) {
         for(SingleGuildUserData data: userData) {
