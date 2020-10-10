@@ -606,7 +606,7 @@ public class Commands {
         }
     }
 
-    private static String getName(String nickname) {
+    public static String getName(String nickname) {
         String name;
         if (nickname.endsWith(")")) {
             Pattern pattern = Pattern.compile("\\((.*?)\\)");

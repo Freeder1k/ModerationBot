@@ -5,7 +5,10 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
+import net.dv8tion.jda.api.events.guild.member.update.GuildMemberUpdateNicknameEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.exceptions.HierarchyException;
+import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
@@ -157,7 +160,6 @@ public class ModerationBot extends ListenerAdapter
      */
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
-        System.out.println("new join");
         Member user = event.getMember();
         Guild guild = event.getGuild();
         TextChannel channel = guild.getTextChannelById(serverdata.getJoinChannelID(guild.getId()));
@@ -173,6 +175,34 @@ public class ModerationBot extends ListenerAdapter
 
         if(guild.getSelfMember().hasPermission(Permission.NICKNAME_MANAGE))
             user.modifyNickname(mcName).queue();
+    }
+
+    /**
+     * When a user updates their nickname the bot tests to see if their new nickname is compliant with the username system.
+     *
+     * @param event
+     *          An event containing information about a nickname change.
+     */
+    @Override
+    public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
+        if(userdata.getUserInGuild(event.getGuild().getId(), event.getMember().getId()).isEmpty())
+            return;
+
+        String old_n = event.getOldNickname();
+        String new_n = event.getNewNickname();
+
+        if(old_n == null)
+            old_n = event.getUser().getName();
+        if(new_n == null)
+            new_n = event.getMember().getEffectiveName();
+
+        if(!Commands.getName(old_n).equals(Commands.getName(new_n))) {
+            try {
+                event.getMember().modifyNickname(old_n).queue();
+            } catch (HierarchyException | InsufficientPermissionException ignored) {}
+
+            event.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + event.getGuild().getName() + " was reset due to it being incompatible with the username system.").queue());
+        }
     }
 
     private static void autoRunStart() {
