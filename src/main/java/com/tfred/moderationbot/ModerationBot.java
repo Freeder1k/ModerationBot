@@ -185,20 +185,18 @@ public class ModerationBot extends ListenerAdapter
      */
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
-        if(userdata.getUserInGuild(event.getGuild().getId(), event.getMember().getId()).isEmpty())
+        String mc_n = userdata.getUserInGuild(event.getGuild().getId(), event.getMember().getId());
+        if(mc_n.isEmpty())
             return;
 
-        String old_n = event.getOldNickname();
         String new_n = event.getNewNickname();
 
-        if(old_n == null)
-            old_n = event.getUser().getName();
         if(new_n == null)
             new_n = event.getMember().getEffectiveName();
 
-        if(!Commands.getName(old_n).equals(Commands.getName(new_n))) {
+        if(!mc_n.equals(Commands.getName(new_n))) {
             try {
-                event.getMember().modifyNickname(old_n).queue();
+                event.getMember().modifyNickname(event.getOldNickname()).queue();
             } catch (HierarchyException | InsufficientPermissionException ignored) {}
 
             event.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + event.getGuild().getName() + " was reset due to it being incompatible with the username system.").queue());
