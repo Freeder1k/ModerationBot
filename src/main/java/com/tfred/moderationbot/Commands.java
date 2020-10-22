@@ -10,6 +10,7 @@ import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Date;
@@ -34,7 +35,7 @@ public class Commands {
      * @param leaderboards
      *          The {@link Leaderboards leaderboards data} to work with.
      */
-    public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData, Leaderboards leaderboards) {
+    public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
         Guild guild = event.getGuild();
         String guildID = guild.getId();
         TextChannel channel = event.getTextChannel();
@@ -43,8 +44,8 @@ public class Commands {
         Member member = message.getMember();
         if(member == null)
             return;
-
-
+        //TODO confid (and autoconfig)
+        //TODO embeds
         if (msg.equals("!help")) {
             channel.sendMessage("Help:\n" +
                     "__Moderator commands:__\n" +
@@ -52,10 +53,13 @@ public class Commands {
                     "-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n" +
                     "-``!getreactions <messageID> [channelID|channel Mention]``: get the reactions on a specified message. Please specify the channel ID or mention the channel if the message is in another channel.\n" +
                     "-``!nosalt``: toggle no salt mode.\n" +
-                    "-``!name <set|remove> [username] @user``: set a mc username of a user or remove a user from the system.\n" +
+                    "-``!name <set|remove> [username] <@user>``: set a mc username of a user or remove a user from the system.\n" +
                     "-``!updatenames``: look for name changes and update the nicknames of users.\n" +
-                    "-``!listnames [@role|roleID]``: list the names of members who are/aren't added to the username system with optional role requirement.\n" +
-                    "__Admin commands:__\n" +
+                    "-``!listnames [role]``: list the names of members who are/aren't added to the username system with optional role requirement.\n" +
+                    "-``!punish <user> <severity> [reason]``: see ``!help punish`` for more info.\n" +
+                    "-``!pardon <punishment ID|user> <y|n> [reason]``: see ``!help pardon`` for more info.\n" +
+                    "-``!modlogs <user>``: show a users punishment history.\n" +
+                    "\n__Admin commands:__\n" +
                     "-``!modrole <add|remove|list> [role]``: add/remove a mod role or list the mod roles for this server.\n" +
                     "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills).\n" +
                     "-``!updatelb``: updated the lb messages.\n" +
@@ -379,6 +383,164 @@ public class Commands {
                 channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
+        else if (msg.startsWith("!puunish ")) {
+            if(isModerator(guildID, member, serverdata)) {
+                channel.sendMessage("*Puunish???*").queue();
+            }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
+        }
+
+        else if (msg.startsWith("!punish ")) {
+            if(isModerator(guildID, member, serverdata)) {
+                String[] data = message.getContentRaw().split(" ");
+
+                if(data[1].equals("help")) {
+                    channel.sendMessage("Punish command help:\n" +
+                            "**Syntax:** ``!punish <@user> <severity> [reason]``.\n" +
+                            "-``@user`` can be either a user ping or a user id.\n" +
+                            "-``severity`` ranges from 1-6 or can be ``v`` for a vent punishment or ``n`` for a nickname punishment."
+                    ).queue();
+                    return;
+                }
+
+                if(data.length < 3) {
+                    channel.sendMessage("Insufficient amount of arguments!").queue();
+                    return;
+                }
+
+                Member m = guild.getMemberById(parseID(data[1]));
+                if(m == null) {
+                    channel.sendMessage("Invalid user.").queue();
+                    return;
+                }
+
+                if(data[2].length() != 1) {
+                    channel.sendMessage("Invalid severity type.").queue();
+                    return;
+                }
+                char sev = data[2].charAt(0);
+                if("123456vn".indexOf(sev) == -1){
+                    channel.sendMessage("Invalid severity type.").queue();
+                    return;
+                }
+
+                String reason = "None.";
+                if(data.length > 3) {
+                    StringBuilder r = new StringBuilder();
+                    for(int i = 3; i < data.length; i++) {
+                        r.append(data[i]);
+                    }
+                    reason = r.toString();
+                }
+
+                channel.sendMessage(Moderation.punish(m, sev, reason, member.getIdLong(), serverdata, punishmentHandler)).queue();
+
+            }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
+        }
+
+        else if (msg.startsWith("!pardon ") || msg.startsWith("!absolve ") || msg.startsWith("!acquit ")
+                || msg.startsWith("!exculpate ") || msg.startsWith("!exonerate ") || msg.startsWith("!vindicate ")) {
+            if(isModerator(guildID, member, serverdata)) {
+                String[] data = message.getContentRaw().split(" ");
+
+                if(data.length < 3) {
+                    channel.sendMessage("Insufficient amount of arguments!").queue();
+                    return;
+                }
+
+                String reason = "None.";
+                if(data.length > 3) {
+                    StringBuilder r = new StringBuilder();
+                    for(int i = 3; i < data.length; i++) {
+                        r.append(data[i]);
+                    }
+                    reason = r.toString();
+                }
+
+                long memberID = parseID(data[1]);
+                if(memberID == 0) {
+                    int id;
+                    try {
+                        id = Integer.parseInt(data[1]);
+                    } catch (NumberFormatException ignored) {
+                        channel.sendMessage("Invalid user or punishment ID.").queue();
+                        return;
+                    }
+                    channel.sendMessage(Moderation.stopPunishment(guild, id, reason, member.getIdLong(), serverdata)).queue();
+                }
+                else {
+                    List<Moderation.ActivePunishment> apList;
+                    try {
+                        apList = Moderation.getActivePunishments(guildID);
+                    } catch (IOException e) {
+                        channel.sendMessage("An IO exception occured while trying to read active punishments (<@470696578403794967>)! " + e.getMessage()).queue();
+                        return;
+                    }
+                    if(apList == null) {
+                        channel.sendMessage("No active punishments found for <@" + memberID + ">.").queue();
+                        return;
+                    }
+                    apList.removeIf(ap -> !ap.memberID.equals(String.valueOf(memberID)));
+                    if(apList.isEmpty()) {
+                        channel.sendMessage("No active punishments found for <@" + memberID + ">.").queue();
+                        return;
+                    }
+                    StringBuilder responses = new StringBuilder();
+                    for(Moderation.ActivePunishment ap: apList) {
+                        responses.append(Moderation.stopPunishment(guild, ap.punishment.id, reason, member.getIdLong(), serverdata)).append('\n');
+                    }
+                    channel.sendMessage(responses.toString()).queue();
+                }
+
+            }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
+
+        }
+
+        else if (msg.startsWith("!modlogs ")) {
+            if(isModerator(guildID, member, serverdata)) {
+                String[] data = message.getContentRaw().split(" ");
+                if(data.length != 2) {
+                    channel.sendMessage("Insufficient amount of arguments!").queue();
+                    return;
+                }
+
+                long memberID = parseID(data[1]);
+                if(memberID == 0) {
+                    channel.sendMessage("Invalid user.").queue();
+                    return;
+                }
+
+                List<Moderation.Punishment> pList;
+                try {
+                    pList = Moderation.getUserPunishments(guildID, String.valueOf(memberID));
+                } catch (IOException e) {
+                    channel.sendMessage("An IO error occurred while reading active.data (<@470696578403794967>)! " + e.getMessage()).queue();
+                    return;
+                }
+                if(pList == null) {
+                    channel.sendMessage("<@" + memberID + "> has not been punished yet.").queue();
+                }
+                else {
+                    StringBuilder sb = new StringBuilder().append("<@").append(memberID).append(">'s punishment history:\n");
+                    for(Moderation.Punishment p: pList) {
+                        sb.append(p.toString()).append('\n');
+                    }
+                    if(sb.length() > 2000)
+                        channel.sendMessage("Too many punishments to display (<@470696578403794967>)!").queue();
+                    else
+                        channel.sendMessage(sb.toString()).queue();
+                }
+            }
+            else
+                channel.sendMessage("You need to be a server moderator to use this command!").queue();
+
+        }
+
         /*
          * Admin commands
          */
@@ -534,15 +696,6 @@ public class Commands {
                 channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
-        else if (msg.equals("!forceupdate")) {
-            if(member.getId().equals("470696578403794967")) {
-                System.out.println("Force updating!");
-                ModerationBot.autoRunDaily();
-            }
-            else
-                channel.sendMessage("You do not have permission to run this command!").queue();
-        }
-
         else if (msg.startsWith("!eval ")) {
             if(member.getId().equals("470696578403794967")) {
                 ScriptEngineManager manager = new ScriptEngineManager();
@@ -619,6 +772,36 @@ public class Commands {
             name = nickname;
 
         return name;
+    }
+
+    /**
+     * Returns the ID of a string. This string can either be the raw ID or a discord mention.
+     *
+     * @param input
+     *          The input sting to be parsed.
+     * @return
+     *          The ID in the string.
+     */
+    public static long parseID(String input) {
+        if(input.startsWith("\\<"))
+            input = input.substring(1);
+        if(input.charAt(0) == '<' && input.charAt(input.length()-1) == '>') {
+            input = input.substring(1, input.length() - 1);
+            if (input.charAt(0) == '#')
+                input = input.substring(1);
+            if (input.charAt(0) == '@') {
+                input = input.substring(1);
+                if (input.charAt(0) == '!')
+                    input = input.substring(1);
+                else if (input.charAt(0) == '&')
+                    input = input.substring(1);
+            }
+        }
+        try {
+            return Long.parseLong(input);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
     }
 
     /**
@@ -729,4 +912,5 @@ public class Commands {
         if(channel != null)
             channel.sendMessage("Updated leaderboards.").queue();
     }
+
 }

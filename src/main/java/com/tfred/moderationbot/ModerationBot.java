@@ -4,6 +4,10 @@ import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
+import net.dv8tion.jda.api.events.DisconnectEvent;
+import net.dv8tion.jda.api.events.ReconnectedEvent;
+import net.dv8tion.jda.api.events.ResumedEvent;
+import net.dv8tion.jda.api.events.ShutdownEvent;
 import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.guild.member.update.GuildMemberUpdateNicknameEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
@@ -13,6 +17,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
+import org.jetbrains.annotations.NotNull;
 
 import javax.security.auth.login.LoginException;
 import java.time.DayOfWeek;
@@ -29,12 +34,25 @@ public class ModerationBot extends ListenerAdapter
     private static ServerData serverdata;
     private static UserData userdata;
     private static Leaderboards leaderboards;
-    private static JDA jda;
+    private static AutoRun autoRun;
+    private static Moderation.PunishmentHandler punishmentHandler;
 
     public static void main(String[] args)
     {
         System.out.println("Hello world but Frederik was here!");
 
+        serverdata = new ServerData();
+        userdata = new UserData();
+
+        leaderboards = new Leaderboards();
+        if(leaderboards.failed) {
+            System.out.println("Trying to initialize leaderboards again.");
+            leaderboards.updateLeaderboards();
+            if(!leaderboards.failed)
+                System.out.println("Finished reading saved leaderboards data!");
+        }
+
+        JDA jda;
         //We construct a builder for a BOT account. If we wanted to use a CLIENT account
         // we would use AccountType.CLIENT
         try
@@ -61,20 +79,12 @@ public class ModerationBot extends ListenerAdapter
             return;
         }
 
-        serverdata = new ServerData();
-        userdata = new UserData();
-
-        leaderboards = new Leaderboards();
-        if(leaderboards.failed) {
-            System.out.println("Trying to initialize leaderboards again.");
-            leaderboards.updateLeaderboards();
-            if(!leaderboards.failed)
-                System.out.println("Finished reading saved leaderboards data!");
-        }
-
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
-        
-        autoRunStart();
+
+        punishmentHandler = new Moderation.PunishmentHandler(jda, serverdata);
+        //TODO check active punishments
+
+        autoRun = new AutoRun(jda);
     }
 
 
@@ -131,8 +141,8 @@ public class ModerationBot extends ListenerAdapter
             System.out.printf("(%s)[%s]<%s>: %s\n", guild.getName(), textChannel.getName(), name, msg);
 
             //Process commands
-            if (msg.startsWith("!") && (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE)))
-                Commands.process(event, serverdata, userdata, leaderboards);
+            if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && !author.isBot())
+                Commands.process(event, serverdata, userdata, leaderboards, punishmentHandler);
 
             //Delete messages with salt emoji if nosalt is enabled
             else if (msg.contains("\uD83E\uDDC2"))
@@ -175,6 +185,8 @@ public class ModerationBot extends ListenerAdapter
 
         if(guild.getSelfMember().hasPermission(Permission.NICKNAME_MANAGE))
             user.modifyNickname(mcName).queue();
+
+        //TODO check if punished
     }
 
     /**
@@ -203,52 +215,105 @@ public class ModerationBot extends ListenerAdapter
         }
     }
 
-    private static void autoRunStart() {
-        ZonedDateTime now = ZonedDateTime.now();
-        ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
-        if(now.compareTo(RunHour) > 0)
-            RunHour = RunHour.plusDays(1);
-
-        Duration duration = Duration.between(now, RunHour);
-        long initialDelay = duration.getSeconds();
-
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-        scheduler.scheduleAtFixedRate(
-                () -> {
-                    try {
-                        autoRunDaily();
-                    }catch(Exception ex) {
-                        ex.printStackTrace(); //or logger would be better
-                    }
-                },
-                initialDelay,
-                TimeUnit.DAYS.toSeconds(1),
-                TimeUnit.SECONDS);
+    @Override
+    public void onResume(ResumedEvent event) {
+        autoRun.resume(event.getJDA());
+        punishmentHandler.resume(event.getJDA(), serverdata);
+        //TODO deal with stuff
     }
 
-    /**
-     * This method gets called daily and handles the daily username and weekly leaderboard updating.
-     */
-    public static void autoRunDaily() {
-        boolean weekly = false;
-        if(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
-            weekly = true;
+    @Override
+    public void onReconnect(ReconnectedEvent event) {
+        autoRun.resume(event.getJDA());
+        punishmentHandler.resume(event.getJDA(), serverdata);
+        //TODO deal with stuff
+    }
 
-        for(Guild guild: jda.getGuilds()) {
-            TextChannel channel;
+    @Override
+    public void onDisconnect(@NotNull DisconnectEvent event) {
+        autoRun.pause();
+        punishmentHandler.pause();
+        //TODO deal with stuff
+    }
+
+    @Override
+    public void onShutdown(@NotNull ShutdownEvent event) {
+        autoRun.stop();
+        punishmentHandler.stop();
+        //TODO stop scheduled punishment stops
+        System.out.println("Shutdown!");
+    }
+
+    private static class AutoRun {
+        private final ScheduledExecutorService scheduler;
+        private JDA jda;
+
+        AutoRun(JDA jda) {
+            this.jda = jda;
+
+            ZonedDateTime now = ZonedDateTime.now();
+            ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
+            if (now.compareTo(RunHour) > 0)
+                RunHour = RunHour.plusDays(1);
+
+            Duration duration = Duration.between(now, RunHour);
+            long initialDelay = duration.getSeconds();
+
+            scheduler = Executors.newScheduledThreadPool(1);
+            scheduler.scheduleAtFixedRate(
+                    () -> {
+                        try {
+                            autoRunDaily();
+                        } catch (Exception ex) {
+                            ex.printStackTrace(); //or logger would be better
+                        }
+                    },
+                    initialDelay,
+                    TimeUnit.DAYS.toSeconds(1),
+                    TimeUnit.SECONDS);
+        }
+
+        public void stop() {
             try {
-                channel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
-            } catch (IllegalArgumentException e) {
-                channel = null;
+                scheduler.shutdownNow(); //TODO deal with this better somehow
+            } catch (Exception ignored) {}
+        }
+
+        public void pause() {
+            try {
+                scheduler.wait();
+            } catch (InterruptedException ignored) {}
+        }
+
+        public void resume(JDA jda) {
+            this.jda = jda;
+            scheduler.notifyAll();
+        }
+
+        /**
+         * This method gets called daily and handles the daily username and weekly leaderboard updating.
+         */
+        private void autoRunDaily() {
+            boolean weekly = false;
+            if (ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
+                weekly = true;
+
+            for (Guild guild : jda.getGuilds()) {
+                TextChannel channel;
+                try {
+                    channel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
+                } catch (IllegalArgumentException e) {
+                    channel = null;
+                }
+
+                if (channel != null)
+                    channel.sendMessage("Daily update in progress...").complete();
+
+                Commands.updateNames(channel, userdata, guild);
+
+                if (weekly)
+                    Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);
             }
-
-            if(channel != null)
-                channel.sendMessage("Daily update in progress...").complete();
-
-            Commands.updateNames(channel, userdata, guild);
-
-            if(weekly)
-                Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);
         }
     }
 }
