@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 
 public class Commands {
     private static final String[] leaderboardNames = {"Hider Wins", "Hunter Wins", "Kills"};
+    private static final int defaultColor = 3603854;
 
     /**
      * The command processing function.
@@ -40,133 +42,246 @@ public class Commands {
         String guildID = guild.getId();
         TextChannel channel = event.getTextChannel();
         Message message = event.getMessage();
-        String msg = message.getContentDisplay();
-        Member member = message.getMember();
-        if(member == null)
+        String msg = message.getContentRaw();
+        Member sender = message.getMember();
+        if(sender == null)
             return;
-        //TODO confid (and autoconfig)
-        //TODO embeds
+        //TODO autoconfig
+        
         if (msg.equals("!help")) {
-            channel.sendMessage("Help:\n" +
-                    "__Moderator commands:__\n" +
-                    "-``!settings``: show the current settings for this server.\n" +
-                    "-``!delreaction <emoji> <amount>``: delete all reactions with a specified emoji <amount> messages back (max 100).\n" +
-                    "-``!getreactions <messageID> [channelID|channel Mention]``: get the reactions on a specified message. Please specify the channel ID or mention the channel if the message is in another channel.\n" +
-                    "-``!nosalt``: toggle no salt mode.\n" +
-                    "-``!name <set|remove> [username] <@user>``: set a mc username of a user or remove a user from the system.\n" +
-                    "-``!updatenames``: look for name changes and update the nicknames of users.\n" +
-                    "-``!listnames [role]``: list the names of members who are/aren't added to the username system with optional role requirement.\n" +
-                    "-``!punish <user> <severity> [reason]``: see ``!help punish`` for more info.\n" +
-                    "-``!pardon <punishment ID|user> <y|n> [reason]``: see ``!help pardon`` for more info.\n" +
-                    "-``!modlogs <user>``: show a users punishment history.\n" +
-                    "\n__Admin commands:__\n" +
-                    "-``!modrole <add|remove|list> [role]``: add/remove a mod role or list the mod roles for this server.\n" +
-                    "-``!lb <board>``: sends a message with a bh leaderboard corresponding to the lb number that can be updated with !updatelb. (0: hider, 1: hunter, 2: kills).\n" +
-                    "-``!updatelb``: updated the lb messages.\n" +
-                    "-``!setlogchannel``: set this channel to be the log channel for automatic updates.\n" +
-                    "-``!setjoinchannel``: set this channel to be the join channel for info on new joins."
-            ).queue();
+            channel.sendMessage(new EmbedBuilder().setTitle("**HELP:**").setColor(defaultColor)
+                    .setDescription("See: **!help <command>** for help on individual commands.\n")
+                    .addField("", "**```dsconfig\nMODERATOR COMMANDS:```**", true).addBlankField(true)
+                    .addField("**__!config__**",
+                            "- Show the current settings for this server.\n\n" +
+                            "**__!delreaction <emoji> <amount>__**\n- Delete all reactions with a specified emoji <amount> messages back (max 100).\n\n" +
+                            "**__!getreactions <messageID> [channel]__**\n- Get the reactions on a specified message.\n\n" +
+                            "**__!name <set|remove> <user> [username]__**\n- Set a mc username of a user or remove a user from the system.\n\n" +
+                            "**__!updatenames__**\n- Update the nickname of users who updated their minecraft ign.\n\n" +
+                            "**__!listnames [role]__**\n- List members separated by whether they have an associated minecraft username or not.\n\n" +
+                            "**__!punish <user> <severity> [reason]__**\n- Punish a user.\n\n" +
+                            "**__!pardon <punishment ID|user> <hide> [reason]__**\n- Pardon a user or punishment.\n\n" +
+                            "**__!modlogs <user>__**\n- Show a users punishment history.\n", false)
+                    .addField("", "**```autohotkey\nADMIN COMMANDS:```**", true).addBlankField(true).addBlankField(true)
+                    .addField("**__!config <option> <value> [action]__**",
+                            "- Modify a config option.\n\n" +
+                            "**__!lb <board>__**\n- Sends a message with a bh leaderboard (deletes any previous ones).\n\n" +
+                            "**__!updatelb__**\n- Updates the lb messages.", false)
+                    .addBlankField(true).addField("", new String(new char[23]).replace("\0", "\u200B "), true)
+                    .build()).queue();
+        }
+
+        else if(msg.startsWith("!help ")) {
+            String[] args = msg.split(" ");
+
+            if (args.length != 2) {
+                sendError(channel, "Invalid amount of arguments!");
+                return;
+            }
+
+            String usage;
+            String aliases = "";
+            String description;
+            String perms = "";
+
+            switch(args[1]) {
+                case "help": {
+                    usage = "!help [command]";
+                    description = "Displays the command list or info on a command if one is specified.";
+                    break;
+                }
+                case "config": {
+                    usage = "!config [<option> <value> [action]]";
+                    description = "View or modify the configuration for this guild.\nValid syntax:```\n" +
+                            "option:           │ value:  │ action:\n" +
+                            "——————————————————│—————————│————————————\n" +
+                            "nosalt            │ y|n     │\n" +
+                            "modrole           │ role    │ add|remove\n" +
+                            "memberrole        │ role    │\n" +
+                            "mutedrole         │ role    │\n" +
+                            "nonickrole        │ role    │\n" +
+                            "logchannel        │ channel │\n" +
+                            "joinchannel       │ channel │\n" +
+                            "punishmentchannel │ channel │\n" +
+                            "ventchannel       │ channel │```";
+                    break;
+                }
+                case "delreaction": {
+                    usage = "!delreaction <emoji> <amount>";
+                    description = "Deletes all reactions with a specified emoji <amount> messages back.\n" +
+                            "Due to limitations with discord the amount can only have a maximum value of 100.";
+                    perms = Permission.MESSAGE_MANAGE.toString();
+                    break;
+                }
+                case "getreactions": {
+                    usage = "!getreactions <messageID> [channel]";
+                    description = "Gets the reactions on a specified message.\n" +
+                            "If the message is in another channel the channel has to be specified too.";
+                    break;
+                }
+                case "name": {
+                    usage = "!name <set|remove> <user> [username]";
+                    description = "Set or remove the associated minecraft username.\n" +
+                            "The set option requires the username to be specified.";
+                    perms = Permission.NICKNAME_MANAGE.toString();
+                    break;
+                }
+                case "updatenames": {
+                    usage = "!updatenames";
+                    description = "Update the nickname of users with an associated minecraft name if it was changed.";
+                    perms = Permission.NICKNAME_MANAGE.toString();
+                    break;
+                }
+                case "listnames": {
+                    usage = "!listnames [role]";
+                    description = "List members separated by whether they have an associated minecraft username or not.\n" +
+                            "If a role is specified this will only list users with that role.";
+                    break;
+                }
+                case "punish": {
+                    usage = "!punish <user> <severity> [reason]";
+                    description = "Punish a user.\n" +
+                            "Allowed severities are numbers 1-6 or v for a vent channel ban or n to block them from changing their nickname.\n" +
+                            "These require certain config options to be set.";
+                    perms = Permission.MANAGE_ROLES.toString() + ", " +
+                            Permission.BAN_MEMBERS.toString();
+                    break;
+                }
+                case "pardon":
+                case "absolve":
+                case "acquit":
+                case "exculpate":
+                case "exonerate":
+                case "vindicate": {
+                    usage = "!" + args[1] + " <punishment ID|user> <hide> [reason]";
+                    description = "Pardon a user or punishment.\n" +
+                            "If a user is specified this pardons all active punishments for this user.\n" +
+                            "The hide option can be either ``y`` or ``n`` and specifies if the pardoned punishment(s) should impact the length of future punishments.";
+                    perms = Permission.MANAGE_ROLES.toString() + ", " +
+                            Permission.BAN_MEMBERS.toString();
+                    aliases = "pardon, absolve, acquit, exculpate, exonerate, vindicate";
+                    break;
+                }
+                case "modlogs": {
+                    usage = "!modlogs <user>";
+                    description = "Show a users punishment history.";
+                    break;
+                }
+                case "lb": {
+                    usage = "!lb <board>";
+                    description = " Sends a message with a Blockhunt leaderboard that gets updated weekly.\n" +
+                            "If there is an older message with the same board type that one gets deleted if possible." +
+                            "Valid boards are:" +
+                            "``0`` - Hider wins" +
+                            "``1`` - Hunter wins" +
+                            "``2`` - Kills";
+                    break;
+                }
+                case "updatelb": {
+                    usage = "!updatelb";
+                    description = "Updates the lb messages.\n" +
+                            "This only really does anything if the bot failed to fetch the new leaderboard data or if it failed to edit a leaderboard message during the last weekly update.";
+                    break;
+                }
+                default:
+                    sendError(channel, "Unknown command. See ``!help`` for a list of commands.");
+                    return;
+            }
+            EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor)
+                    .setTitle("!" + args[1] + " info:")
+                    .addField("Usage:", "``" + usage + "``", false);
+            if(!aliases.isEmpty())
+                eb.addField("Aliases:", aliases, false);
+            eb.addField("Description:", description, false);
+            if(!perms.isEmpty())
+                eb.addField("Required permissions:", perms, false);
+            channel.sendMessage(eb.build()).queue();
         }
 
         /*
          * Moderator commands
          */
         else if (msg.startsWith("!delreaction ")) {
-            if(isModerator(guildID, member, serverdata)) {
-                if (checkPerms(channel, Permission.MESSAGE_MANAGE, Permission.MESSAGE_HISTORY))
+            if(isModerator(guildID, sender, serverdata)) {
+                if (checkPerms(channel, channel, Permission.MESSAGE_MANAGE, Permission.MESSAGE_HISTORY))
                     return;
 
                 String[] args = msg.split(" ");
 
                 if (args.length != 3) {
-                    channel.sendMessage("Invalid amount of arguments!").queue();
+                    sendError(channel, "Invalid amount of arguments!");
                     return;
                 }
 
                 String emoji = args[1];
-
-                List<Emote> customEmojis = message.getEmotes();
-                final Emote customEmoji;
-                if (!customEmojis.isEmpty())
-                    customEmoji = customEmojis.get(0);
-                else
-                    customEmoji = null;
+                if(emoji.charAt(0) == '<') {
+                    emoji = emoji.substring(1, emoji.length()-1);
+                    if(emoji.charAt(0) == 'a')
+                        emoji = emoji.substring(1);
+                }
 
                 int amount;
                 try {
                     amount = Integer.parseInt(args[2]);
                 } catch (NumberFormatException e) {
-                    channel.sendMessage("Error parsing amount!").queue();
+                    sendError(channel, "Error parsing amount!");
                     return;
                 }
                 if (amount > 100 || amount < 1) {
-                    channel.sendMessage("Amount must be in range 1-100!").queue();
+                    sendError(channel, "Amount must be in range 1-100!");
                     return;
                 }
-
-                if (customEmoji == null) {
-                    message.clearReactions(emoji).queue((a) -> {
-                        System.out.println(a);
-                        channel.getHistory().retrievePast(amount).queue((messages) -> {
-                            for(Message m: messages)
-                                m.clearReactions(emoji).queue();
-                        });
-                        channel.sendMessage("Removing reactions with " + emoji + " on " + amount + " messages.").queue();
-                    }, (failure) -> {
-                        if (failure instanceof ErrorResponseException) {
-                            channel.sendMessage("Unknown emoji: ``" + emoji + "``! If you don't have access to the emoji send it in the format ``:emoji:id``. Example: ``:test:756833424655777842``.").queue();
+                String finalEmoji = emoji;
+                message.clearReactions(emoji).queue((success) -> {
+                    EmbedBuilder eb = new EmbedBuilder()
+                            .setColor(3901635)
+                            .setDescription("ℹ️ Removing reactions with " + finalEmoji + " on " + amount + " messages...");
+                    channel.sendMessage(eb.build()).queue((sentMessage) -> channel.getHistory().retrievePast(amount).queue((messages) -> {
+                        int i = 1;
+                        for (Message m : messages) {
+                            int finalI = i;
+                            m.clearReactions(finalEmoji).queue((ignored) -> {
+                                if (finalI == amount) {
+                                    sentMessage.delete().queue();
+                                    sendSuccess(channel, "✅ Removed reactions with " + finalEmoji + " on " + amount + " messages.");
+                                }
+                            });
+                            i++;
                         }
-                    });
-                }
-                else {
-                    channel.getHistory().retrievePast(amount).queue((messages) -> {
-                        for(Message m: messages)
-                            m.clearReactions(customEmoji).queue();
-                    });
-                    channel.sendMessage("Removing reactions with ``" + emoji + customEmoji.getId() + "`` on " + amount + " messages.").queue();
-                }
+                    }));
+                }, (failure) -> {
+                    if (failure instanceof ErrorResponseException) {
+                        sendError(channel, "Unknown emoji: ``" + finalEmoji + "``!\n If you don't have access to the emoji send it in the format ``:emoji:id``. Example: ``:test:756833424655777842``.");
+                    } else
+                        sendError(channel, "An internal error occurred! Please try again later.");
+                });
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!getreactions ")) {
-            if(isModerator(guildID, member, serverdata)) {
+            if(isModerator(guildID, sender, serverdata)) {
                 String[] args = msg.split(" ");
                 if(args.length < 2) {
-                    channel.sendMessage("Invalid amount of arguments!").queue();
+                    sendError(channel, "Invalid amount of arguments!");
                     return;
                 }
                 String msgID = args[1];
 
-                TextChannel c = null;
-                if(args.length > 2) {
-                    if(args[2].startsWith("#")) {
-                        try {
-                            c = message.getMentionedChannels().get(0);
-                        } catch (IndexOutOfBoundsException e) {
-                            channel.sendMessage("Invalid channel mention!").queue();
-                        }
-                    }
-                    else {
-                        try {
-                            c = guild.getTextChannelById(args[2]);
-                        } catch (NumberFormatException e) {
-                            channel.sendMessage("Couldn't find the specified channel!").queue();
-                            return;
-                        }
-                    }
-                }
+                TextChannel c;
+                if(args.length > 2)
+                    c = guild.getTextChannelById(parseID(args[2]));
                 else
                     c = channel;
                 if(c == null) {
-                    channel.sendMessage("Couldn't find the specified channel!").queue();
+                    sendError(channel, "Couldn't find the specified channel!");
                     return;
                 }
 
+                if (checkPerms(channel, c, Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY))
+                    return;
+
                 try {
                     c.retrieveMessageById(msgID).queue((m) -> {
-                        // use the message here, its an async callback
                         List<MessageReaction> reactions = m.getReactions();
                         List<String> emojis = new ArrayList<>();
                         for (MessageReaction r : reactions) {
@@ -178,159 +293,139 @@ public class Commands {
                                 emoji = reactionEmote.getName();
                             emojis.add(emoji);
                         }
-                        channel.sendMessage("Reactions: " + emojis + ".").queue();
+                        channel.sendMessage(new EmbedBuilder().setColor(defaultColor)
+                                .setTitle("Reactions:")
+                                .setDescription(emojis.stream().map(e -> "• " + e).collect(Collectors.joining("\n")) + "\n\n[Message link](" + m.getJumpUrl() + ")")
+                                .build()).queue();
                     }, (failure) -> {
-                        // if the retrieve request failed this will be called (also async)
                         if (failure instanceof ErrorResponseException) {
-                            channel.sendMessage("Couldn't find the specified message!").queue();
+                            sendError(channel, "Couldn't find the specified message!");
                         }
                     });
                 } catch (InsufficientPermissionException e) {
-                    channel.sendMessage("Cannot perform action due to lack of permission in " + c.getAsMention() + "! Missing permission: " + e.getPermission().toString()).queue();
+                    sendError(channel, "Cannot perform action due to lack of permission in " + c.getAsMention() + "! Missing permission: " + e.getPermission().toString());
                 }
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
-        }
-
-        else if (msg.equals("!nosalt")) {
-            if(isModerator(guildID, member, serverdata)) {
-                if(checkPerms(channel, Permission.MESSAGE_MANAGE))
-                    return;
-
-                if (serverdata.isNoSalt(guildID)) {
-                    serverdata.setNoSalt(guildID, false);
-                    channel.sendMessage("No salt mode disabled.").queue();
-                } else {
-                    serverdata.setNoSalt(guildID, true);
-                    channel.sendMessage("No salt mode enabled!").queue();
-                }
-            }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!name ")) {
-            if(isModerator(guildID, member, serverdata)) {
+            if(isModerator(guildID, sender, serverdata)) {
+                if(checkPerms(channel, null, Permission.NICKNAME_MANAGE))
+                    return;
+
                 String[] args = msg.split(" ");
 
                 if(args.length < 3) {
-                    channel.sendMessage("Insufficient amount of arguments!").queue();
+                    sendError(channel, "Insufficient amount of arguments!");
                     return;
                 }
 
-                Member member1;
-                try {
-                    member1 = message.getMentionedMembers().get(0);
-                } catch (IndexOutOfBoundsException e) {
-                    channel.sendMessage("Please mention a member!").queue();
+                Member member = parseMember(guild, args[1]);
+                if(member == null) {
+                    sendError(channel, "Invalid user.");
                     return;
                 }
 
                 if (args[1].equals("set")) {
-                    if(userData.setUserInGuild(guildID, member1, args[2]) == 1)
-                        channel.sendMessage("Set " + args[2] + " as username of " + member1.getEffectiveName() + ".").queue();
+                    if(args.length < 4) {
+                        sendError(channel, "Insufficient amount of arguments!");
+                        return;
+                    }
+                    int returned = userData.setUserInGuild(guildID, member, args[3]);
+                    if(returned == 1)
+                        sendSuccess(channel, "Set ``" + args[3] + "`` as username of " + member.getAsMention() + ".");
+                    else if(returned == 0)
+                        sendError(channel, "``" + args[3] + "`` isn't a valid Minecraft username!");
                     else
-                        channel.sendMessage(args[2] + " isn't a valid Minecraft username!").queue();
+                        sendError(channel, "An error occurred. Please try again later.");
                 } else if (args[1].equals("remove")) {
-                    userData.removeUserFromGuild(guildID, member1.getUser().getId());
-                    channel.sendMessage("Removed " + member1.getEffectiveName() + "'s username.").queue();
+                    userData.removeUserFromGuild(guildID, member.getUser().getId());
+                    sendSuccess(channel, "Removed " + member.getAsMention() + "'s username.");
                 } else
-                    channel.sendMessage("Unknown action! Allowed actions: ``set, remove``.").queue();
+                    sendError(channel, "Unknown action! Allowed actions: ``set, remove``.");
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.equals("!updatenames")) {
-            if(isModerator(guildID, member, serverdata))
+            if(isModerator(guildID, sender, serverdata))
                 updateNames(channel, userData, guild);
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!listnames")) {
-            if(isModerator(guildID, member, serverdata)) {
+            if(isModerator(guildID, sender, serverdata)) {
                 String[] args = msg.split(" ");
 
                 List<Member> members;
 
                 if(args.length > 1) {
-                    Role r;
-                    try {
-                        r = message.getMentionedRoles().get(0);
+                    Role r = guild.getRoleById(parseID(args[1]));
+                    if(r == null)
+                        members = guild.getMembers();
+                    else
                         members = guild.getMembersWithRoles(r);
-                    } catch (IndexOutOfBoundsException e1) {
-                        try {
-                            r = guild.getRoleById(args[1]);
-                            if(r == null)
-                                members = guild.getMembers();
-                            else
-                                members = guild.getMembersWithRoles(r);
-                        } catch (NumberFormatException e2) {
-                            members = guild.getMembers();
-                        }
-                    }
                 }
                 else
                     members = guild.getMembers();
 
-                List<String> parts1 = new ArrayList<>();    //all members that are saved
-                List<String> parts2 = new ArrayList<>();    //all members that arent saved
+                List<String> parts1 = new LinkedList<>();    //all members that are saved
+                List<String> parts2 = new LinkedList<>();    //all members that arent saved
                 StringBuilder current1 = new StringBuilder();
                 StringBuilder current2 = new StringBuilder();
+                int length1 = 12;
+                int length2 = 33;
 
                 List<String> ids = userData.getGuildSavedUserIds(guildID);
                 for(Member m: members) {
+                    String mention = '\n' + m.getAsMention();
                     if(ids.contains(m.getUser().getId())) {
-                        if(current1.length() > 950) {
+                        if(current1.length() + mention.length() > 1024) {
                             parts1.add(current1.toString());
+                            length1 += current1.length();
                             current1.setLength(0);
                         }
-                        current1.append("\n").append(m.getAsMention());
+                        current1.append(mention);
                     }
                     else {
-                        if(current2.length() > 950) {
+                        if(current2.length() + mention.length() > 1024) {
                             parts2.add(current2.toString());
+                            length2 += current2.length();
                             current2.setLength(0);
                         }
-                        current2.append("\n").append(m.getAsMention());
+                        current2.append(mention);
                     }
                 }
                 parts1.add(current1.toString());
                 parts2.add(current2.toString());
 
-                if((parts1.size() > 6) || (parts2.size() > 6)) {
-                    channel.sendMessage("Too many members to display! Ask the bot dev to change something.").queue();
+                if(length1 > 6000 || length2 > 6000) {
+                    sendError(channel, "Too many members to display! Ask <@470696578403794967> to change something.");
                     return;
                 }
 
-                EmbedBuilder eb1 = new EmbedBuilder();
+                EmbedBuilder eb1 = new EmbedBuilder().setColor(defaultColor);
                 if(parts1.isEmpty())
-                    parts1.add("**none**");
-                eb1.addField("Saved users:", parts1.remove(0), true);
+                    parts1.add("None.");
+                eb1.addField("Added users:", parts1.remove(0), true);
                 for(String s: parts1) {
                     eb1.addField("", s, true);
                 }
                 channel.sendMessage(eb1.build()).queue();
 
-                EmbedBuilder eb2 = new EmbedBuilder();
+                EmbedBuilder eb2 = new EmbedBuilder().setColor(defaultColor);
                 if(parts2.isEmpty())
-                    parts2.add("**none**");
+                    parts2.add("None.");
                 eb2.addField("Users who haven't been added yet:", parts2.remove(0), true);
                 for(String s: parts2) {
                     eb2.addField("", s, true);
                 }
                 channel.sendMessage(eb2.build()).queue();
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
-        else if (msg.equals("!settings")) {
-            if(isModerator(guildID, member, serverdata)) {
+        else if (msg.equals("!config")) {
+            if(isModerator(guildID, sender, serverdata)) {
                 EmbedBuilder embedBuilder = new EmbedBuilder();
-                embedBuilder.setTitle("__Settings for " + guild.getName() + ":__");
+                embedBuilder.setTitle("__Settings for " + guild.getName() + ":__").setColor(defaultColor);
 
 
                 String saltMode = serverdata.isNoSalt(guildID)? "✅ ``Enabled``": "❌ ``Disabled``";
@@ -384,237 +479,355 @@ public class Commands {
         }
 
         else if (msg.startsWith("!puunish ")) {
-            if(isModerator(guildID, member, serverdata)) {
+            if(isModerator(guildID, sender, serverdata)) {
                 channel.sendMessage("*Puunish???*").queue();
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!punish ")) {
-            if(isModerator(guildID, member, serverdata)) {
-                String[] data = message.getContentRaw().split(" ");
+            if(isModerator(guildID, sender, serverdata)) {
+                String[] args = message.getContentRaw().split(" ");
 
-                if(data[1].equals("help")) {
-                    channel.sendMessage("Punish command help:\n" +
-                            "**Syntax:** ``!punish <@user> <severity> [reason]``.\n" +
-                            "-``@user`` can be either a user ping or a user id.\n" +
-                            "-``severity`` ranges from 1-6 or can be ``v`` for a vent punishment or ``n`` for a nickname punishment."
-                    ).queue();
+                if (args.length < 3) {
+                    sendError(channel, "Insufficient amount of arguments!");
                     return;
                 }
 
-                if(data.length < 3) {
-                    channel.sendMessage("Insufficient amount of arguments!").queue();
+                Member member = parseMember(guild, args[1]);
+                if (member == null) {
+                    sendError(channel, "Invalid user.");
                     return;
                 }
 
-                Member m = guild.getMemberById(parseID(data[1]));
-                if(m == null) {
-                    channel.sendMessage("Invalid user.").queue();
+                if (args[2].length() != 1) {
+                    sendError(channel, "Invalid severity type.");
                     return;
                 }
-
-                if(data[2].length() != 1) {
-                    channel.sendMessage("Invalid severity type.").queue();
-                    return;
-                }
-                char sev = data[2].charAt(0);
-                if("123456vn".indexOf(sev) == -1){
-                    channel.sendMessage("Invalid severity type.").queue();
+                char sev = args[2].charAt(0);
+                if ("123456vn".indexOf(sev) == -1) {
+                    sendError(channel, "Invalid severity type.");
                     return;
                 }
 
                 String reason = "None.";
-                if(data.length > 3) {
+                if (args.length > 3) {
                     StringBuilder r = new StringBuilder();
-                    for(int i = 3; i < data.length; i++) {
-                        r.append(data[i]);
+                    for (int i = 3; i < args.length; i++) {
+                        r.append(args[i]).append(' ');
                     }
+                    r.setLength(r.length() - 1);
                     reason = r.toString();
                 }
 
-                channel.sendMessage(Moderation.punish(m, sev, reason, member.getIdLong(), serverdata, punishmentHandler)).queue();
-
+                String response = Moderation.punish(member, sev, reason, sender.getIdLong(), serverdata, punishmentHandler);
+                if(response.startsWith("Muted") ||response.startsWith("Banned") ||response.startsWith("Removed"))
+                    sendSuccess(channel, response);
+                else
+                    sendError(channel, response);
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
         }
 
         else if (msg.startsWith("!pardon ") || msg.startsWith("!absolve ") || msg.startsWith("!acquit ")
                 || msg.startsWith("!exculpate ") || msg.startsWith("!exonerate ") || msg.startsWith("!vindicate ")) {
-            if(isModerator(guildID, member, serverdata)) {
-                String[] data = message.getContentRaw().split(" ");
+            if(isModerator(guildID, sender, serverdata)) {
+                String[] args = message.getContentRaw().split(" ");
 
-                if(data.length < 3) {
-                    channel.sendMessage("Insufficient amount of arguments!").queue();
+                if(args.length < 3) {
+                    sendError(channel, "Insufficient amount of arguments!");
                     return;
                 }
 
                 String reason = "None.";
-                if(data.length > 3) {
+                if(args.length > 3) {
                     StringBuilder r = new StringBuilder();
-                    for(int i = 3; i < data.length; i++) {
-                        r.append(data[i]);
+                    for(int i = 3; i < args.length; i++) {
+                        r.append(args[i]).append(' ');
                     }
+                    r.setLength(r.length()-1);
                     reason = r.toString();
                 }
 
-                long memberID = parseID(data[1]);
-                if(memberID == 0) {
-                    int id;
-                    try {
-                        id = Integer.parseInt(data[1]);
-                    } catch (NumberFormatException ignored) {
-                        channel.sendMessage("Invalid user or punishment ID.").queue();
+                Member member = parseMember(guild, args[1]);
+                long memberID;
+                if (member == null) {
+                    if(args[1].length() > 10) {
+                        try {
+                            memberID = Long.parseLong(args[1]);
+                        } catch (NumberFormatException ignored) {
+                            sendError(channel, "Invalid user or punishment ID.");
+                            return;
+                        }
+                    }
+                    else {
+                        int id;
+                        try {
+                            id = Integer.parseInt(args[1]);
+                        } catch (NumberFormatException ignored) {
+                            sendError(channel, "Invalid user or punishment ID.");
+                            return;
+                        }
+                        String response = Moderation.stopPunishment(guild, id, reason, sender.getIdLong(), serverdata, false);
+                        if(response.startsWith("Unmuted") ||response.startsWith("Unbanned") ||response.startsWith("Removed") ||response.startsWith("Added"))
+                            sendSuccess(channel, response);
+                        else
+                            sendError(channel, response);
                         return;
                     }
-                    channel.sendMessage(Moderation.stopPunishment(guild, id, reason, member.getIdLong(), serverdata)).queue();
                 }
-                else {
-                    List<Moderation.ActivePunishment> apList;
-                    try {
-                        apList = Moderation.getActivePunishments(guildID);
-                    } catch (IOException e) {
-                        channel.sendMessage("An IO exception occured while trying to read active punishments (<@470696578403794967>)! " + e.getMessage()).queue();
-                        return;
-                    }
-                    if(apList == null) {
-                        channel.sendMessage("No active punishments found for <@" + memberID + ">.").queue();
-                        return;
-                    }
-                    apList.removeIf(ap -> !ap.memberID.equals(String.valueOf(memberID)));
-                    if(apList.isEmpty()) {
-                        channel.sendMessage("No active punishments found for <@" + memberID + ">.").queue();
-                        return;
-                    }
-                    StringBuilder responses = new StringBuilder();
-                    for(Moderation.ActivePunishment ap: apList) {
-                        responses.append(Moderation.stopPunishment(guild, ap.punishment.id, reason, member.getIdLong(), serverdata)).append('\n');
-                    }
-                    channel.sendMessage(responses.toString()).queue();
-                }
+                else
+                    memberID = member.getIdLong();
 
+                List<Moderation.ActivePunishment> apList;
+                try {
+                    apList = Moderation.getActivePunishments(guildID);
+                } catch (IOException e) {
+                    sendError(channel, "An IO exception occurred while trying to read active punishments! " + e.getMessage());
+                    channel.sendMessage("<@470696578403794967>").queue();
+                    return;
+                }
+                if (apList == null) {
+                    sendError(channel, "No active punishments found for <@" + memberID + ">.");
+                    return;
+                }
+                long finalMemberID = memberID; //idk why but intelliJ said I should do this
+                apList.removeIf(ap -> !ap.memberID.equals(String.valueOf(finalMemberID)));
+                if (apList.isEmpty()) {
+                    channel.sendMessage("No active punishments found for <@" + memberID + ">.").queue();
+                    return;
+                }
+                int failstate = 0;
+                StringBuilder responses = new StringBuilder();
+                for (Moderation.ActivePunishment ap : apList) {
+                    String response = Moderation.stopPunishment(guild, ap.punishment.id, reason, sender.getIdLong(), serverdata, true);
+                    if(response.startsWith("Unmuted") ||response.startsWith("Unbanned") ||response.startsWith("Removed") ||response.startsWith("Added")) {
+                        if (failstate == 0)
+                            failstate = 1;
+                        if(failstate == 2)
+                            failstate = 3;
+                        responses.append("✅ ").append(response).append("\n\n");
+                    }
+                    else {
+                        if (failstate == 0)
+                            failstate = 2;
+                        if(failstate == 1)
+                            failstate = 3;
+                        responses.append("❌ ").append(response).append("\n\n");
+                    }
+                }
+                responses.setLength(responses.length()-2);
+
+                EmbedBuilder eb = new EmbedBuilder().setDescription(responses.toString());
+                switch (failstate) {
+                    case 1:
+                        eb.setColor(7844437);
+                        break;
+                    case 2:
+                        eb.setColor(14495300);
+                        break;
+                    case 3:
+                        eb.setColor(3901635);
+                        break;
+                }
+                channel.sendMessage(eb.build()).queue();
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
-
         }
 
         else if (msg.startsWith("!modlogs ")) {
-            if(isModerator(guildID, member, serverdata)) {
-                String[] data = message.getContentRaw().split(" ");
-                if(data.length != 2) {
-                    channel.sendMessage("Insufficient amount of arguments!").queue();
+            if(isModerator(guildID, sender, serverdata)) {
+                String[] args = message.getContentRaw().split(" ");
+                if(args.length != 2) {
+                    sendError(channel, "Please specify a user.");
                     return;
                 }
 
-                long memberID = parseID(data[1]);
-                if(memberID == 0) {
-                    channel.sendMessage("Invalid user.").queue();
-                    return;
+                Member member = parseMember(guild, args[1]);
+                long memberID;
+                if (member == null) {
+                    try {
+                        memberID = Long.parseLong(args[1]);
+                    } catch (NumberFormatException ignored) {
+                        sendError(channel, "Invalid user.");
+                        return;
+                    }
                 }
+                else
+                    memberID = member.getIdLong();
 
                 List<Moderation.Punishment> pList;
                 try {
                     pList = Moderation.getUserPunishments(guildID, String.valueOf(memberID));
                 } catch (IOException e) {
-                    channel.sendMessage("An IO error occurred while reading active.data (<@470696578403794967>)! " + e.getMessage()).queue();
+                    sendError(channel, "An IO error occurred while reading active.data! " + e.getMessage());
+                    channel.sendMessage("<@470696578403794967>").queue();
                     return;
                 }
                 if(pList == null) {
-                    channel.sendMessage("<@" + memberID + "> has not been punished yet.").queue();
+                    sendInfo(channel, "No logs found for <@" + memberID + ">.");
                 }
-                else {
-                    StringBuilder sb = new StringBuilder().append("<@").append(memberID).append(">'s punishment history:\n");
+                else {//TODO refine this
+                    StringBuilder sb = new StringBuilder().append("**<@").append(memberID).append(">'s punishment history:**\n");
                     for(Moderation.Punishment p: pList) {
                         sb.append(p.toString()).append('\n');
                     }
-                    if(sb.length() > 2000)
-                        channel.sendMessage("Too many punishments to display (<@470696578403794967>)!").queue();
+                    if(sb.length() > 2000) {
+                        sendError(channel, "Too many punishments to display!");
+                        channel.sendMessage("<@470696578403794967>").queue();
+                    }
                     else
-                        channel.sendMessage(sb.toString()).queue();
+                        sendSuccess(channel, sb.toString());
                 }
             }
-            else
-                channel.sendMessage("You need to be a server moderator to use this command!").queue();
-
         }
 
         /*
          * Admin commands
          */
-        else if (msg.startsWith("!modrole ")) {
-            if(member.hasPermission(Permission.ADMINISTRATOR)) {
+        else if (msg.startsWith("!config ")) {
+            if(sender.hasPermission(Permission.ADMINISTRATOR)) {
                 String[] args = msg.split(" ");
 
-                if(args.length < 2) {
-                    channel.sendMessage("Invalid amount of arguments!").queue();
+                if(args.length < 3) {
+                    sendError(channel, "Insufficient amount of arguments!");
                     return;
                 }
 
-                if(args[1].equals("list")) {
-                    List<String> roles = serverdata.getModRoles(guildID);
+                switch (args[1]) {
+                    case "nosalt": {
+                        if (checkPerms(channel, null, Permission.MESSAGE_MANAGE))
+                            return;
 
-                    if(roles == null || roles.isEmpty()) {
-                        channel.sendMessage("There are no moderator roles.").queue();
-                        return;
+                        boolean value = args[2].equals("y");
+                        if (!value && !args[2].equals("n")) {
+                            sendError(channel, "Invalid value! Value must be either ``y`` or ``n``.");
+                            return;
+                        }
+
+                        if (value) {
+                            serverdata.setNoSalt(guildID, true);
+                            sendSuccess(channel, "No salt mode enabled.");
+                        } else {
+                            serverdata.setNoSalt(guildID, false);
+                            sendSuccess(channel, "No salt mode disabled.");
+                        }
+                        break;
                     }
+                    case "modrole": {
+                        if (args.length < 4) {
+                            sendError(channel, "Insufficient amount of arguments!");
+                            return;
+                        }
+                        long id = parseID(args[2]);
+                        Role r = guild.getRoleById(id);
+                        if (r == null) {
+                            sendError(channel, "Invalid role!");
+                            return;
+                        }
 
-                    StringBuilder res = new StringBuilder();
-                    for(String s: roles) {
-                        Role r = event.getGuild().getRoleById(s);
-                        if(r != null)
-                            res.append(", ``").append(r.getName()).append("``");
+                        if (args[2].equals("add")) {
+                            serverdata.addModRole(guildID, String.valueOf(id));
+                            sendSuccess(channel, "Added <@&" + id + "> to moderator roles.");
+                        } else if (args[1].equals("remove")) {
+                            serverdata.removeModRole(guildID, r.getId());
+                            sendSuccess(channel, "Removed <@&" + id + "> from moderator roles.");
+                        } else
+                            sendError(channel, "Unknown action! Allowed actions: ``add, remove``.");
+                        break;
                     }
-                    res.deleteCharAt(0);    //delete first comma since its abundant
-
-                    channel.sendMessage("Moderator roles:" + res.toString() + ".").queue();
-                    return;
+                    case "memberrole": {
+                        Role r = guild.getRoleById(parseID(args[2]));
+                        if (r == null) {
+                            sendError(channel, "Invalid role!");
+                            return;
+                        }
+                        serverdata.setMemberRoleID(guildID, r.getId());
+                        sendSuccess(channel, "Set the member role to <@&" + r.getId() + ">.");
+                        break;
+                    }
+                    case "mutedrole": {
+                        Role r = guild.getRoleById(parseID(args[2]));
+                        if (r == null) {
+                            sendError(channel, "Invalid role!");
+                            return;
+                        }
+                        serverdata.setMutedRoleID(guildID, r.getId());
+                        sendSuccess(channel, "Set the muted role to <@&" + r.getId() + ">.");
+                        break;
+                    }
+                    case "nonickrole": {
+                        Role r = guild.getRoleById(parseID(args[2]));
+                        if (r == null) {
+                            sendError(channel, "Invalid role!");
+                            return;
+                        }
+                        serverdata.setNoNickRoleID(guildID, r.getId());
+                        sendSuccess(channel, "Set the no nickname role to <@&" + r.getId() + ">.");
+                        break;
+                    }
+                    case "logchannel": {
+                        TextChannel c = guild.getTextChannelById(parseID(args[2]));
+                        if (c == null) {
+                            sendError(channel, "Invalid channel!");
+                            return;
+                        }
+                        serverdata.setLogChannelID(guildID, c.getId());
+                        sendSuccess(channel, "Set the log channel to <#" + c.getId() + ">.");
+                        break;
+                    }
+                    case "joinchannel": {
+                        TextChannel c = guild.getTextChannelById(parseID(args[2]));
+                        if (c == null) {
+                            sendError(channel, "Invalid channel!");
+                            return;
+                        }
+                        serverdata.setJoinChannelID(guildID, c.getId());
+                        sendSuccess(channel, "Set the join channel to <#" + c.getId() + ">.");
+                        break;
+                    }
+                    case "punishmentchannel": {
+                        TextChannel c = guild.getTextChannelById(parseID(args[2]));
+                        if (c == null) {
+                            sendError(channel, "Invalid channel!");
+                            return;
+                        }
+                        serverdata.setPunishmentChannelID(guildID, c.getId());
+                        sendSuccess(channel, "Set the punishment channel to <#" + c.getId() + ">.");
+                        break;
+                    }
+                    case "ventchannel": {
+                        TextChannel c = guild.getTextChannelById(parseID(args[2]));
+                        if (c == null) {
+                            sendError(channel, "Invalid channel!");
+                            return;
+                        }
+                        serverdata.setVentChannelID(guildID, c.getId());
+                        sendSuccess(channel, "Set the vent channel to <#" + c.getId() + ">.");
+                        break;
+                    }
                 }
-
-                Role role;
-                try {
-                    role = message.getMentionedRoles().get(0);
-                } catch (IndexOutOfBoundsException e) {
-                    channel.sendMessage("Please mention a role!").queue();
-                    return;
-                }
-
-                if (args[1].equals("add")) {
-                    serverdata.addModRole(guildID, role.getId());
-                    channel.sendMessage("Added " + role.getName() + " to moderator roles.").queue();
-                } else if(args[1].equals("remove")) {
-                    serverdata.removeModRole(guildID, role.getId());
-                    channel.sendMessage("Removed " + role.getName() + " from moderator roles.").queue();
-                } else
-                    channel.sendMessage("Unknown action. Allowed actions: ``add, remove, list``.").queue();
             }
-            else
-                channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
         else if (msg.startsWith("!lb ")) {
-            if((member.hasPermission(Permission.ADMINISTRATOR))) {
+            if((sender.hasPermission(Permission.ADMINISTRATOR))) {
                 if (msg.length() != 5) {
-                    channel.sendMessage("Single number argument required.").queue();
+                    sendError(channel, "Single number argument required.");
                     return;
                 }
                 char board = msg.charAt(4);
                 if (!((board == '0') || (board == '1') || (board == '2'))) {
-                    channel.sendMessage("Board number must be between 0 and 2!").queue();
+                    sendError(channel, "Board number must be between 0 and 2!");
                     return;
                 }
                 int boardNum = Character.getNumericValue(board);
 
                 if (leaderboards.failed) {
-                    channel.sendMessage("Leaderboard data invalid! Please try using ``!updatelb`` to fix the data.").queue();
+                    sendError(channel, "Leaderboard data invalid! Please try using ``!updatelb`` to fix the data.");
                     return;
                 }
 
                 List<String> lb = leaderboards.lbToString(boardNum, guildID, userData);
 
-                EmbedBuilder eb = new EmbedBuilder();
+                EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
                 eb.addField(leaderboardNames[boardNum] + " Leaderboard:", lb.remove(0), false);
                 for (String s : lb) {
                     eb.addField("", s, false);
@@ -622,42 +835,36 @@ public class Commands {
                 eb.setFooter("Last update ");
                 eb.setTimestamp(new Date(leaderboards.getDate()).toInstant());
 
+                String[] messageData = serverdata.getAllLbData(guildID)[boardNum];
+
                 channel.sendMessage(eb.build()).queue((m) -> serverdata.setLbData(guildID, boardNum, channel.getId(), m.getId()));
+
+                //Delete the old message
+                if(messageData != null) {
+                    TextChannel c = guild.getTextChannelById(messageData[0]);
+                    if(c != null) {
+                        Message prevMsg = c.getHistory().getMessageById(messageData[1]);
+                        if(prevMsg != null) {
+                            try {
+                                prevMsg.delete().queue();
+                            } catch (UnsupportedOperationException ignored) {
+                            }
+                        }
+                    }
+                }
             }
-            else
-                channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
         else if (msg.equals("!updatelb")) {
-            if(member.hasPermission(Permission.ADMINISTRATOR))
+            if(sender.hasPermission(Permission.ADMINISTRATOR))
                 updateLeaderboards(channel, leaderboards, serverdata, userData, guild);
-            else
-                channel.sendMessage("You need to be a server admin to use this command!").queue();
-        }
-
-        else if (msg.equals("!setlogchannel")) {
-            if(member.hasPermission(Permission.ADMINISTRATOR)) {
-                serverdata.setLogChannelID(guildID, channel.getId());
-                channel.sendMessage("Set log channel to " + channel.getAsMention() + ".").queue();
-            }
-            else
-                channel.sendMessage("You need to be a server admin to use this command!").queue();
-        }
-
-        else if (msg.equals("!setjoinchannel")) {
-            if(member.hasPermission(Permission.ADMINISTRATOR)) {
-                serverdata.setJoinChannelID(guildID, channel.getId());
-                channel.sendMessage("Set join channel to " + channel.getAsMention() + ".").queue();
-            }
-            else
-                channel.sendMessage("You need to be a server admin to use this command!").queue();
         }
 
         /*
          * Hidden commands
          */
         else if (msg.startsWith("!addallmembers ")) {
-            if(member.hasPermission(Permission.ADMINISTRATOR)) {
+            if(sender.hasPermission(Permission.ADMINISTRATOR)) {
                 List<Member> failed = new ArrayList<>();
 
                 Role role;
@@ -697,7 +904,7 @@ public class Commands {
         }
 
         else if (msg.startsWith("!eval ")) {
-            if(member.getId().equals("470696578403794967")) {
+            if(sender.getId().equals("470696578403794967")) {
                 ScriptEngineManager manager = new ScriptEngineManager();
                 ScriptEngine engine = manager.getEngineByName("js");
                 try {
@@ -720,11 +927,44 @@ public class Commands {
                 channel.sendMessage("You do not have permission to run this command!").queue();
         }
         
-        else if (msg.startsWith("!ip")) {
-            if(member.getId().equals("470696578403794967")) {
+        else if (msg.equals("!ip")) {
+            if(sender.getId().equals("470696578403794967")) {
                 try {
                     channel.sendMessage(new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec("hostname -I").getInputStream())).readLine().substring(0, 13)).queue();
                 } catch (Exception ignored) {channel.sendMessage("Error").queue();}
+            }
+        }
+
+        else if (msg.startsWith("!test ")) {
+            if(sender.getId().equals("470696578403794967")) {
+                String text = msg.substring(msg.indexOf(' ') + 1);
+                String[] langs = {"1c", "abnf", "accesslog", "actionscript", "ada", "angelscript", "apache", "applescript", "arcade", "arduino", "armasm", "asciidoc", "aspectj", "autohotkey", "autoit", "avrasm", "awk", "axapta", "bash", "basic", "bnf", "brainfuck", "c-like", "c", "cal", "capnproto", "ceylon", "clean", "clojure-repl", "clojure", "cmake", "coffeescript", "coq", "cos", "cpp", "crmsh", "crystal", "csharp", "csp", "css", "d", "dart", "delphi", "diff", "django", "dns", "dockerfile", "dos", "dsconfig", "dts", "dust", "ebnf", "elixir", "elm", "erb", "erlang-repl", "erlang", "excel", "fix", "flix", "fortran", "fsharp", "gams", "gauss", "gcode", "gherkin", "glsl", "gml", "go", "golo", "gradle", "groovy", "haml", "handlebars", "haskell", "haxe", "hsp", "htmlbars", "http", "hy", "inform7", "ini", "irpf90", "isbl", "java", "javascript", "jboss-cli", "json", "julia-repl", "julia", "kotlin", "lasso", "latex", "ldif", "leaf", "less", "lisp", "livecodeserver", "livescript", "llvm", "lsl", "lua", "makefile", "markdown", "mathematica", "matlab", "maxima", "mel", "mercury", "mipsasm", "mizar", "mojolicious", "monkey", "moonscript", "n1ql", "nginx", "nim", "nix", "nsis", "objectivec", "ocaml", "openscad", "oxygene", "parser3", "perl", "pf", "pgsql", "php-template", "php", "plaintext", "pony", "powershell", "processing", "profile", "prolog", "properties", "protobuf", "puppet", "purebasic", "python-repl", "python", "q", "qml", "r", "reasonml", "rib", "roboconf", "routeros", "rsl", "ruby", "ruleslanguage", "rust", "sas", "scala", "scheme", "scilab", "scss", "shell", "smali", "smalltalk", "sml", "sqf", "sql", "stan", "stata", "step21", "stylus", "subunit", "swift", "taggerscript", "tap", "tcl", "thrift", "tp", "twig", "typescript", "vala", "vbnet", "vbscript-html", "vbscript", "verilog", "vhdl", "vim", "x86asm", "xl", "xml", "xquery", "yaml", "zephir.js"};
+
+                String[] testMessage = {"", "", "", "", "", "", "", "", "", "", "", ""};
+                int i = 0;
+
+                for(String lang: langs) {
+                    String current = lang + "```" + lang + '\n' + text + "```";
+                    if(testMessage[i].length() + current.length() > 999)
+                        i++;
+                    if(i > 11) {
+                        i--;
+                        break;
+                    }
+                    testMessage[i] += current;
+                }
+                EmbedBuilder response = new EmbedBuilder();
+
+                response.setTitle("Test:");
+                for(int c = 0; c <= i && c < 6; c++)
+                    response.addField("", testMessage[c], true);
+                channel.sendMessage(response.build()).queue();
+                if(i > 5) {
+                    EmbedBuilder response2 = new EmbedBuilder().setTitle("Test:");
+                    for(int c = 6; c <= i; c++)
+                        response2.addField("", testMessage[c], true);
+                    channel.sendMessage(response2.build()).queue();
+                }
             }
         }
     }
@@ -740,22 +980,61 @@ public class Commands {
         return false;
     }
 
-    //checks if the bot has the specified perms and send a message to the channel if not (true if doesn't have perms)
-    private static boolean checkPerms(TextChannel channel, Permission ... permissions) {
-        Member selfMember = channel.getGuild().getSelfMember();
+    //checks if the bot has the specified perms in an optional channel requirement and sends a message to the channel if not (true if doesn't have perms)
+    private static boolean checkPerms(TextChannel errorChannel, GuildChannel testChannel, Permission ... permissions) {
+        Member selfMember = errorChannel.getGuild().getSelfMember();
 
         List<Permission> missingPerms = new ArrayList<>();
+        String channeltext = "";
 
-        for(Permission p: permissions) {
-            if(!selfMember.hasPermission(channel, p))
-                missingPerms.add(p);
+        if(testChannel == null) {
+            for (Permission p : permissions) {
+                if (!selfMember.hasPermission(p))
+                    missingPerms.add(p);
+            }
+        }
+        else {
+            for (Permission p : permissions) {
+                if (!selfMember.hasPermission(testChannel, p))
+                    missingPerms.add(p);
+            }
+            channeltext = " in #" + testChannel.getName();
         }
 
         if(missingPerms.isEmpty())
             return false;
         else {
-            channel.sendMessage("To use this command please give me the following permissions: " + missingPerms.toString()).queue();
+            errorChannel.sendMessage(new EmbedBuilder().setColor(14495300)
+                    .addField("To use this command please give me the following permissions" + channeltext + ":", missingPerms.stream().map(p -> "• " + p.toString()).collect(Collectors.joining("\n")), false)
+                    .build()).queue();
             return true;
+        }
+    }
+
+    private static void sendError(TextChannel channel, String message) {
+        try {
+            channel.sendMessage(new EmbedBuilder().setColor(14495300).setDescription("❌ " + message).build()).queue();
+        } catch (InsufficientPermissionException e) {
+            if(e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
+                channel.sendMessage("Please give me the embed links permission.\n" + message).queue();
+        }
+    }
+
+    private static void sendSuccess(TextChannel channel, String message) {
+        try {
+            channel.sendMessage(new EmbedBuilder().setColor(7844437).setDescription("✅ " + message).build()).queue();
+        } catch (InsufficientPermissionException e) {
+            if(e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
+                channel.sendMessage("Please give me the embed links permission.\n" + message).queue();
+        }
+    }
+
+    private static void sendInfo(TextChannel channel, String message) {
+        try {
+            channel.sendMessage(new EmbedBuilder().setColor(3901635).setDescription("ℹ️ " + message).build()).queue();
+        } catch (InsufficientPermissionException e) {
+            if(e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
+                channel.sendMessage("Please give me the embed links permission.\n" + message).queue();
         }
     }
 
@@ -805,6 +1084,26 @@ public class Commands {
     }
 
     /**
+     * Returns a member specified by a String (as mention, raw ID or discord tag) or null if none was found.
+     *
+     * @param guild
+     *          The guild the member is represented in.
+     * @param input
+     *          The input string.
+     * @return
+     *          Possibly-null Member.
+     */
+    public static Member parseMember(Guild guild, String input) {
+        Member m = guild.getMemberById(parseID(input));
+        if(m == null) {
+            try {
+                m = guild.getMemberByTag(input);
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return m;
+    }
+
+    /**
      * Updates the nicknames of users in a specified guild.
      *
      * @param channel
@@ -826,8 +1125,9 @@ public class Commands {
 
         List<String[]> changed = userData.updateGuildUserData(guildID, members);
 
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.setTitle("Results of !updatenames:");
+        EmbedBuilder eb = new EmbedBuilder()
+                .setTitle("Results of !updatenames:")
+                .setColor(defaultColor);
 
         if(!changed.isEmpty()) {
             StringBuilder updated = new StringBuilder();
@@ -841,22 +1141,35 @@ public class Commands {
                 else
                     updated.append("<@").append(s[0]).append(">").append(" (").append(names.get(userIDs.indexOf(s[0]))).append(" -> ").append(s[1]).append(")\n");
             }
-            if(updated.length() != 0)
-                eb.addField("Updated Users:", updated.length() < 1024? updated.toString(): updated.length() + " users were updated.", false);
+            if(updated.length() != 0) {
+                if(updated.length() < 1024)
+                    eb.addField("Updated Users:", updated.toString(), false);
+                else
+                    eb.setDescription(updated.length() + " users were updated.");
+            }
             else
-                eb.addField("No users were updated.", "", false);
-            if(removed.length() != 0)
-                eb.addField("Removed Users:", removed.length() < 1024? removed.toString(): removed.length() + " users were removed.", false);
-            if(failed.length() != 0)
-                eb.addField("Failed Users:", failed.length() < 1024? failed.toString(): "Updating failed on " + failed.length() + " users.", false);
+                eb.setDescription("No users were updated.");
+            if(removed.length() != 0) {
+                if (removed.length() < 1024)
+                    eb.addField("\nRemoved Users:", removed.toString(), false);
+                else
+                    eb.addField("", removed.length() + " users were removed from the system.", false);
+            }
+            if(failed.length() != 0) {
+                if (failed.length() < 1024)
+                    eb.addField("\nFailed Users:", failed.toString(), false);
+                else
+                    eb.addField("", "Updating failed on " + failed.length() + " users.", false);
+            }
         }
         else
-            eb.addField("No users were updated.", "", false);
+            eb.setDescription("No users were updated.");
 
         if(channel != null)
             channel.sendMessage(eb.build()).queue();
     }
 
+    //TODO if leaderboards.failed == true try updating data
     /**
      * Updates the leaderboard messages in a specified guild.
      *
@@ -878,7 +1191,7 @@ public class Commands {
 
         if (leaderboards.failed) {
             if(channel != null)
-                channel.sendMessage("Leaderboard updating failed! Please try again in a bit or if that doesn't work contact the bot dev.").queue();
+                sendError(channel, "Leaderboard updating failed! Please try again in a bit or if that doesn't work contact the bot dev.");
             return;
         }
 
@@ -893,7 +1206,7 @@ public class Commands {
 
             List<String> lb = leaderboards.lbToString(i, guildID, userData);
 
-            EmbedBuilder eb = new EmbedBuilder();
+            EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
             eb.addField(leaderboardNames[i] + " Leaderboard:", lb.remove(0), false);
             for (String s : lb) {
                 eb.addField("", s, false);
@@ -906,11 +1219,10 @@ public class Commands {
             } catch (IllegalArgumentException ignored) {
             } catch (ErrorResponseException e) {
                 if(channel != null)
-                    channel.sendMessage("An error occurred when updating lb " + i + ": " + e.getMessage()).queue();
+                    sendError(channel, "An error occurred when updating lb " + i + ": " + e.getMessage());
             }
         }
         if(channel != null)
-            channel.sendMessage("Updated leaderboards.").queue();
+            sendSuccess(channel, "Updated leaderboards.");
     }
-
 }

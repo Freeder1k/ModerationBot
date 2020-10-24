@@ -99,10 +99,12 @@ public class UserData {
             return name;
         }
 
-        //returns 1 if successful, 0 if failed
+        //returns 1 if successful, 0 if invalid name, -1 if failed
         int setUser(Member member, String name) {
             String uuid = getUUID(name);
-            if((uuid == null) || (uuid.equals("!")))
+            if(uuid == null)
+                return -1;
+            if(uuid.equals("!"))
                 return 0;
 
             SingleUser u = new SingleUser(member.getId(), uuid);
@@ -248,7 +250,7 @@ public class UserData {
                     else
                         return "!"; //name invalid
                 } else {
-                    if(responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //name invalid
+                    if(responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
                         return "!";
                 }
                 return null;
@@ -324,7 +326,7 @@ public class UserData {
      * @param name
      *          This minecraft ign to be associated with this member.
      * @return
-     *          1 if successful, 0 if failed due to some error like for example the minecraft ign not existing.
+     *          1 if successful, 0 if invalid mc name, -1 if an error occurred
      */
     public int setUserInGuild(String guildID, Member member, String name) {
         for(SingleGuildUserData data: userData) {

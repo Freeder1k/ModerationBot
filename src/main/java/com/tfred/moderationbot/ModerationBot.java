@@ -28,7 +28,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-//TODO update modroles (and other stuff) on deletion
 public class ModerationBot extends ListenerAdapter
 {
     private static ServerData serverdata;
@@ -82,11 +81,14 @@ public class ModerationBot extends ListenerAdapter
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
         punishmentHandler = new Moderation.PunishmentHandler(jda, serverdata);
-        //TODO check active punishments
+        //TODO schedule active punishments
+        //TODO check new joins if punished
+        //TODO check scheduled stuff
 
         autoRun = new AutoRun(jda);
     }
 
+    //TODO update modroles (and other stuff) on deletion
 
     /**
      * NOTE THE @Override!
@@ -115,7 +117,7 @@ public class ModerationBot extends ListenerAdapter
         Message message = event.getMessage();           //The message that was received.
         //MessageChannel channel = event.getChannel();    //This is the MessageChannel that the message was sent to. This could be a TextChannel, PrivateChannel, or Group!
 
-        String msg = message.getContentDisplay();       //This returns a human readable version of the Message. Similar to what you would see in the client.
+        String msg = message.getContentRaw();       //This returns a not rly human readable version of the Message. not Similar to what you would see in the client.
 
         boolean bot = author.isBot();                   //This boolean is useful to determine if the User that sent the Message is a BOT or not!
 
@@ -141,8 +143,13 @@ public class ModerationBot extends ListenerAdapter
             System.out.printf("(%s)[%s]<%s>: %s\n", guild.getName(), textChannel.getName(), name, msg);
 
             //Process commands
-            if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && !author.isBot())
-                Commands.process(event, serverdata, userdata, leaderboards, punishmentHandler);
+            if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && !author.isBot()) {
+                if(guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
+                    Commands.process(event, serverdata, userdata, leaderboards, punishmentHandler);
+                else
+                    textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
+
+            }
 
             //Delete messages with salt emoji if nosalt is enabled
             else if (msg.contains("\uD83E\uDDC2"))
@@ -197,6 +204,7 @@ public class ModerationBot extends ListenerAdapter
      */
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
+        //TODO cache some data and update name if necessary
         String mc_n = userdata.getUserInGuild(event.getGuild().getId(), event.getMember().getId());
         if(mc_n.isEmpty())
             return;
@@ -219,37 +227,41 @@ public class ModerationBot extends ListenerAdapter
     public void onResume(ResumedEvent event) {
         autoRun.resume(event.getJDA());
         punishmentHandler.resume(event.getJDA(), serverdata);
-        //TODO deal with stuff
+        System.out.println("\n\nRESUMED\n\n");
     }
 
     @Override
     public void onReconnect(ReconnectedEvent event) {
         autoRun.resume(event.getJDA());
         punishmentHandler.resume(event.getJDA(), serverdata);
-        //TODO deal with stuff
+        System.out.println("\n\nRECONNECTED\n\n");
     }
 
     @Override
     public void onDisconnect(@NotNull DisconnectEvent event) {
         autoRun.pause();
         punishmentHandler.pause();
-        //TODO deal with stuff
+        System.out.println("\n\nDISCONNECTED\n\n");
     }
 
     @Override
     public void onShutdown(@NotNull ShutdownEvent event) {
         autoRun.stop();
         punishmentHandler.stop();
-        //TODO stop scheduled punishment stops
-        System.out.println("Shutdown!");
+        System.out.println("\n\nSHUTDOWN\n\n");
+        //TODO save time for next startup
     }
 
     private static class AutoRun {
         private final ScheduledExecutorService scheduler;
         private JDA jda;
+        private boolean paused;
+        private boolean ranWhilePaused;
 
         AutoRun(JDA jda) {
             this.jda = jda;
+            paused = false;
+            ranWhilePaused = false;
 
             ZonedDateTime now = ZonedDateTime.now();
             ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
@@ -262,10 +274,15 @@ public class ModerationBot extends ListenerAdapter
             scheduler = Executors.newScheduledThreadPool(1);
             scheduler.scheduleAtFixedRate(
                     () -> {
-                        try {
-                            autoRunDaily();
-                        } catch (Exception ex) {
-                            ex.printStackTrace(); //or logger would be better
+                        if(paused) {
+                            ranWhilePaused = true;
+                        }
+                        else {
+                            try {
+                                autoRunDaily();
+                            } catch (Exception ex) {
+                                ex.printStackTrace(); //or logger would be better
+                            }
                         }
                     },
                     initialDelay,
@@ -275,19 +292,25 @@ public class ModerationBot extends ListenerAdapter
 
         public void stop() {
             try {
-                scheduler.shutdownNow(); //TODO deal with this better somehow
+                scheduler.shutdown();
             } catch (Exception ignored) {}
         }
 
         public void pause() {
-            try {
-                scheduler.wait();
-            } catch (InterruptedException ignored) {}
+            paused = true;
         }
 
         public void resume(JDA jda) {
             this.jda = jda;
-            scheduler.notifyAll();
+            paused = false;
+            if (ranWhilePaused) {
+                ranWhilePaused = false;
+                try {
+                    autoRunDaily();
+                } catch (Exception ex) {
+                    ex.printStackTrace(); //or logger would be better
+                }
+            }
         }
 
         /**
