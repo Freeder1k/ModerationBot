@@ -20,9 +20,12 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 import org.jetbrains.annotations.NotNull;
 
 import javax.security.auth.login.LoginException;
+import java.io.IOException;
+import java.nio.file.*;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +62,7 @@ public class ModerationBot extends ListenerAdapter
             jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
                     .addEventListeners(new ModerationBot())   // An instance of a class that will handle events.
                     .setChunkingFilter(ChunkingFilter.ALL)          //
-                    .setMemberCachePolicy(MemberCachePolicy.ALL)    // These three are needed for !addallmembers so that all members are effected
+                    .setMemberCachePolicy(MemberCachePolicy.ALL)    // These three are needed for some commands to do with the naming system
                     .enableIntents(GatewayIntent.GUILD_MEMBERS)     //
                     .setActivity(Activity.watching("BlockHunt"))
                     .build();
@@ -81,9 +84,31 @@ public class ModerationBot extends ListenerAdapter
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
         punishmentHandler = new Moderation.PunishmentHandler(jda, serverdata);
-        //TODO schedule active punishments
-        //TODO check new joins if punished
-        //TODO check scheduled stuff
+        for(Guild g: jda.getGuilds()) {
+            try {
+                List<Moderation.ActivePunishment> apList = Moderation.getActivePunishments(g.getId());
+                if(!apList.isEmpty()) {
+                    for(Moderation.ActivePunishment ap: apList) {
+                        punishmentHandler.newPunishment(ap.memberID, g.getId(), ap.punishment);
+                    }
+                }
+            } catch (IOException ignored) {
+                System.out.println("Failed to read active punishments in " + g.getName());
+            }
+        }
+        try {
+            List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
+            if(!botdata.isEmpty()) {
+                long start = 1603602000000L;
+                long delay = 86400000L;
+                long lastDate = Long.parseLong(botdata.get(0)) - start;
+                long current = System.currentTimeMillis() - start;
+                if((lastDate/delay) < (current/delay))
+                    autoRun.autoRunDaily();
+            }
+        } catch (IOException ignored) {
+            System.out.println("Failed to read bot data!");
+        }
 
         autoRun = new AutoRun(jda);
     }
@@ -177,23 +202,105 @@ public class ModerationBot extends ListenerAdapter
      */
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
-        Member user = event.getMember();
+        Member member = event.getMember();
         Guild guild = event.getGuild();
+        //Manages associated mc names
         TextChannel channel = guild.getTextChannelById(serverdata.getJoinChannelID(guild.getId()));
+        boolean canWrite = true;
         if(channel == null)
-            return;
-        if(!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE))
-            return;
+            canWrite = false;
+        else if(!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE, Permission.VIEW_CHANNEL, Permission.MESSAGE_EMBED_LINKS))
+            canWrite = false;
 
-        String mcName = userdata.getUserInGuild(guild.getId(), user.getId());
+        String mcName = userdata.getUserInGuild(guild.getId(), member.getId());
 
-        if(!mcName.isEmpty())
-            channel.sendMessage("<@" + user.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
+        if(!mcName.isEmpty() && canWrite)
+            channel.sendMessage("<@" + member.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
 
         if(guild.getSelfMember().hasPermission(Permission.NICKNAME_MANAGE))
-            user.modifyNickname(mcName).queue();
+            member.modifyNickname(mcName).queue();
 
-        //TODO check if punished
+        //Manages punished users
+        try {
+            String response = "";
+            for(Moderation.ActivePunishment ap: Moderation.getActivePunishments(guild.getId())) {
+                if(ap.memberID.equals(member.getId())) {
+                    String id;
+                    Role role;
+                    TextChannel channel2;
+
+                    switch(ap.punishment.severity) {
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                        case '5': {
+                            id = serverdata.getMutedRoleID(guild.getId());
+                            if (id.equals("0")) {
+                                response = "Please set a muted role with ``!config mutedrole <@role>``!";
+                            } else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
+                                response = "The bot is missing the manage roles permission!";
+                            } else {
+                                role = guild.getRoleById(id);
+                                if (role == null) {
+                                    response = "Please set a new muted role with ``!config mutedrole <@role>``!";
+                                } else
+                                    guild.addRoleToMember(member, role).queue();
+                            }
+                            break;
+                        }
+                        case '6': {
+                            if (!guild.getSelfMember().hasPermission(Permission.BAN_MEMBERS)) {
+                                response = "The bot is missing the ban members permission!";
+                            }
+                            else
+                                response = member.getAsMention() + " should be banned!";
+                            break;
+                        }
+                        case 'v': {
+                            id = serverdata.getVentChannelID(guild.getId());
+                            if (id.equals("0")) {
+                                response = "Please set a vent channel with ``!config ventchannel <#channel>``!";
+                            }
+                            else {
+                                channel2 = guild.getTextChannelById(id);
+                                if (channel2 == null) {
+                                    response = "Vent channel was deleted! Please set a new vent channel with ``!config ventchannel <#channel>``!";
+                                }
+                                else if (!guild.getSelfMember().hasPermission(channel2, Permission.MANAGE_PERMISSIONS)) {
+                                    response = "The bot is missing the manage permissions permission in " + channel2.getAsMention() + "!";
+                                }
+                                else
+                                    channel2.putPermissionOverride(member).setDeny(Permission.VIEW_CHANNEL).queue();
+                            }
+                            break;
+                        }
+                        case 'n': {
+                            id = serverdata.getNoNickRoleID(guild.getId());
+                            if (id.equals("0")) {
+                                response = "Please set a no nickname role with ``!config nonickrole <@role>``!";
+                            }
+                            else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
+                                response = "The bot is missing the manage roles permission!";
+                            }
+                            else {
+                                role = guild.getRoleById(id);
+                                if (role == null) {
+                                    response = "noNickname role was deleted! Please set a no nickname role with ``!config nonickrole <@role>``!";
+                                }
+                                else
+                                    guild.addRoleToMember(member, role).queue();
+                            }
+                            break;
+                        }
+                    }
+                }
+                if((!response.isEmpty()) && canWrite)
+                    Commands.sendError(channel, response);
+            }
+        } catch (IOException ignored) {
+            System.out.println("IO ERROR ON ACTIVE.DATA FOR " + guild.getName());
+        }
     }
 
     /**
@@ -241,6 +348,11 @@ public class ModerationBot extends ListenerAdapter
     public void onDisconnect(@NotNull DisconnectEvent event) {
         autoRun.pause();
         punishmentHandler.pause();
+        try {
+            Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
+        } catch (IOException ignored) {
+            System.out.println("Failed to write to bot.data!");
+        }
         System.out.println("\n\nDISCONNECTED\n\n");
     }
 
@@ -248,8 +360,14 @@ public class ModerationBot extends ListenerAdapter
     public void onShutdown(@NotNull ShutdownEvent event) {
         autoRun.stop();
         punishmentHandler.stop();
+        if(!autoRun.ranWhilePaused) {
+            try {
+                Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
+            } catch (IOException ignored) {
+                System.out.println("Failed to write to bot.data!");
+            }
+        }
         System.out.println("\n\nSHUTDOWN\n\n");
-        //TODO save time for next startup
     }
 
     private static class AutoRun {
@@ -316,7 +434,7 @@ public class ModerationBot extends ListenerAdapter
         /**
          * This method gets called daily and handles the daily username and weekly leaderboard updating.
          */
-        private void autoRunDaily() {
+        public void autoRunDaily() {
             boolean weekly = false;
             if (ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
                 weekly = true;

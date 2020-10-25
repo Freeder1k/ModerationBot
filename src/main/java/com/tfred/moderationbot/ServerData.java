@@ -146,12 +146,12 @@ public class ServerData {
                 noNickRoleID = data[9].substring(1);
 
             String memberRoleID = "";
-            if(data.length >= 10)
-                noNickRoleID = data[9].substring(1);
+            if(data.length >= 11)
+                noNickRoleID = data[10].substring(1);
 
             int nextPunishmentID = 1;
-            if(data.length >= 10)
-                nextPunishmentID = Integer.parseInt(data[10]);
+            if(data.length >= 12)
+                nextPunishmentID = Integer.parseInt(data[11]);
 
             SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID, joinChannelID, punishmentChannelID, mutedRoleID, ventChannelID, noNickRoleID, memberRoleID, nextPunishmentID);
 
