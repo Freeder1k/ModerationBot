@@ -326,7 +326,7 @@ public class Commands {
                     return;
                 }
 
-                Member member = parseMember(guild, args[1]);
+                Member member = parseMember(guild, args[2]);
                 if(member == null) {
                     sendError(channel, "Invalid user.");
                     return;
