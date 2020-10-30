@@ -741,17 +741,18 @@ public class Moderation {
         if(apList.isEmpty())
             return null;
 
-        ActivePunishment ap = null;
+        ActivePunishment ap_removed = null;
         Iterator<ActivePunishment> it = apList.iterator();
         while(it.hasNext())
         {
-            ap = it.next();
+            ActivePunishment ap = it.next();
             if(ap.punishment.id == punishmentID) {
+                ap_removed = ap;
                 it.remove();
                 Files.write(Paths.get("moderations/" + guildID + "/active.data"), apList.stream().map(ActivePunishment::toString).collect(Collectors.toList()));
                 break;
             }
         }
-        return ap;
+        return ap_removed;
     }
 }

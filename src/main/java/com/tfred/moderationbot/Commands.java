@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 public class Commands {
     private static final String[] leaderboardNames = {"Hider Wins", "Hunter Wins", "Kills"};
-    private static final int defaultColor = 3603854;
+    public static final int defaultColor = 3603854;
 
     /**
      * The command processing function.
@@ -74,145 +74,28 @@ public class Commands {
 
         else if(msg.startsWith("!help ")) {
             String[] args = msg.split(" ");
-
-            if (args.length != 2) {
+            if (args.length == 2) {
+                helpMessage(channel, args[1]);
+            }
+            else {
                 sendError(channel, "Invalid amount of arguments!");
-                return;
             }
-
-            String usage;
-            String aliases = "";
-            String description;
-            String perms = "";
-
-            switch(args[1]) {
-                case "help": {
-                    usage = "!help [command]";
-                    description = "Displays the command list or info on a command if one is specified.";
-                    break;
-                }
-                case "config": {
-                    usage = "!config [<option> <value> [action]]";
-                    description = "View or modify the configuration for this guild.\nValid syntax:```\n" +
-                            "option:           │ value:  │ action:\n" +
-                            "——————————————————│—————————│————————————\n" +
-                            "nosalt            │ y|n     │\n" +
-                            "modrole           │ role    │ add|remove\n" +
-                            "memberrole        │ role    │\n" +
-                            "mutedrole         │ role    │\n" +
-                            "nonickrole        │ role    │\n" +
-                            "logchannel        │ channel │\n" +
-                            "joinchannel       │ channel │\n" +
-                            "punishmentchannel │ channel │\n" +
-                            "ventchannel       │ channel │```";
-                    break;
-                }
-                case "delreaction": {
-                    usage = "!delreaction <emoji> <amount>";
-                    description = "Deletes all reactions with a specified emoji <amount> messages back.\n" +
-                            "Due to limitations with discord the amount can only have a maximum value of 100.";
-                    perms = Permission.MESSAGE_MANAGE.toString();
-                    break;
-                }
-                case "getreactions": {
-                    usage = "!getreactions <messageID> [channel]";
-                    description = "Gets the reactions on a specified message.\n" +
-                            "If the message is in another channel the channel has to be specified too.";
-                    break;
-                }
-                case "name": {
-                    usage = "!name <set|remove> <user> [username]";
-                    description = "Set or remove the associated minecraft username.\n" +
-                            "The set option requires the username to be specified.";
-                    perms = Permission.NICKNAME_MANAGE.toString();
-                    break;
-                }
-                case "updatenames": {
-                    usage = "!updatenames";
-                    description = "Update the nickname of users with an associated minecraft name if it was changed.";
-                    perms = Permission.NICKNAME_MANAGE.toString();
-                    break;
-                }
-                case "listnames": {
-                    usage = "!listnames [role]";
-                    description = "List members separated by whether they have an associated minecraft username or not.\n" +
-                            "If a role is specified this will only list users with that role.";
-                    break;
-                }
-                case "punish": {
-                    usage = "!punish <user> <severity> [reason]";
-                    description = "Punish a user.\n" +
-                            "Allowed severities are numbers ``1-6`` or ``v`` for a vent channel ban or ``n`` to block them from changing their nickname.\n" +
-                            "These require certain config options to be set.";
-                    perms = Permission.MANAGE_ROLES.toString() + ", " +
-                            Permission.BAN_MEMBERS.toString();
-                    break;
-                }
-                case "pardon":
-                case "absolve":
-                case "acquit":
-                case "exculpate":
-                case "exonerate":
-                case "vindicate": {
-                    usage = "!" + args[1] + " <punishment ID|user> <hide> [reason]";
-                    description = "Pardon a user or punishment.\n" +
-                            "If a user is specified this pardons all active punishments for this user.\n" +
-                            "The hide option can be either ``y`` or ``n`` and specifies if the pardoned punishment(s) should impact the length of future punishments.";
-                    perms = Permission.MANAGE_ROLES.toString() + ", " +
-                            Permission.BAN_MEMBERS.toString();
-                    aliases = "pardon, absolve, acquit, exculpate, exonerate, vindicate";
-                    break;
-                }
-                case "modlogs": {
-                    usage = "!modlogs <user>";
-                    description = "Show a users punishment history.";
-                    break;
-                }
-                case "moderations": {
-                    usage = "!moderations";
-                    description = "List all currently active punishments.";
-                    break;
-                }
-                case "lb": {
-                    usage = "!lb <board>";
-                    description = " Sends a message with a Blockhunt leaderboard that gets updated weekly.\n" +
-                            "If there is an older message with the same board type that one gets deleted if possible." +
-                            "Valid boards are:" +
-                            "``0`` - Hider wins" +
-                            "``1`` - Hunter wins" +
-                            "``2`` - Kills";
-                    break;
-                }
-                case "updatelb": {
-                    usage = "!updatelb";
-                    description = "Updates the lb messages.\n" +
-                            "This only really does anything if the bot failed to fetch the new leaderboard data or if it failed to edit a leaderboard message during the last weekly update.";
-                    break;
-                }
-                default:
-                    sendError(channel, "Unknown command. See ``!help`` for a list of commands.");
-                    return;
-            }
-            EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor)
-                    .setTitle("!" + args[1] + " info:")
-                    .addField("Usage:", "``" + usage + "``", false);
-            if(!aliases.isEmpty())
-                eb.addField("Aliases:", aliases, false);
-            eb.addField("Description:", description, false);
-            if(!perms.isEmpty())
-                eb.addField("Required permissions:", perms, false);
-            channel.sendMessage(eb.build()).queue();
         }
 
         /*
          * Moderator commands
          */
-        else if (msg.startsWith("!delreaction ")) {
+        else if (msg.startsWith("!delreaction")) {
             if(isModerator(guildID, sender, serverdata)) {
                 if (checkPerms(channel, channel, Permission.MESSAGE_MANAGE, Permission.MESSAGE_HISTORY))
                     return;
 
                 String[] args = msg.split(" ");
+
+                if(args.length == 1) {
+                    helpMessage(channel, "delreaction");
+                    return;
+                }
 
                 if (args.length != 3) {
                     sendError(channel, "Invalid amount of arguments!");
@@ -264,9 +147,14 @@ public class Commands {
             }
         }
 
-        else if (msg.startsWith("!getreactions ")) {
+        else if (msg.startsWith("!getreactions")) {
             if(isModerator(guildID, sender, serverdata)) {
                 String[] args = msg.split(" ");
+
+                if(args.length == 1) {
+                    helpMessage(channel, "getreactions");
+                    return;
+                }
                 if(args.length < 2) {
                     sendError(channel, "Invalid amount of arguments!");
                     return;
@@ -314,12 +202,17 @@ public class Commands {
             }
         }
 
-        else if (msg.startsWith("!name ")) {
+        else if (msg.startsWith("!name")) {
             if(isModerator(guildID, sender, serverdata)) {
                 if(checkPerms(channel, null, Permission.NICKNAME_MANAGE))
                     return;
 
                 String[] args = msg.split(" ");
+
+                if(args.length == 1) {
+                    helpMessage(channel, "name");
+                    return;
+                }
 
                 if(args.length < 3) {
                     sendError(channel, "Insufficient amount of arguments!");
@@ -478,6 +371,13 @@ public class Commands {
                     embedBuilder.addField("**Join channel:**", "<#" + joinChannel + ">", false);
 
 
+                String nameChannel = serverdata.getNameChannelID(guildID);
+                if(nameChannel.equals("0"))
+                    embedBuilder.addField("**Name channel:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**Name channel:**", "<#" + nameChannel + ">", false);
+
+
                 channel.sendMessage(embedBuilder.build()).queue();
             }
         }
@@ -488,9 +388,14 @@ public class Commands {
             }
         }
 
-        else if (msg.startsWith("!punish ")) {
+        else if (msg.startsWith("!punish")) {
             if(isModerator(guildID, sender, serverdata)) {
                 String[] args = message.getContentRaw().split(" ");
+
+                if(args.length == 1) {
+                    helpMessage(channel, "punish");
+                    return;
+                }
 
                 if (args.length < 3) {
                     sendError(channel, "Insufficient amount of arguments!");
@@ -535,10 +440,15 @@ public class Commands {
             }
         }
 
-        else if (msg.startsWith("!pardon ") || msg.startsWith("!absolve ") || msg.startsWith("!acquit ")
-                || msg.startsWith("!exculpate ") || msg.startsWith("!exonerate ") || msg.startsWith("!vindicate ")) {
+        else if (msg.startsWith("!pardon") || msg.startsWith("!absolve") || msg.startsWith("!acquit")
+                || msg.startsWith("!exculpate") || msg.startsWith("!exonerate") || msg.startsWith("!vindicate")) {
             if(isModerator(guildID, sender, serverdata)) {
                 String[] args = message.getContentRaw().split(" ");
+
+                if(args.length == 1) {
+                    helpMessage(channel, "pardon");
+                    return;
+                }
 
                 if(args.length < 3) {
                     sendError(channel, "Insufficient amount of arguments!");
@@ -648,9 +558,14 @@ public class Commands {
             }
         }
 
-        else if (msg.startsWith("!modlogs ")) {
+        else if (msg.startsWith("!modlogs")) {
             if(isModerator(guildID, sender, serverdata)) {
                 String[] args = message.getContentRaw().split(" ");
+
+                if(args.length == 1) {
+                    helpMessage(channel, "modlogs");
+                    return;
+                }
                 if(args.length != 2) {
                     sendError(channel, "Please specify a user.");
                     return;
@@ -744,7 +659,7 @@ public class Commands {
                             fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Effected pID:**\n" + pardonedID, true));
                         else
                             fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Length:**\n" + length, true));
-                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason, true));
+                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + '\n', true));
                     }
                     int c = 0;
                     for(MessageEmbed.Field f: fields) {
@@ -813,7 +728,7 @@ public class Commands {
                         fields.add(new MessageEmbed.Field("**Case:**", caseS, false));
                         fields.add(new MessageEmbed.Field("**User:**", "<@" + ap.memberID + ">\n**Type:**\n" + type, true));
                         fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Length:**\n" + length, true));
-                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason, true));
+                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + '\n', true));
                     }
                     int c = 0;
                     for(MessageEmbed.Field f: fields) {
@@ -955,6 +870,16 @@ public class Commands {
                         sendSuccess(channel, "Set the vent channel to <#" + c.getId() + ">.");
                         break;
                     }
+                    case "namechannel": {
+                        TextChannel c = guild.getTextChannelById(parseID(args[2]));
+                        if (c == null) {
+                            sendError(channel, "Invalid channel!");
+                            return;
+                        }
+                        serverdata.setNameChannelID(guildID, c.getId());
+                        sendSuccess(channel, "Set the name channel to <#" + c.getId() + ">.");
+                        break;
+                    }
                 }
             }
         }
@@ -962,7 +887,7 @@ public class Commands {
         else if (msg.startsWith("!lb ")) {
             if((sender.hasPermission(Permission.ADMINISTRATOR))) {
                 if (msg.length() != 5) {
-                    sendError(channel, "Single number argument required.");
+                    helpMessage(channel, "lb");
                     return;
                 }
                 char board = msg.charAt(4);
@@ -1376,5 +1301,131 @@ public class Commands {
         }
         if(channel != null)
             sendSuccess(channel, "Updated leaderboards.");
+    }
+
+    private static void helpMessage(TextChannel channel, String command) {
+        String usage;
+        String aliases = "";
+        String description;
+        String perms = "";
+
+        switch(command) {
+            case "help": {
+                usage = "!help [command]";
+                description = "Displays the command list or info on a command if one is specified.";
+                break;
+            }
+            case "config": {
+                usage = "!config [<option> <value> [action]]";
+                description = "View or modify the configuration for this guild.\nValid syntax:```\n" +
+                        "option:           │ value:  │ action:\n" +
+                        "——————————————————│—————————│————————————\n" +
+                        "nosalt            │ y|n     │\n" +
+                        "modrole           │ role    │ add|remove\n" +
+                        "memberrole        │ role    │\n" +
+                        "mutedrole         │ role    │\n" +
+                        "nonickrole        │ role    │\n" +
+                        "logchannel        │ channel │\n" +
+                        "joinchannel       │ channel │\n" +
+                        "punishmentchannel │ channel │\n" +
+                        "ventchannel       │ channel │\n" +
+                        "namechannel       │ channel │```";
+                break;
+            }
+            case "delreaction": {
+                usage = "!delreaction <emoji> <amount>";
+                description = "Deletes all reactions with a specified emoji <amount> messages back.\n" +
+                        "Due to limitations with discord the amount can only have a maximum value of 100.";
+                perms = Permission.MESSAGE_MANAGE.toString();
+                break;
+            }
+            case "getreactions": {
+                usage = "!getreactions <messageID> [channel]";
+                description = "Gets the reactions on a specified message.\n" +
+                        "If the message is in another channel the channel has to be specified too.";
+                break;
+            }
+            case "name": {
+                usage = "!name <set|remove> <user> [username]";
+                description = "Set or remove the associated minecraft username.\n" +
+                        "The set option requires the username to be specified.";
+                perms = Permission.NICKNAME_MANAGE.toString();
+                break;
+            }
+            case "updatenames": {
+                usage = "!updatenames";
+                description = "Update the nickname of users with an associated minecraft name if it was changed.";
+                perms = Permission.NICKNAME_MANAGE.toString();
+                break;
+            }
+            case "listnames": {
+                usage = "!listnames [role]";
+                description = "List members separated by whether they have an associated minecraft username or not.\n" +
+                        "If a role is specified this will only list users with that role.";
+                break;
+            }
+            case "punish": {
+                usage = "!punish <user> <severity> [reason]";
+                description = "Punish a user.\n" +
+                        "Allowed severities are numbers ``1-6`` or ``v`` for a vent channel ban or ``n`` to block them from changing their nickname.\n" +
+                        "These require certain config options to be set.";
+                perms = Permission.MANAGE_ROLES.toString() + ", " +
+                        Permission.BAN_MEMBERS.toString();
+                break;
+            }
+            case "pardon":
+            case "absolve":
+            case "acquit":
+            case "exculpate":
+            case "exonerate":
+            case "vindicate": {
+                usage = "!" + command + " <punishment ID|user> <hide> [reason]";
+                description = "Pardon a user or punishment.\n" +
+                        "If a user is specified this pardons all active punishments for this user.\n" +
+                        "The hide option can be either ``y`` or ``n`` and specifies if the pardoned punishment(s) should impact the length of future punishments.";
+                perms = Permission.MANAGE_ROLES.toString() + ", " +
+                        Permission.BAN_MEMBERS.toString();
+                aliases = "pardon, absolve, acquit, exculpate, exonerate, vindicate";
+                break;
+            }
+            case "modlogs": {
+                usage = "!modlogs <user>";
+                description = "Show a users punishment history.";
+                break;
+            }
+            case "moderations": {
+                usage = "!moderations";
+                description = "List all currently active punishments.";
+                break;
+            }
+            case "lb": {
+                usage = "!lb <board>";
+                description = " Sends a message with a Blockhunt leaderboard that gets updated weekly.\n" +
+                        "If there is an older message with the same board type that one gets deleted if possible." +
+                        "Valid boards are:" +
+                        "``0`` - Hider wins" +
+                        "``1`` - Hunter wins" +
+                        "``2`` - Kills";
+                break;
+            }
+            case "updatelb": {
+                usage = "!updatelb";
+                description = "Updates the lb messages.\n" +
+                        "This only really does anything if the bot failed to fetch the new leaderboard data or if it failed to edit a leaderboard message during the last weekly update.";
+                break;
+            }
+            default:
+                sendError(channel, "Unknown command. See ``!help`` for a list of commands.");
+                return;
+        }
+        EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor)
+                .setTitle("!" + command + " info:")
+                .addField("Usage:", "``" + usage + "``", false);
+        if(!aliases.isEmpty())
+            eb.addField("Aliases:", aliases, false);
+        eb.addField("Description:", description, false);
+        if(!perms.isEmpty())
+            eb.addField("Required permissions:", perms, false);
+        channel.sendMessage(eb.build()).queue();
     }
 }

@@ -42,10 +42,10 @@ public class ServerData {
         boolean noSalt;
         List<String> modRoleIDs;
         List<LbData> lbData;
-        String logChannelID, joinChannelID, punishmentChannelID, mutedRoleID, ventChannelID, noNickRoleID, memberRoleID;
+        String logChannelID, joinChannelID, punishmentChannelID, mutedRoleID, ventChannelID, noNickRoleID, memberRoleID, nameChannelID;
         int nextPunishmentID;
 
-        SingleServer(String id, boolean noSalt, List<String> modRoleIDs, List<LbData> lbData, String logChannelID, String joinChannelID, String punishmentChannelID, String mutedRoleID, String ventChannelID, String noNickRoleID, String memberRoleID, int nextPunishmentID) {
+        SingleServer(String id, boolean noSalt, List<String> modRoleIDs, List<LbData> lbData, String logChannelID, String joinChannelID, String punishmentChannelID, String mutedRoleID, String ventChannelID, String noNickRoleID, String memberRoleID, int nextPunishmentID, String nameChannelID) {
             this.id = id;
             this.noSalt = noSalt;
             this.modRoleIDs = modRoleIDs;
@@ -58,6 +58,7 @@ public class ServerData {
             this.noNickRoleID = noNickRoleID;
             this.memberRoleID = memberRoleID;
             this.nextPunishmentID = nextPunishmentID;
+            this.nameChannelID = nameChannelID;
         }
 
         static SingleServer createDefault(String id) {
@@ -65,7 +66,7 @@ public class ServerData {
             for (int i = 0; i < 3; i++)
                 lbData.add(new LbData(-1, null, null));
 
-            return new SingleServer(id, false, new ArrayList<>(), lbData, "", "", "", "", "", "", "", 1);
+            return new SingleServer(id, false, new ArrayList<>(), lbData, "", "", "", "", "", "", "", 1, "");
         }
 
         @Override
@@ -76,7 +77,7 @@ public class ServerData {
             else
                 noSaltS = "0";
 
-            return id + " " + noSaltS + " &" + String.join(",", modRoleIDs) + " &" + lbData.stream().map(LbData::toString).collect(Collectors.joining(",")) + " &" + logChannelID + " &" + joinChannelID + " &" + punishmentChannelID + " &" + mutedRoleID + " &" + ventChannelID + " &" + noNickRoleID + " &" + memberRoleID + " " + nextPunishmentID;
+            return id + " " + noSaltS + " &" + String.join(",", modRoleIDs) + " &" + lbData.stream().map(LbData::toString).collect(Collectors.joining(",")) + " &" + logChannelID + " &" + joinChannelID + " &" + punishmentChannelID + " &" + mutedRoleID + " &" + ventChannelID + " &" + noNickRoleID + " &" + memberRoleID + " " + nextPunishmentID + " &" + nameChannelID;
         }
     }
 
@@ -153,7 +154,11 @@ public class ServerData {
             if(data.length >= 12)
                 nextPunishmentID = Integer.parseInt(data[11]);
 
-            SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID, joinChannelID, punishmentChannelID, mutedRoleID, ventChannelID, noNickRoleID, memberRoleID, nextPunishmentID);
+            String nameChannelID = "";
+            if(data.length >= 13)
+                nameChannelID = data[12].substring(1);
+
+            SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID, joinChannelID, punishmentChannelID, mutedRoleID, ventChannelID, noNickRoleID, memberRoleID, nextPunishmentID, nameChannelID);
 
             serverList.add(x);
         }
@@ -636,6 +641,46 @@ public class ServerData {
 
         updateFile();
         return 1;
+    }
+
+    /**
+     * Set the specified channel to be the name channel for the specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @param nameChannelID
+     *          The specified {@link TextChannel channel's} ID.
+     */
+    public void setNameChannelID(String serverID, String nameChannelID) {
+        for (SingleServer s : serverList) {
+            if (s.id.equals(serverID)) {
+                s.ventChannelID = nameChannelID;
+                updateFile();
+            }
+        }
+        SingleServer s_new = SingleServer.createDefault(serverID);
+        s_new.ventChannelID = nameChannelID;
+        serverList.add(s_new);
+
+        updateFile();
+    }
+
+    /**
+     * Get the ID of the name channel in a specified server.
+     *
+     * @param serverID
+     *          The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return
+     *          The {@link TextChannel channel's} ID or "0" if none is set.
+     */
+    public String getNameChannelID(String serverID) {
+        for (SingleServer s : serverList) {
+            if (s.id.equals(serverID)) {
+                if(!s.nameChannelID.equals(""))
+                    return s.nameChannelID;
+            }
+        }
+        return "0";
     }
 
     //TODO serverdata.log
