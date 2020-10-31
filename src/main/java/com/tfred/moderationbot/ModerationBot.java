@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.audit.AuditLogEntry;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.DisconnectEvent;
 import net.dv8tion.jda.api.events.ReconnectedEvent;
@@ -27,6 +28,7 @@ import java.nio.file.*;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -305,6 +307,7 @@ public class ModerationBot extends ListenerAdapter
         }
     }
 
+    private final List<String> ignoredUsers = new LinkedList<>();
     /**
      * When a user updates their nickname the bot tests to see if their new nickname is compliant with the username system.
      *
@@ -313,7 +316,10 @@ public class ModerationBot extends ListenerAdapter
      */
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
-        checkNameChange(event.getOldNickname(), event.getNewNickname(), event.getMember());
+        Member m = event.getMember();
+        System.out.println(1);
+        if(!Commands.nameUpdateActive && !ignoredUsers.contains(m.getId()))
+            checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
     }
 
     @Override
@@ -329,6 +335,7 @@ public class ModerationBot extends ListenerAdapter
     }
 
     private void checkNameChange (String old_n, String new_n, Member m) {//TODO cache some data and update name if necessary
+        System.out.println(2);
         Guild g = m.getGuild();
         String mc_n = userdata.getUserInGuild(g.getId(), m.getId());
         if(mc_n.isEmpty())
@@ -339,26 +346,29 @@ public class ModerationBot extends ListenerAdapter
         new_n = Commands.getName(new_n);
 
         if(!mc_n.equals(new_n)) {
+            System.out.println(3);
             try {
-                m.modifyNickname(old_n).queue();
-            } catch (HierarchyException | InsufficientPermissionException ignored) {}
+                ignoredUsers.add(m.getId());
+                m.modifyNickname(old_n).queue((ignored) -> {System.out.println(ignoredUsers.remove(m.getId()));
+                    System.out.println(5);});
+            } catch (HierarchyException | InsufficientPermissionException ignored) {
+                System.out.println(ignoredUsers.remove(m.getId()));
+                System.out.println(6);
+            }
 
             m.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + g.getName() + " was reset due to it being incompatible with the username system.").queue());
         }
         else {
+            System.out.println(4);
             if(old_n == null)
                 old_n = m.getUser().getName();
             old_n = Commands.getName(old_n);
             if(!old_n.equals(new_n)) {
-                TextChannel namechannel;
-                try {
-                    namechannel = g.getTextChannelById(serverdata.getLogChannelID(g.getId()));
-                } catch (IllegalArgumentException ignored) {
-                    try {
-                        namechannel = g.getTextChannelById(serverdata.getLogChannelID((g.getId())));
-                    } catch (IllegalArgumentException ignored2) {
-                        namechannel = null;
-                    }
+                System.out.println(7);
+                TextChannel namechannel = g.getTextChannelById(serverdata.getNameChannelID(g.getId()));
+                if(namechannel == null) {
+                    System.out.println(8);
+                    namechannel = g.getTextChannelById(serverdata.getLogChannelID((g.getId())));
                 }
                 if(namechannel != null)
                     namechannel.sendMessage(new EmbedBuilder().setColor(Commands.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
@@ -383,11 +393,6 @@ public class ModerationBot extends ListenerAdapter
     public void onDisconnect(@NotNull DisconnectEvent event) {
         autoRun.pause();
         punishmentHandler.pause();
-        try {
-            Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
-        } catch (IOException ignored) {
-            System.out.println("Failed to write to bot.data!");
-        }
         System.out.println("\n\nDISCONNECTED\n\n");
     }
 
@@ -395,13 +400,6 @@ public class ModerationBot extends ListenerAdapter
     public void onShutdown(@NotNull ShutdownEvent event) {
         autoRun.stop();
         punishmentHandler.stop();
-        if(!autoRun.ranWhilePaused) {
-            try {
-                Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
-            } catch (IOException ignored) {
-                System.out.println("Failed to write to bot.data!");
-            }
-        }
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
@@ -470,22 +468,20 @@ public class ModerationBot extends ListenerAdapter
          * This method gets called daily and handles the daily username and weekly leaderboard updating.
          */
         public void autoRunDaily() {
+            try {
+                Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
+            } catch (IOException ignored) {
+                System.out.println("Failed to write to bot.data!");
+            }
             boolean weekly = false;
             if (ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
                 weekly = true;
 
             for (Guild guild : jda.getGuilds()) {
-                TextChannel channel, namechannel;
-                try {
-                    channel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
-                } catch (IllegalArgumentException ignored) {
-                    channel = null;
-                }
-                try {
-                    namechannel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
-                } catch (IllegalArgumentException ignored) {
+                TextChannel channel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
+                TextChannel namechannel = guild.getTextChannelById(serverdata.getNameChannelID(guild.getId()));
+                if(namechannel == null)
                     namechannel = channel;
-                }
 
                 if (channel != null)
                     channel.sendMessage("Daily update in progress...").complete();
