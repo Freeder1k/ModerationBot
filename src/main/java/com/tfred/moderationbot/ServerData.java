@@ -392,6 +392,7 @@ public class ServerData {
             if (s.id.equals(serverID)) {
                 s.joinChannelID = joinChannelID;
                 updateFile();
+                return;
             }
         }
         SingleServer s_new = SingleServer.createDefault(serverID);
@@ -432,6 +433,7 @@ public class ServerData {
             if (s.id.equals(serverID)) {
                 s.punishmentChannelID = punishmentChannelID;
                 updateFile();
+                return;
             }
         }
         SingleServer s_new = SingleServer.createDefault(serverID);
@@ -472,6 +474,7 @@ public class ServerData {
             if (s.id.equals(serverID)) {
                 s.mutedRoleID = mutedRoleID;
                 updateFile();
+                return;
             }
         }
         SingleServer s_new = SingleServer.createDefault(serverID);
@@ -512,6 +515,7 @@ public class ServerData {
             if (s.id.equals(serverID)) {
                 s.ventChannelID = ventChannelID;
                 updateFile();
+                return;
             }
         }
         SingleServer s_new = SingleServer.createDefault(serverID);
@@ -552,6 +556,7 @@ public class ServerData {
             if (s.id.equals(serverID)) {
                 s.noNickRoleID = noNickRoleID;
                 updateFile();
+                return;
             }
         }
         SingleServer s_new = SingleServer.createDefault(serverID);
@@ -592,6 +597,7 @@ public class ServerData {
             if (s.id.equals(serverID)) {
                 s.memberRoleID = memberRoleID;
                 updateFile();
+                return;
             }
         }
         SingleServer s_new = SingleServer.createDefault(serverID);
@@ -654,12 +660,13 @@ public class ServerData {
     public void setNameChannelID(String serverID, String nameChannelID) {
         for (SingleServer s : serverList) {
             if (s.id.equals(serverID)) {
-                s.ventChannelID = nameChannelID;
+                s.nameChannelID = nameChannelID;
                 updateFile();
+                return;
             }
         }
         SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.ventChannelID = nameChannelID;
+        s_new.nameChannelID = nameChannelID;
         serverList.add(s_new);
 
         updateFile();
