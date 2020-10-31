@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 public class Commands {
     private static final String[] leaderboardNames = {"Hider Wins", "Hunter Wins", "Kills"};
     public static final int defaultColor = 3603854;
+    public static boolean nameUpdateActive = false;
 
     /**
      * The command processing function.
@@ -48,7 +49,6 @@ public class Commands {
         Member sender = message.getMember();
         if(sender == null)
             return;
-        //TODO autoconfig
 
         if (msg.equals("!help")) {
             channel.sendMessage(new EmbedBuilder().setTitle("**HELP:**").setColor(defaultColor)
@@ -1200,7 +1200,9 @@ public class Commands {
         List<String> names = members.stream().map(m -> getName(m.getEffectiveName())).collect(Collectors.toList());
         List<String> userIDs = members.stream().map(Member::getId).collect(Collectors.toList());
 
+        nameUpdateActive = true;
         List<String[]> changed = userData.updateGuildUserData(guildID, members);
+        nameUpdateActive = false;
 
         EmbedBuilder eb = new EmbedBuilder()
                 .setTitle("Results of !updatenames:")
