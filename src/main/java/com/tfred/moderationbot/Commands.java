@@ -247,7 +247,7 @@ public class Commands {
 
         else if (msg.equals("!updatenames")) {
             if(isModerator(guildID, sender, serverdata))
-                updateNames(channel, userData, guild);
+                updateNames(channel, userData, guild, false);
         }
 
         else if (msg.startsWith("!listnames")) {
@@ -432,11 +432,55 @@ public class Commands {
                     }
                 }
 
-                String response = Moderation.punish(member, sev, reason, sender.getIdLong(), serverdata, punishmentHandler);
-                if(response.startsWith("Muted") ||response.startsWith("Banned") ||response.startsWith("Removed"))
-                    sendSuccess(channel, response);
-                else
-                    sendError(channel, response);
+                Moderation.Punishment p;
+                try {
+                    p = Moderation.punish(member, sev, reason, sender.getIdLong(), serverdata, punishmentHandler);
+                } catch (Moderation.ModerationException e) {
+                    sendError(channel, e.getMessage());
+                    return;
+                }
+                String type = "";
+                switch(p.severity) {
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5': {
+                        sendSuccess(channel, "Muted <@" + member.getId() + "> for " + p.length + " minutes.");
+                        type = "Mute (" + p.severity + ')';
+                        break;
+                    }
+                    case '6': {
+                        sendSuccess(channel, "Banned <@" + member.getId() + "> for " + p.length/60 + " hours.");
+                        type = "Ban";
+                        break;
+                    }
+                    case 'v': {
+                        sendSuccess(channel, "Removed <@" + member.getId() + ">'s access to <#" + channel.getId() + "> for" + p.length/1440 + " days.");
+                        type = "Vent ban";
+                        break;
+                    }
+                    case 'n': {
+                        sendSuccess(channel, "Removed <@" + member.getId() + ">'s nickname perms for " + p.length/1440 + " days.");
+                        type = "Nickname mute";
+                        break;
+                    }
+                }
+
+                TextChannel pchannel = guild.getTextChannelById(serverdata.getPunishmentChannelID(guild.getId()));
+                if(pchannel == null)
+                    pchannel = guild.getTextChannelById(serverdata.getLogChannelID((guild.getId())));
+                if(pchannel != null) {
+                    pchannel.sendMessage(new EmbedBuilder()
+                            .setColor(defaultColor)
+                            .setTitle("Case " + p.id)
+                            .addField("**User:**", member.getAsMention() + "\n**Type:**\n" + type, true)
+                            .addField("**Length:**", p.length + "mins\n**Moderator:**\n" + sender.getAsMention(), true)
+                            .addField("**Reason:**", p.reason, true)
+                            .setTimestamp(Instant.now())
+                            .build()
+                    ).queue();
+                }
             }
         }
 
@@ -494,13 +538,69 @@ public class Commands {
                             sendError(channel, "Invalid user or punishment ID.");
                             return;
                         }
-                        String response = Moderation.stopPunishment(guild, id, reason, sender.getIdLong(), hideC == 'y', serverdata, false);
-                        if(response.startsWith("Unmuted") ||response.startsWith("Unbanned") ||response.startsWith("Removed") ||response.startsWith("Added"))
-                            sendSuccess(channel, response);
-                        else if(response.startsWith("<"))
-                            sendInfo(channel, response);
-                        else
-                            sendError(channel, response);
+                        try {
+                            Moderation.ActivePunishment ap = null;
+                            try {
+                                for(Moderation.ActivePunishment ap2: Moderation.getActivePunishments(guildID)) {
+                                    if(ap2.punishment.id == id) {
+                                        ap = ap2;
+                                        break;
+                                    }
+                                }
+                            } catch (IOException e) {
+                                sendError(channel, "An IO error occured while reading active.data (<@470696578403794967>)! " + e.getMessage());
+                                return;
+                            }
+                            if(ap == null) {
+                                sendError(channel, "No matching active punishment with id " + id + "found.");
+                                return;
+                            }
+                            String response = Moderation.stopPunishment(guild, id, reason, sender.getIdLong(), hideC == 'y', serverdata, true);
+                            String[] resS = response.split(" ", 2);
+
+                            sendSuccess(channel, "✅ " + resS[1]);
+
+                            String type = "";
+                            switch(ap.punishment.severity) {
+                                case '1':
+                                case '2':
+                                case '3':
+                                case '4':
+                                case '5': {
+                                    type = "Unmute (" + ap.punishment.severity + ')';
+                                    break;
+                                }
+                                case '6': {
+                                    type = "Unban";
+                                    break;
+                                }
+                                case 'v': {
+                                    type = "Vent unban";
+                                    break;
+                                }
+                                case 'n': {
+                                    type = "Nickname unmute";
+                                    break;
+                                }
+                            }
+
+                            TextChannel pchannel = guild.getTextChannelById(serverdata.getPunishmentChannelID(guild.getId()));
+                            if(pchannel == null)
+                                pchannel = guild.getTextChannelById(serverdata.getLogChannelID((guild.getId())));
+                            if(pchannel != null) {
+                                pchannel.sendMessage(new EmbedBuilder()
+                                        .setColor(defaultColor)
+                                        .setTitle("Case " + Integer.parseInt(resS[0]))
+                                        .addField("**User:**", "<@" + ap.memberID + ">\n**Type:**\n" + type, true)
+                                        .addField("**Effected pID:**", ap.punishment.id + "\n**Hide:**\n" + hideC, true)
+                                        .addField("**Moderator:**", sender.getAsMention() + "\n**Reason:**\n" + reason, true)
+                                        .setTimestamp(Instant.now())
+                                        .build()
+                                ).queue();
+                            }
+                        } catch (Moderation.ModerationException e) {
+                            sendError(channel, "❌ " + e.getMessage());
+                        }
                         return;
                     }
                 }
@@ -515,46 +615,65 @@ public class Commands {
                     channel.sendMessage("<@470696578403794967>").queue();
                     return;
                 }
-                long finalMemberID = memberID; //idk why but intelliJ said I should do this
+                long finalMemberID = memberID;
                 apList.removeIf(ap -> !ap.memberID.equals(String.valueOf(finalMemberID)));
                 if (apList.isEmpty()) {
                     sendError(channel, "No active punishments found for <@" + memberID + ">.");
                     return;
                 }
-                int failstate = 0;
                 StringBuilder responses = new StringBuilder();
                 for (Moderation.ActivePunishment ap : apList) {
-                    String response = Moderation.stopPunishment(guild, ap.punishment.id, reason, sender.getIdLong(), hideC == 'y', serverdata, true);
-                    if(response.startsWith("Unmuted") ||response.startsWith("Unbanned") ||response.startsWith("Removed") ||response.startsWith("Added")) {
-                        if (failstate == 0)
-                            failstate = 1;
-                        if(failstate == 2)
-                            failstate = 3;
-                        responses.append("✅ ").append(response).append("\n\n");
-                    }
-                    else {
-                        if (failstate == 0)
-                            failstate = 2;
-                        if(failstate == 1)
-                            failstate = 3;
-                        responses.append("❌ ").append(response).append("\n\n");
+                    try {
+                        String response = Moderation.stopPunishment(guild, ap.punishment.id, reason, sender.getIdLong(), hideC == 'y', serverdata, true);
+                        String[] resS = response.split(" ", 2);
+
+                        responses.append("✅ ").append(resS[1]).append("\n");
+
+                        String type = "";
+                        switch(ap.punishment.severity) {
+                            case '1':
+                            case '2':
+                            case '3':
+                            case '4':
+                            case '5': {
+                                type = "Unmute (" + ap.punishment.severity + ')';
+                                break;
+                            }
+                            case '6': {
+                                type = "Unban";
+                                break;
+                            }
+                            case 'v': {
+                                type = "Vent unban";
+                                break;
+                            }
+                            case 'n': {
+                                type = "Nickname unmute";
+                                break;
+                            }
+                        }
+
+                        TextChannel pchannel = guild.getTextChannelById(serverdata.getPunishmentChannelID(guild.getId()));
+                        if(pchannel == null)
+                            pchannel = guild.getTextChannelById(serverdata.getLogChannelID((guild.getId())));
+                        if(pchannel != null) {
+                            pchannel.sendMessage(new EmbedBuilder()
+                                    .setColor(defaultColor)
+                                    .setTitle("Case " + Integer.parseInt(resS[0]))
+                                    .addField("**User:**", "<@" + memberID + ">\n**Type:**\n" + type, true)
+                                    .addField("**Effected pID:**", ap.punishment.id + "\n**Hide:**\n" + hideC, true)
+                                    .addField("**Moderator:**", sender.getAsMention() + "\n**Reason:**\n" + reason, true)
+                                    .setTimestamp(Instant.now())
+                                    .build()
+                            ).queue();
+                        }
+                    } catch (Moderation.ModerationException e) {
+                        responses.append("❌ ").append(e).append("\n");
                     }
                 }
                 responses.setLength(responses.length()-2);
 
-                EmbedBuilder eb = new EmbedBuilder().setDescription(responses.toString());
-                switch (failstate) {
-                    case 1:
-                        eb.setColor(7844437);
-                        break;
-                    case 2:
-                        eb.setColor(14495300);
-                        break;
-                    case 3:
-                        eb.setColor(3901635);
-                        break;
-                }
-                channel.sendMessage(eb.build()).queue();
+                channel.sendMessage(new EmbedBuilder().setDescription(responses.toString()).setColor(defaultColor).build()).queue();
             }
         }
 
@@ -597,7 +716,7 @@ public class Commands {
                 }
                 else {
                     EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor)
-                            .setDescription("__**<@" + memberID + ">'s punishment history:**__\n\n");
+                            .setDescription("__**<@" + memberID + ">'s punishment history:**__\n\u200B");
                     List<MessageEmbed.Field> fields = new LinkedList<>();
                     for(Moderation.Punishment p: pList) {
                         String caseS = String.valueOf(p.id);
@@ -659,7 +778,7 @@ public class Commands {
                             fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Effected pID:**\n" + pardonedID, true));
                         else
                             fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Length:**\n" + length, true));
-                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + '\n', true));
+                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + "\n\u200B", true));
                     }
                     int c = 0;
                     for(MessageEmbed.Field f: fields) {
@@ -693,7 +812,7 @@ public class Commands {
                 }
                 else {
                     EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor)
-                            .setTitle("__**Currently active punishments:**__\n\n");
+                            .setTitle("__**Currently active punishments:**__\n\u200B");
                     List<MessageEmbed.Field> fields = new LinkedList<>();
                     for(Moderation.ActivePunishment ap: apList) {
                         Moderation.Punishment p = ap.punishment;
@@ -728,7 +847,7 @@ public class Commands {
                         fields.add(new MessageEmbed.Field("**Case:**", caseS, false));
                         fields.add(new MessageEmbed.Field("**User:**", "<@" + ap.memberID + ">\n**Type:**\n" + type, true));
                         fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Length:**\n" + length, true));
-                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + '\n', true));
+                        fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + "\n\u200B", true));
                     }
                     int c = 0;
                     for(MessageEmbed.Field f: fields) {
@@ -884,7 +1003,7 @@ public class Commands {
             }
         }
 
-        else if (msg.startsWith("!lb ")) {
+        else if (msg.startsWith("!lb")) {
             if((sender.hasPermission(Permission.ADMINISTRATOR))) {
                 if (msg.length() != 5) {
                     helpMessage(channel, "lb");
@@ -1189,8 +1308,10 @@ public class Commands {
      *          The {@link UserData user data} to be processed.
      * @param guild
      *          The specified {@link Guild guild}.
+     * @param hide
+     *          If no message should be sent when no names are updated.
      */
-    public static void updateNames(TextChannel channel, UserData userData, Guild guild) {
+    public static void updateNames(TextChannel channel, UserData userData, Guild guild, boolean hide) {
         String guildID = guild.getId();
 
         if(channel != null)
@@ -1241,8 +1362,11 @@ public class Commands {
                     eb.addField("", "Updating failed on " + failed.length() + " users.", false);
             }
         }
-        else
+        else {
+            if(hide)
+                return;
             eb.setDescription("No users were updated.");
+        }
 
         if(channel != null)
             channel.sendMessage(eb.build()).queue();
@@ -1291,7 +1415,7 @@ public class Commands {
                 eb.addField("", s, false);
             }
             eb.setFooter("Last update: ");
-            eb.setTimestamp(new Date(leaderboards.getDate()).toInstant());
+            eb.setTimestamp(Instant.ofEpochMilli(leaderboards.getDate()));
 
             try {
                 editChannel.editMessageById(data[i][1], eb.build()).queue();

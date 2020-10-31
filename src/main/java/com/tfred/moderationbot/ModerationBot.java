@@ -4,7 +4,6 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.audit.AuditLogEntry;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.DisconnectEvent;
 import net.dv8tion.jda.api.events.ReconnectedEvent;
@@ -24,7 +23,8 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.security.auth.login.LoginException;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
@@ -317,7 +317,6 @@ public class ModerationBot extends ListenerAdapter
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         Member m = event.getMember();
-        System.out.println(1);
         if(!Commands.nameUpdateActive && !ignoredUsers.contains(m.getId()))
             checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
     }
@@ -335,7 +334,6 @@ public class ModerationBot extends ListenerAdapter
     }
 
     private void checkNameChange (String old_n, String new_n, Member m) {//TODO cache some data and update name if necessary
-        System.out.println(2);
         Guild g = m.getGuild();
         String mc_n = userdata.getUserInGuild(g.getId(), m.getId());
         if(mc_n.isEmpty())
@@ -346,28 +344,22 @@ public class ModerationBot extends ListenerAdapter
         new_n = Commands.getName(new_n);
 
         if(!mc_n.equals(new_n)) {
-            System.out.println(3);
             try {
                 ignoredUsers.add(m.getId());
-                m.modifyNickname(old_n).queue((ignored) -> {System.out.println(ignoredUsers.remove(m.getId()));
-                    System.out.println(5);});
+                m.modifyNickname(old_n).queue((ignored) -> ignoredUsers.remove(m.getId()));
             } catch (HierarchyException | InsufficientPermissionException ignored) {
-                System.out.println(ignoredUsers.remove(m.getId()));
-                System.out.println(6);
+                ignoredUsers.remove(m.getId());
             }
 
             m.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + g.getName() + " was reset due to it being incompatible with the username system.").queue());
         }
         else {
-            System.out.println(4);
             if(old_n == null)
                 old_n = m.getUser().getName();
             old_n = Commands.getName(old_n);
             if(!old_n.equals(new_n)) {
-                System.out.println(7);
                 TextChannel namechannel = g.getTextChannelById(serverdata.getNameChannelID(g.getId()));
                 if(namechannel == null) {
-                    System.out.println(8);
                     namechannel = g.getTextChannelById(serverdata.getLogChannelID((g.getId())));
                 }
                 if(namechannel != null)
@@ -486,7 +478,7 @@ public class ModerationBot extends ListenerAdapter
                 if (channel != null)
                     channel.sendMessage("Daily update in progress...").complete();
 
-                Commands.updateNames(namechannel, userdata, guild);
+                Commands.updateNames(namechannel, userdata, guild, true);
 
                 if (weekly)
                     Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);

@@ -247,8 +247,13 @@ public class Moderation {
                 ActivePunishment ap = removeActivePunishment(guildID, p.id);
                 if(ap == null)
                     return; //If this is null then it was already unpunished
-                if (guild != null)
-                    response = endPunishment(guild, memberID, p, serverData, false);
+                if (guild != null) {
+                    try {
+                        response = endPunishment(guild, memberID, p, serverData, false);
+                    } catch (ModerationException e) {
+                        response = e.getMessage();
+                    }
+                }
             } catch (IOException e) {
                 response = "An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage();
             }
@@ -257,8 +262,7 @@ public class Moderation {
                 if (pChannel == null) {
                     TextChannel lChannel = guild.getTextChannelById(serverData.getLogChannelID(guildID));
                     if (lChannel != null) {
-                        Commands.sendError(lChannel, "No punishment channel set! Punishments will be logged here.");
-                        Commands.sendInfo(lChannel, response);
+                        Commands.sendInfo(lChannel, response);//TODO maybe differentiate between fail and success
                     }
                 } else
                     Commands.sendInfo(pChannel, response);
@@ -283,6 +287,12 @@ public class Moderation {
                 queued.forEach(EndPunishment::run);
                 queued.clear();
             }
+        }
+    }
+
+    public static class ModerationException extends Exception {
+        public ModerationException(String errorMessage) {
+            super(errorMessage);
         }
     }
 
@@ -423,9 +433,11 @@ public class Moderation {
      * @param punishmentHandler
      *          The punishment handler that handles the unpunish scheduling.
      * @return
-     *          The response. This can either be an error message like "Invalid severity" or it can indicate a successful punishment like "Muted user for <time>".
+     *          The punishment.
+     * @throws ModerationException
+     *          A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
      */
-    public static String punish(Member member, char severity, String reason, long punisherID, ServerData serverData, PunishmentHandler punishmentHandler) {
+    public static Punishment punish(Member member, char severity, String reason, long punisherID, ServerData serverData, PunishmentHandler punishmentHandler) throws ModerationException {
         Guild g = member.getGuild();
 
         String id;
@@ -441,57 +453,57 @@ public class Moderation {
             case '5':
                 id = serverData.getMutedRoleID(g.getId());
                 if(id.equals("0")) {
-                    return "Please set a muted role with ``!config mutedrole <@role>``!";
+                    throw new ModerationException("Please set a muted role with ``!config mutedrole <@role>``!");
                 }
                 if(!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
-                    return "The bot is missing the manage roles permission!";
+                    throw new ModerationException("The bot is missing the manage roles permission!");
                 }
                 role = g.getRoleById(id);
                 if(role == null) {
-                    return "Please set a new muted role with ``!config mutedrole <@role>``!";
+                    throw new ModerationException("Please set a new muted role with ``!config mutedrole <@role>``!");
                 }
                 break;
             case '6':
                 if(!g.getSelfMember().hasPermission(Permission.BAN_MEMBERS)) {
-                    return "The bot is missing the ban members permission!";
+                    throw new ModerationException("The bot is missing the ban members permission!");
                 }
                 break;
             case 'v':
                 id = serverData.getVentChannelID(g.getId());
                 if(id.equals("0")) {
-                    return "Please set a vent channel with ``!config ventchannel <#channel>``!";
+                    throw new ModerationException("Please set a vent channel with ``!config ventchannel <#channel>``!");
                 }
                 channel = g.getTextChannelById(id);
                 if(channel == null) {
-                    return "Vent channel was deleted! Please set a new vent channel with ``!config ventchannel <#channel>``!";
+                    throw new ModerationException("Vent channel was deleted! Please set a new vent channel with ``!config ventchannel <#channel>``!");
                 }
                 if(!g.getSelfMember().hasPermission(channel, Permission.MANAGE_PERMISSIONS)) {
-                    return "The bot is missing the manage permissions permission in " + channel.getAsMention() + "!";
+                    throw new ModerationException("The bot is missing the manage permissions permission in " + channel.getAsMention() + "!");
                 }
                 break;
             case 'n':
                 id = serverData.getNoNickRoleID(g.getId());
                 if(id.equals("0")) {
-                    return "Please set a no nickname role with ``!config nonickrole <@role>``!";
+                    throw new ModerationException("Please set a no nickname role with ``!config nonickrole <@role>``!");
                 }
                 if(!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
-                    return "The bot is missing the manage roles permission!";
+                    throw new ModerationException("The bot is missing the manage roles permission!");
                 }
                 role = g.getRoleById(id);
                 if(role == null) {
-                    return "noNickname role was deleted! Please set a no nickname role with ``!config nonickrole <@role>``!";
+                    throw new ModerationException("noNickname role was deleted! Please set a no nickname role with ``!config nonickrole <@role>``!");
                 }
                 id = serverData.getMemberRoleID(g.getId());
                 if(id.equals("0")) {
-                    return "Please set a member role with ``!config memberrole <@role>``!";
+                    throw new ModerationException("Please set a member role with ``!config memberrole <@role>``!");
                 }
                 role2 = g.getRoleById(id);
                 if(role2 == null) {
-                    return "Member role was deleted! Please set a no nickname role with ``!config memberrole <@role>``!";
+                    throw new ModerationException("Member role was deleted! Please set a no nickname role with ``!config memberrole <@role>``!");
                 }
                 break;
             default:
-                return "Invalid severity: " + severity;
+                throw new ModerationException("Invalid severity: " + severity);
         }
 
         Punishment p;
@@ -499,13 +511,13 @@ public class Moderation {
             int nextID = serverData.nextPunishmentID(g.getId());
             p = new Punishment(nextID, severity, reason, getPunishmentLength(g.getId(), member.getId(), severity), punisherID);
         } catch (IOException ignored) {
-            return "An internal error occurred while calculating punishment length! Please try again in a bit.";
+            throw new ModerationException("An internal error occurred while calculating punishment length! Please try again in a bit.");
         }
 
         try {
             addPunishment(g.getId(), member.getId(), p);
         } catch (IOException e) {e.printStackTrace();
-            return "An internal error occurred while logging punishment! Please try again in a bit.";
+            throw new ModerationException("An internal error occurred while logging punishment! Please try again in a bit.");
         }
 
         switch(severity) {
@@ -517,41 +529,41 @@ public class Moderation {
                 try {
                     g.addRoleToMember(member, role).queue();
                     punishmentHandler.newPunishment(member.getId(), g.getId(), p);
-                    return "Muted <@" + member.getId() + "> for " + p.length + " minutes (Case " + p.id + ").";
+                    return p;
                 } catch (Exception e) {
-                    return "Unable to mute <@" + member.getId() + "! " + e.getMessage();
+                    throw new ModerationException("Unable to mute <@" + member.getId() + "! " + e.getMessage());
                 }
             case '6':
                 try {
                     g.ban(member, 0, reason).queue();
                     punishmentHandler.newPunishment(member.getId(), g.getId(), p);
-                    return "Banned <@" + member.getId() + "> for " + p.length/60 + " hours (Case " + p.id + ").";
+                    return p;
                 } catch (Exception e) {
-                    return "Unable to ban <@" + member.getId() + ">! " + e.getMessage();
+                    throw new ModerationException("Unable to ban <@" + member.getId() + ">! " + e.getMessage());
                 }
             case 'v':
                 try {
                     channel.putPermissionOverride(member).setDeny(Permission.VIEW_CHANNEL).queue();
                     punishmentHandler.newPunishment(member.getId(), g.getId(), p);
-                    return "Removed <@" + member.getId() + ">'s access to <#" + channel.getId() + "> for" + p.length/1440 + " days (Case " + p.id + ").";
+                    return p;
                 } catch (Exception e) {
-                    return "Unable remove <@" + member.getId() + ">'s access to <#" + channel.getId() + "! " + e.getMessage();
+                    throw new ModerationException("Unable remove <@" + member.getId() + ">'s access to <#" + channel.getId() + "! " + e.getMessage());
                 }
             case 'n':
                 try {
                     g.removeRoleFromMember(member, role2).queue();
                 } catch (Exception e) {
-                    return "Unable to add the " + role2.getName() + " role to <@" + member.getId() + "! " + e.getMessage();
+                    throw new ModerationException("Unable to add the " + role2.getName() + " role to <@" + member.getId() + "! " + e.getMessage());
                 }
                 try {
                     g.addRoleToMember(member, role).queue();
                     punishmentHandler.newPunishment(member.getId(), g.getId(), p);
-                    return "Removed <@" + member.getId() + ">'s nickname perms for " + p.length/1440 + " days (Case " + p.id + ").";
+                    return p;
                 } catch (Exception e) {
-                    return "Unable to add the " + role.getName() + " role to <@" + member.getId() + "! " + e.getMessage();
+                    throw new ModerationException("Unable to add the " + role.getName() + " role to <@" + member.getId() + "! " + e.getMessage());
                 }
             default:
-                return "Encountered an invalid severity whilst trying to punish <@" + member.getId() + ">. Punishment: " + p.toString();
+                throw new ModerationException("Encountered an invalid severity whilst trying to punish <@" + member.getId() + ">. Punishment: " + p.toString());
         }
     }
 
@@ -574,16 +586,18 @@ public class Moderation {
      *          If other active punishments of similar similarity should be ignored while unpunishing. This is mostly to save processing time when pardoning all punishments of a user.
      * @return
      *          The response message. Similar to the one from punish but with unpunish messages.
+     * @throws ModerationException
+     *          A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
      */
-    public static String stopPunishment(Guild guild, int punishmentID, String reason, long unpunisherID, boolean hide, ServerData serverData, boolean stopAll) {
+    public static String stopPunishment(Guild guild, int punishmentID, String reason, long unpunisherID, boolean hide, ServerData serverData, boolean stopAll) throws ModerationException {
         ActivePunishment ap;
         try {
             ap = removeActivePunishment(guild.getId(), punishmentID);
         } catch (IOException e) {
-            return "An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage();
+            throw new ModerationException("An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage());
         }
         if(ap == null)
-            return "No matching active punishment with id " + punishmentID + "found.";
+            throw new ModerationException("No matching active punishment with id " + punishmentID + "found.");
 
         String memberID = ap.memberID;
 
@@ -594,13 +608,13 @@ public class Moderation {
         try {
             Files.write(Paths.get("moderations/" + guild.getId() + "/" + memberID + ".data"), (p.toString() + '\n').getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
-            return "An IO error occurred while logging the unpunishment (<@470696578403794967>)! " + e.getMessage();
+            throw new ModerationException("An IO error occurred while logging the unpunishment (<@470696578403794967>)! " + e.getMessage());
         }
 
-        return endPunishment(guild, memberID, ap.punishment, serverData, stopAll) + "(Case " + p.id + ")";
+        return p.id + " " + endPunishment(guild, memberID, ap.punishment, serverData, stopAll);
     }
 
-    private static String endPunishment(Guild g, String memberID, Punishment punishment, ServerData serverData, boolean stopAll) {
+    private static String endPunishment(Guild g, String memberID, Punishment punishment, ServerData serverData, boolean stopAll) throws ModerationException {
         //check if user has other active punishments
         if(!stopAll) {
             try {
@@ -609,15 +623,15 @@ public class Moderation {
                     for (ActivePunishment ap : activePunishments) {
                         if (ap.memberID.equals(memberID)) {
                             if (("12345".indexOf(punishment.severity) != -1) && ("12345".indexOf(ap.punishment.severity) != -1)) {
-                                return "<@" + memberID + "> still has other active punishments of similar severity.";
+                                throw new ModerationException("<@" + memberID + "> still has other active punishments of similar severity.");
                             }
                             if (punishment.severity == ap.punishment.severity) {
-                                return "<@" + memberID + "> still has other active punishments of similar severity.";
+                                throw new ModerationException("<@" + memberID + "> still has other active punishments of similar severity.");
                             }
                         }
                     }
             } catch (IOException ignored) {
-                return "An IO error occurred while checking for other active punishments! User won't be unpunished. Punishment: " + punishment.toString();
+                throw new ModerationException("An IO error occurred while checking for other active punishments! User won't be unpunished. Punishment: " + punishment.toString());
             }
         }
 
@@ -638,27 +652,27 @@ public class Moderation {
                 }
                 id = serverData.getMutedRoleID(g.getId());
                 if(id.equals("0")) {
-                    return "Unmute of <@" + memberID + "> failed! No muted role set.";
+                    throw new ModerationException("Unmute of <@" + memberID + "> failed! No muted role set.");
                 }
                 if(!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
-                    return "Unmute of <@" + memberID + "> failed! Missing permissions: MANAGE_ROLES. Please remove the role manually.";
+                    throw new ModerationException("Unmute of <@" + memberID + "> failed! Missing permissions: MANAGE_ROLES. Please remove the role manually.");
                 }
                 role = g.getRoleById(id);
                 if(role == null) {
-                    return "Unmute of <@" + memberID + "> failed! Muted role doesn't exist anymore.";
+                    throw new ModerationException("Unmute of <@" + memberID + "> failed! Muted role doesn't exist anymore.");
                 }
                 try {
                     g.removeRoleFromMember(member, role).queue();
                     return "Unmuted <@" + memberID + ">.";
                 } catch (Exception e) {
-                    return "Unmute of <@" + memberID + "> failed! " + e.getMessage();
+                    throw new ModerationException("Unmute of <@" + memberID + "> failed! " + e.getMessage());
                 }
             case '6':
                 try {
                     g.unban(memberID).complete();
                     return "Unbanned <@" + memberID + ">.";
                 } catch (Exception e) {
-                    return "Unable to unban <@" + memberID + ">. " + e.getMessage();
+                    throw new ModerationException("Unable to unban <@" + memberID + ">. " + e.getMessage());
                 }
             case 'v':
                 member = g.getMemberById(memberID);
@@ -667,14 +681,14 @@ public class Moderation {
                 }
                 id = serverData.getVentChannelID(g.getId());
                 if(id.equals("0")) {
-                    return "Failed to remove <@" + memberID + ">'s ban from the vent channel! No vent channel set.";
+                    throw new ModerationException("Failed to remove <@" + memberID + ">'s ban from the vent channel! No vent channel set.");
                 }
                 channel = g.getTextChannelById(id);
                 if(channel == null) {
-                    return "Failed to remove <@" + memberID + ">'s ban from the vent channel! Vent channel doesn't exist anymore.";
+                    throw new ModerationException("Failed to remove <@" + memberID + ">'s ban from the vent channel! Vent channel doesn't exist anymore.");
                 }
                 if(!g.getSelfMember().hasPermission(channel, Permission.MANAGE_PERMISSIONS)) {
-                    return "Failed to remove <@" + memberID + ">'s ban from <#" + channel.getId() + ">! The bot is missing the manage permissions permission in this channel!";
+                    throw new ModerationException("Failed to remove <@" + memberID + ">'s ban from <#" + channel.getId() + ">! The bot is missing the manage permissions permission in this channel!");
                 }
                 try {
                     PermissionOverride perms = channel.getPermissionOverride(member);
@@ -682,7 +696,7 @@ public class Moderation {
                         perms.delete().queue();
                     return "Removed <@" + memberID + ">'s ban from the vent channel.";
                 } catch (Exception e) {
-                    return "Failed to remove <@" + memberID + ">'s ban from <#" + channel.getId() + ">! " + e.getMessage();
+                    throw new ModerationException("Failed to remove <@" + memberID + ">'s ban from <#" + channel.getId() + ">! " + e.getMessage());
                 }
             case 'n':
                 member = g.getMemberById(memberID);
@@ -691,38 +705,38 @@ public class Moderation {
                 }
                 id = serverData.getNoNickRoleID(g.getId());
                 if(id.equals("0")) {
-                    return "Failed to re add <@" + memberID + ">'s nickname permissions! No noNick role set.";
+                    throw new ModerationException("Failed to re add <@" + memberID + ">'s nickname permissions! No noNick role set.");
                 }
                 if(!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
-                    return "Failed to add back <@" + memberID + ">'s nickname permissions! Missing manage roles permission.";
+                    throw new ModerationException("Failed to add back <@" + memberID + ">'s nickname permissions! Missing manage roles permission.");
                 }
                 role = g.getRoleById(id);
                 if(role == null) {
-                    return "Failed to add back <@" + memberID + ">'s nickname permissions! NoNick role was deleted.";
+                    throw new ModerationException("Failed to add back <@" + memberID + ">'s nickname permissions! NoNick role was deleted.");
                 }
 
                 id = serverData.getMemberRoleID(g.getId());
                 if(id.equals("0")) {
-                    return "Failed to re add <@" + memberID + ">'s nickname permissions! No member role set.";
+                    throw new ModerationException("Failed to re add <@" + memberID + ">'s nickname permissions! No member role set.");
                 }
                 Role role2 = g.getRoleById(id);
                 if(role2 == null) {
-                    return "Failed to add back <@" + memberID + ">'s nickname permissions! Member role was deleted.";
+                    throw new ModerationException("Failed to add back <@" + memberID + ">'s nickname permissions! Member role was deleted.");
                 }
                 try {
                     g.removeRoleFromMember(member, role).queue();
                 } catch (Exception e) {
-                    return "Failed to remove noNick role from <@" + memberID + ">! " + e.getMessage();
+                    throw new ModerationException("Failed to remove noNick role from <@" + memberID + ">! " + e.getMessage());
                 }
 
                 try {
                     g.addRoleToMember(member, role2).queue();
                     return "Added back <@" + memberID + ">'s nickname permissions.";
                 } catch (Exception e) {
-                    return "Failed to add member role to <@" + memberID + ">! " + e.getMessage();
+                    throw new ModerationException("Failed to add member role to <@" + memberID + ">! " + e.getMessage());
                 }
             default:
-                return "Encountered an invalid severity whilst trying to unpunish <@" + memberID + ">. Punishment: " + punishment.toString();
+                throw new ModerationException("Encountered an invalid severity whilst trying to unpunish <@" + memberID + ">. Punishment: " + punishment.toString());
         }
     }
 

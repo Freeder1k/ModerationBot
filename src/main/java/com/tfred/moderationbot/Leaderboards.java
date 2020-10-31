@@ -10,9 +10,9 @@ import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.*;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -233,7 +233,7 @@ public class Leaderboards {
      * If no new data could be fetched {@link Leaderboards#failed Leaderbaords.failed} gets set to true.
      */
     public void updateLeaderboards() {
-        date = ZonedDateTime.now().toInstant().toEpochMilli();
+        date = Instant.now().toEpochMilli();
         boolean empty = false;
 
         if (fetchNewLeaderboards() == 1) {
