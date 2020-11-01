@@ -850,7 +850,8 @@ public class Commands {
                         long s = totalTimeLeft % 60;
                         long m = (totalTimeLeft / 60) % 60;
                         long h = (totalTimeLeft / (60 * 60)) % 24;
-                        String timeLeft = (h == 0? "": h + "h, ") + m + "m, " + s + "s";
+                        long d = (totalTimeLeft / (60 * 60 * 24));
+                        String timeLeft = (d == 0? "": d + "d, ") + (h == 0? "": h + "h, ") + m + "m, " + s + "s";
 
                         fields.add(new MessageEmbed.Field("**Case:**", caseS, false));
                         fields.add(new MessageEmbed.Field("**User:**", "<@" + ap.memberID + ">\n**Type:**\n" + type, true));
@@ -1169,6 +1170,15 @@ public class Commands {
                         response2.addField("", testMessage[c], true);
                     channel.sendMessage(response2.build()).queue();
                 }
+            }
+        }
+
+        else if (msg.equals("!shutdown")) {
+            if(sender.getId().equals("470696578403794967")) {
+                try {
+                    channel.sendMessage("⚠️**System shutting down...**⚠️").queue();
+                    event.getJDA().shutdown();
+                } catch (Exception ignored) {channel.sendMessage("Error").queue();}
             }
         }
     }
