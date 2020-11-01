@@ -499,6 +499,10 @@ public class Commands {
                     return;
                 }
 
+                if(args[2].length() != 1) {
+                    sendError(channel, "Invalid hide option.");
+                    return;
+                }
                 char hideC = args[2].charAt(0);
                 if ("yn".indexOf(hideC) == -1) {
                     sendError(channel, "Invalid hide option.");
@@ -552,13 +556,13 @@ public class Commands {
                                 return;
                             }
                             if(ap == null) {
-                                sendError(channel, "No matching active punishment with id " + id + "found.");
+                                sendError(channel, "No matching active punishment with id " + id + " found.");
                                 return;
                             }
-                            String response = Moderation.stopPunishment(guild, id, reason, sender.getIdLong(), hideC == 'y', serverdata, true);
+                            String response = Moderation.stopPunishment(guild, id, reason, sender.getIdLong(), hideC == 'y', serverdata, false);
                             String[] resS = response.split(" ", 2);
 
-                            sendSuccess(channel, "✅ " + resS[1]);
+                            sendSuccess(channel, resS[1]);
 
                             String type = "";
                             switch(ap.punishment.severity) {
@@ -599,7 +603,7 @@ public class Commands {
                                 ).queue();
                             }
                         } catch (Moderation.ModerationException e) {
-                            sendError(channel, "❌ " + e.getMessage());
+                            sendError(channel, e.getMessage());
                         }
                         return;
                     }
@@ -818,7 +822,6 @@ public class Commands {
                         Moderation.Punishment p = ap.punishment;
                         String caseS = String.valueOf(p.id);
                         String date  = Instant.ofEpochMilli(p.date).toString();
-                        String length = p.length + "mins";
                         String moderator = "<@" + p.punisherID + ">";
                         String type;
                         String reason = StringEscapeUtils.unescapeJava(p.reason);
@@ -843,10 +846,15 @@ public class Commands {
                             default:
                                 type = "Unknown (" + p.severity + ")";
                         }
+                        long totalTimeLeft = ((p.date + (((long) p.length) * 60000)) - System.currentTimeMillis()) / 1000; //Time left in seconds
+                        long s = totalTimeLeft % 60;
+                        long m = (totalTimeLeft / 60) % 60;
+                        long h = (totalTimeLeft / (60 * 60)) % 24;
+                        String timeLeft = (h == 0? "": h + "h, ") + m + "m, " + s + "s";
 
                         fields.add(new MessageEmbed.Field("**Case:**", caseS, false));
                         fields.add(new MessageEmbed.Field("**User:**", "<@" + ap.memberID + ">\n**Type:**\n" + type, true));
-                        fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Length:**\n" + length, true));
+                        fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Time left:**\n" + timeLeft, true));
                         fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + "\n\u200B", true));
                     }
                     int c = 0;

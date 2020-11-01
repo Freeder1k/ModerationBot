@@ -597,7 +597,7 @@ public class Moderation {
             throw new ModerationException("An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage());
         }
         if(ap == null)
-            throw new ModerationException("No matching active punishment with id " + punishmentID + "found.");
+            throw new ModerationException("No matching active punishment with id " + punishmentID + " found.");
 
         String memberID = ap.memberID;
 
@@ -623,10 +623,10 @@ public class Moderation {
                     for (ActivePunishment ap : activePunishments) {
                         if (ap.memberID.equals(memberID)) {
                             if (("12345".indexOf(punishment.severity) != -1) && ("12345".indexOf(ap.punishment.severity) != -1)) {
-                                throw new ModerationException("<@" + memberID + "> still has other active punishments of similar severity.");
+                                return "<@" + memberID + "> still has other active punishments of similar severity.";
                             }
                             if (punishment.severity == ap.punishment.severity) {
-                                throw new ModerationException("<@" + memberID + "> still has other active punishments of similar severity.");
+                                return "<@" + memberID + "> still has other active punishments of similar severity.";
                             }
                         }
                     }
