@@ -435,7 +435,7 @@ public class ModerationBot extends ListenerAdapter
 
         public void stop() {
             try {
-                scheduler.shutdown();
+                scheduler.shutdownNow();
             } catch (Exception ignored) {}
         }
 

@@ -271,7 +271,7 @@ public class Moderation {
 
         public void stop() {
             try {
-                scheduler.shutdown();
+                scheduler.shutdownNow();
             } catch (Exception ignored) {}
         }
 
