@@ -186,7 +186,10 @@ public class UserData {
                         Pattern pattern = Pattern.compile(".*?\\(");
                         Matcher matcher = pattern.matcher(m.getNickname());
                         if (matcher.find()) {
-                            m.modifyNickname(matcher.group() + currentName + ")").queue();
+                            String newNick = matcher.group() + currentName + ")";
+                            if(newNick.length() > 32)
+                                newNick = currentName;
+                            m.modifyNickname(newNick).queue();
                         }
                     }
                     else
