@@ -165,7 +165,8 @@ public class UserData {
                     if(m.getEffectiveName().equals(currentName))
                         return "";
                     else {
-                        m.modifyNickname(currentName).queue();
+                        ModerationBot.ignoredUsers.add(m.getId());
+                        m.modifyNickname(currentName).queue((ignored) -> ModerationBot.ignoredUsers.remove(m.getId()));
                         return currentName;
                     }
                 }
@@ -189,11 +190,14 @@ public class UserData {
                             String newNick = matcher.group() + currentName + ")";
                             if(newNick.length() > 32)
                                 newNick = currentName;
-                            m.modifyNickname(newNick).queue();
+                            ModerationBot.ignoredUsers.add(m.getId());
+                            m.modifyNickname(newNick).queue((ignored) -> ModerationBot.ignoredUsers.remove(m.getId()));
                         }
                     }
-                    else
-                        m.modifyNickname(currentName).queue();
+                    else {
+                        ModerationBot.ignoredUsers.add(m.getId());
+                        m.modifyNickname(currentName).queue((ignored) -> ModerationBot.ignoredUsers.remove(m.getId()));
+                    }
                     return currentName;
                 }
                 return "";

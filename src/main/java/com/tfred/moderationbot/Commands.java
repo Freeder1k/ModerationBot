@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 public class Commands {
     private static final String[] leaderboardNames = {"Hider Wins", "Hunter Wins", "Kills"};
     public static final int defaultColor = 3603854;
-    public static boolean nameUpdateActive = false;
 
     /**
      * The command processing function.
@@ -344,6 +343,24 @@ public class Commands {
                 }
                 embedBuilder.addField("**Moderator Roles:**", modRoles, false);
 
+                String memberRole = serverdata.getMemberRoleID(guildID);
+                if(memberRole.equals("0"))
+                    embedBuilder.addField("**Member role:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**Member role:**", "<@&" + memberRole + ">", false);
+
+                String mutedRole = serverdata.getMutedRoleID(guildID);
+                if(mutedRole.equals("0"))
+                    embedBuilder.addField("**Muted role:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**Muted role:**", "<@&" + mutedRole + ">", false);
+
+                String noNickRole = serverdata.getNoNickRoleID(guildID);
+                if(noNickRole.equals("0"))
+                    embedBuilder.addField("**NoNick role:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**NoNick role:**", "<@&" + noNickRole + ">", false);
+
                 
                 StringBuilder leaderboardData = new StringBuilder();
                 String[][] lbData = serverdata.getAllLbData(guildID);
@@ -363,13 +380,23 @@ public class Commands {
                 else
                     embedBuilder.addField("**Log channel:**", "<#" + logChannel + ">", false);
 
-
                 String joinChannel = serverdata.getJoinChannelID(guildID);
                 if(joinChannel.equals("0"))
                     embedBuilder.addField("**Join channel:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Join channel:**", "<#" + joinChannel + ">", false);
 
+                String punishmentChannel = serverdata.getPunishmentChannelID(guildID);
+                if(punishmentChannel.equals("0"))
+                    embedBuilder.addField("**Punishment channel:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**Punishment channel:**", "<#" + punishmentChannel + ">", false);
+
+                String ventChannel = serverdata.getVentChannelID(guildID);
+                if(ventChannel.equals("0"))
+                    embedBuilder.addField("**Vent channel:**", "``Not set yet.``", false);
+                else
+                    embedBuilder.addField("**Vent channel:**", "<#" + ventChannel + ">", false);
 
                 String nameChannel = serverdata.getNameChannelID(guildID);
                 if(nameChannel.equals("0"))
@@ -390,7 +417,7 @@ public class Commands {
 
         else if (msg.startsWith("!punish")) {
             if(isModerator(guildID, sender, serverdata)) {
-                String[] args = message.getContentRaw().split(" ");
+                String[] args = message.getContentRaw().split(" ", 4);
 
                 if(args.length == 1) {
                     helpMessage(channel, "punish");
@@ -407,6 +434,10 @@ public class Commands {
                     sendError(channel, "Invalid user.");
                     return;
                 }
+                if(isModerator(guildID, member, serverdata)) {
+                    sendError(channel, "This user is a server moderator!");
+                    return;
+                }
 
                 if (args[2].length() != 1) {
                     sendError(channel, "Invalid severity type.");
@@ -420,14 +451,9 @@ public class Commands {
 
                 String reason = "None.";
                 if (args.length > 3) {
-                    StringBuilder r = new StringBuilder();
-                    for (int i = 3; i < args.length; i++) {
-                        r.append(args[i]).append(' ');
-                    }
-                    r.setLength(r.length() - 1);
-                    reason = r.toString();
+                    reason = args[4];
                     if(reason.length() > 200) {
-                        sendError(channel, "Reason can only have a maximum of 200 characters!");
+                        sendError(channel, "Reason can only have a maximum length of 200 characters!");
                         return;
                     }
                 }
@@ -487,7 +513,7 @@ public class Commands {
         else if (msg.startsWith("!pardon") || msg.startsWith("!absolve") || msg.startsWith("!acquit")
                 || msg.startsWith("!exculpate") || msg.startsWith("!exonerate") || msg.startsWith("!vindicate")) {
             if(isModerator(guildID, sender, serverdata)) {
-                String[] args = message.getContentRaw().split(" ");
+                String[] args = message.getContentRaw().split(" ", 4);
 
                 if(args.length == 1) {
                     helpMessage(channel, "pardon");
@@ -511,14 +537,9 @@ public class Commands {
 
                 String reason = "None.";
                 if(args.length > 3) {
-                    StringBuilder r = new StringBuilder();
-                    for(int i = 3; i < args.length; i++) {
-                        r.append(args[i]).append(' ');
-                    }
-                    r.setLength(r.length()-1);
-                    reason = r.toString();
+                    reason = args[4];
                     if(reason.length() > 200) {
-                        sendError(channel, "Reason can only have a maximum of 200 characters!");
+                        sendError(channel, "Reason can only have a maximum length of 200 characters!");
                         return;
                     }
                 }
@@ -1339,9 +1360,7 @@ public class Commands {
         List<String> names = members.stream().map(m -> getName(m.getEffectiveName())).collect(Collectors.toList());
         List<String> userIDs = members.stream().map(Member::getId).collect(Collectors.toList());
 
-        nameUpdateActive = true;
         List<String[]> changed = userData.updateGuildUserData(guildID, members);
-        nameUpdateActive = false;
 
         EmbedBuilder eb = new EmbedBuilder()
                 .setTitle("Results of !updatenames:")

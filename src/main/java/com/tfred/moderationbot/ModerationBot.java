@@ -56,6 +56,8 @@ public class ModerationBot extends ListenerAdapter
             leaderboards.updateLeaderboards();
             if(!leaderboards.failed)
                 System.out.println("Finished reading saved leaderboards data!");
+            else
+                System.out.println("Failed reading saved leaderboards data!");
         }
 
         JDA jda;
@@ -100,8 +102,10 @@ public class ModerationBot extends ListenerAdapter
                 System.out.println("Failed to read active punishments in " + g.getName());
             }
         }
+        System.out.println("Finished activating punishment handler!");
 
         autoRun = new AutoRun(jda);
+        System.out.println("Finished activating autoRun!");
         try {
             List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
             if(!botdata.isEmpty()) {
@@ -109,15 +113,15 @@ public class ModerationBot extends ListenerAdapter
                 long delay = 86400000L;
                 long lastDate = Long.parseLong(botdata.get(0)) - start;
                 long current = System.currentTimeMillis() - start;
-                if((lastDate/delay) < (current/delay))
+                if((lastDate/delay) < (current/delay)) {
+                    System.out.println("Running daily update...");
                     autoRun.autoRunDaily();
+                }
             }
         } catch (IOException ignored) {
             System.out.println("Failed to read bot data!");
         }
     }
-
-    //TODO update modroles (and other stuff) on deletion
 
     /**
      * NOTE THE @Override!
@@ -307,7 +311,7 @@ public class ModerationBot extends ListenerAdapter
         }
     }
 
-    private final List<String> ignoredUsers = new LinkedList<>();
+    public static final List<String> ignoredUsers = new LinkedList<>();
     /**
      * When a user updates their nickname the bot tests to see if their new nickname is compliant with the username system.
      *
@@ -317,7 +321,7 @@ public class ModerationBot extends ListenerAdapter
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         Member m = event.getMember();
-        if(!Commands.nameUpdateActive && !ignoredUsers.contains(m.getId()))
+        if(!ignoredUsers.contains(m.getId()))
             checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
     }
 
