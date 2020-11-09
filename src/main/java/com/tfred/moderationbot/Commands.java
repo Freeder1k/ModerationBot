@@ -1378,8 +1378,10 @@ public class Commands {
                     updated.append("<@").append(s[0]).append(">").append(" (").append(names.get(userIDs.indexOf(s[0]))).append(" -> ").append(s[1]).append(")\n");
             }
             if(updated.length() != 0) {
-                if(updated.length() >= 1024)
+                if(updated.length() > 2048)
                     eb.setDescription(updated.length() + " users were updated.");
+                else
+                    eb.setDescription(updated.toString());
             }
             else
                 eb.setDescription("No users were updated.");
