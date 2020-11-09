@@ -245,8 +245,10 @@ public class Commands {
         }
 
         else if (msg.equals("!updatenames")) {
-            if(isModerator(guildID, sender, serverdata))
+            if(isModerator(guildID, sender, serverdata)) {
+                channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
                 updateNames(channel, userData, guild, false);
+            }
         }
 
         else if (msg.startsWith("!listnames")) {
@@ -1353,9 +1355,6 @@ public class Commands {
     public static void updateNames(TextChannel channel, UserData userData, Guild guild, boolean hide) {
         String guildID = guild.getId();
 
-        if(channel != null)
-            channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
-
         List<Member> members = guild.getMembers();
         List<String> names = members.stream().map(m -> getName(m.getEffectiveName())).collect(Collectors.toList());
         List<String> userIDs = members.stream().map(Member::getId).collect(Collectors.toList());
@@ -1363,7 +1362,7 @@ public class Commands {
         List<String[]> changed = userData.updateGuildUserData(guildID, members);
 
         EmbedBuilder eb = new EmbedBuilder()
-                .setTitle("Results of !updatenames:")
+                .setTitle("Updated Users:")
                 .setColor(defaultColor);
 
         if(!changed.isEmpty()) {
@@ -1379,9 +1378,7 @@ public class Commands {
                     updated.append("<@").append(s[0]).append(">").append(" (").append(names.get(userIDs.indexOf(s[0]))).append(" -> ").append(s[1]).append(")\n");
             }
             if(updated.length() != 0) {
-                if(updated.length() < 1024)
-                    eb.addField("Updated Users:", updated.toString(), false);
-                else
+                if(updated.length() >= 1024)
                     eb.setDescription(updated.length() + " users were updated.");
             }
             else

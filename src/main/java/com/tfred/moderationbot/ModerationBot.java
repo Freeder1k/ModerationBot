@@ -479,8 +479,10 @@ public class ModerationBot extends ListenerAdapter
                 if(namechannel == null)
                     namechannel = channel;
 
-                if (channel != null)
+                if (channel != null) {
                     channel.sendMessage("Daily update in progress...").complete();
+                    channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
+                }
 
                 Commands.updateNames(namechannel, userdata, guild, true);
 
