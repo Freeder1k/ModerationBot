@@ -148,7 +148,7 @@ public class ServerData {
 
             String memberRoleID = "";
             if(data.length >= 11)
-                noNickRoleID = data[10].substring(1);
+                memberRoleID = data[10].substring(1);
 
             int nextPunishmentID = 1;
             if(data.length >= 12)
