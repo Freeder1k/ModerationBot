@@ -25,6 +25,7 @@ import javax.security.auth.login.LoginException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
@@ -174,6 +175,17 @@ public class ModerationBot extends ListenerAdapter
             }                                           // otherwise it will default to their username. (User#getName())
 
             System.out.printf("(%s)[%s]<%s>: %s\n", guild.getName(), textChannel.getName(), name, msg);
+            if(guild.getIdLong() == 265883416036245507L) {
+                try {
+                    if(!Files.exists(Paths.get("blockhunt_backup.txt")))
+                        Files.createFile(Paths.get("blockhunt_backup.txt"));
+
+                    String attachments = message.getAttachments().stream().map(attachment -> '\n' + attachment.getUrl()).collect(Collectors.joining());
+                    Files.write(Paths.get("blockhunt_backup.txt"), ("(" + System.currentTimeMillis() + ")[#" + textChannel.getName() + "]<@" + author.getId() + ">: " + msg + attachments + '\n').getBytes(), StandardOpenOption.APPEND);
+                } catch (IOException ignored) {
+                    System.out.println("Backup failed!");
+                }
+            }
 
             //Process commands
             if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && !author.isBot()) {
