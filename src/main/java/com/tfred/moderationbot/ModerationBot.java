@@ -42,7 +42,7 @@ public class ModerationBot extends ListenerAdapter
     private static UserData userdata;
     private static Leaderboards leaderboards;
     private static AutoRun autoRun;
-    private static Moderation.PunishmentHandler punishmentHandler;
+    private static Moderation.PunishmentHandler punishmenthandler;
 
     public static void main(String[] args)
     {
@@ -90,13 +90,13 @@ public class ModerationBot extends ListenerAdapter
 
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
-        punishmentHandler = new Moderation.PunishmentHandler(jda, serverdata);
+        punishmenthandler = new Moderation.PunishmentHandler(jda, serverdata);
         for(Guild g: jda.getGuilds()) {
             try {
                 List<Moderation.ActivePunishment> apList = Moderation.getActivePunishments(g.getId());
                 if(!apList.isEmpty()) {
                     for(Moderation.ActivePunishment ap: apList) {
-                        punishmentHandler.newPunishment(ap.memberID, g.getId(), ap.punishment);
+                        punishmenthandler.newPunishment(ap.memberID, g.getId(), ap.punishment);
                     }
                 }
             } catch (IOException ignored) {
@@ -190,7 +190,7 @@ public class ModerationBot extends ListenerAdapter
             //Process commands
             if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && !author.isBot()) {
                 if(guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
-                    Commands.process(event, serverdata, userdata, leaderboards, punishmentHandler);
+                    Commands.process(event, serverdata, userdata, leaderboards, punishmenthandler);
                 else
                     textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
 
@@ -222,7 +222,7 @@ public class ModerationBot extends ListenerAdapter
      */
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
-        Member member = event.getMember();
+        Member m = event.getMember();
         Guild guild = event.getGuild();
         //Manages associated mc names
         TextChannel channel = guild.getTextChannelById(serverdata.getJoinChannelID(guild.getId()));
@@ -232,19 +232,23 @@ public class ModerationBot extends ListenerAdapter
         else if(!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE, Permission.VIEW_CHANNEL, Permission.MESSAGE_EMBED_LINKS))
             canWrite = false;
 
-        String mcName = userdata.getUserInGuild(guild.getId(), member.getId());
+        String mcName = userdata.getUserInGuild(guild.getId(), m.getId());
 
         if(!mcName.isEmpty() && canWrite)
-            channel.sendMessage("<@" + member.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
+            channel.sendMessage("<@" + m.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
 
-        if(guild.getSelfMember().hasPermission(Permission.NICKNAME_MANAGE))
-            member.modifyNickname(mcName).queue();
+        try {
+            ignoredUsers.add(m.getId());
+            m.modifyNickname(mcName).queue((ignored) -> ignoredUsers.remove(m.getId()));
+        } catch (HierarchyException | InsufficientPermissionException ignored) {
+            ignoredUsers.remove(m.getId());
+        }
 
         //Manages punished users
         try {
             String response = "";
             for(Moderation.ActivePunishment ap: Moderation.getActivePunishments(guild.getId())) {
-                if(ap.memberID.equals(member.getId())) {
+                if(ap.memberID.equals(m.getId())) {
                     String id;
                     Role role;
                     TextChannel channel2;
@@ -265,7 +269,7 @@ public class ModerationBot extends ListenerAdapter
                                 if (role == null) {
                                     response = "Please set a new muted role with ``!config mutedrole <@role>``!";
                                 } else
-                                    guild.addRoleToMember(member, role).queue();
+                                    guild.addRoleToMember(m, role).queue();
                             }
                             break;
                         }
@@ -274,7 +278,7 @@ public class ModerationBot extends ListenerAdapter
                                 response = "The bot is missing the ban members permission!";
                             }
                             else
-                                response = member.getAsMention() + " should be banned!";
+                                response = m.getAsMention() + " should be banned!";
                             break;
                         }
                         case 'v': {
@@ -291,7 +295,7 @@ public class ModerationBot extends ListenerAdapter
                                     response = "The bot is missing the manage permissions permission in " + channel2.getAsMention() + "!";
                                 }
                                 else
-                                    channel2.putPermissionOverride(member).setDeny(Permission.VIEW_CHANNEL).queue();
+                                    channel2.putPermissionOverride(m).setDeny(Permission.VIEW_CHANNEL).queue();
                             }
                             break;
                         }
@@ -309,7 +313,7 @@ public class ModerationBot extends ListenerAdapter
                                     response = "noNickname role was deleted! Please set a no nickname role with ``!config nonickrole <@role>``!";
                                 }
                                 else
-                                    guild.addRoleToMember(member, role).queue();
+                                    guild.addRoleToMember(m, role).queue();
                             }
                             break;
                         }
@@ -386,28 +390,28 @@ public class ModerationBot extends ListenerAdapter
     @Override
     public void onResume(ResumedEvent event) {
         autoRun.resume(event.getJDA());
-        punishmentHandler.resume(event.getJDA(), serverdata);
+        punishmenthandler.resume(event.getJDA(), serverdata);
         System.out.println("\n\nRESUMED\n\n");
     }
 
     @Override
     public void onReconnect(ReconnectedEvent event) {
         autoRun.resume(event.getJDA());
-        punishmentHandler.resume(event.getJDA(), serverdata);
+        punishmenthandler.resume(event.getJDA(), serverdata);
         System.out.println("\n\nRECONNECTED\n\n");
     }
 
     @Override
     public void onDisconnect(@NotNull DisconnectEvent event) {
         autoRun.pause();
-        punishmentHandler.pause();
+        punishmenthandler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
     }
 
     @Override
     public void onShutdown(@NotNull ShutdownEvent event) {
         autoRun.stop();
-        punishmentHandler.stop();
+        punishmenthandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
@@ -487,16 +491,17 @@ public class ModerationBot extends ListenerAdapter
 
             for (Guild guild : jda.getGuilds()) {
                 TextChannel channel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
-                TextChannel namechannel = guild.getTextChannelById(serverdata.getNameChannelID(guild.getId()));
-                if(namechannel == null)
-                    namechannel = channel;
+                if(!guild.getSelfMember().hasPermission(Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS, Permission.MESSAGE_READ))
+                    channel = null;
 
                 if (channel != null) {
-                    channel.sendMessage("Daily update in progress...").complete();
-                    channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
+                    channel.sendMessage("Daily update in progress...").queue();
+                    TextChannel finalChannel = channel;
+                    channel.sendMessage("Updating usernames...")
+                            .queue((ignored) -> Commands.updateNames(finalChannel, userdata, serverdata, guild, true));
                 }
-
-                Commands.updateNames(namechannel, userdata, guild, true);
+                else
+                    Commands.updateNames(null, userdata, serverdata, guild, true);
 
                 if (weekly)
                     Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);

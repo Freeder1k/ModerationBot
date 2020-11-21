@@ -34,12 +34,12 @@ public class Commands {
      *          sent in a channel.
      * @param serverdata
      *          The {@link ServerData server data} to work with.
-     * @param userData
+     * @param userdata
      *          The {@link UserData user data} to work with.
      * @param leaderboards
      *          The {@link Leaderboards leaderboards data} to work with.
      */
-    public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userData, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
+    public static void process(MessageReceivedEvent event, ServerData serverdata, UserData userdata, Leaderboards leaderboards, Moderation.PunishmentHandler punishmenthandler) {
         Guild guild = event.getGuild();
         String guildID = guild.getId();
         TextChannel channel = event.getTextChannel();
@@ -218,18 +218,18 @@ public class Commands {
                     return;
                 }
 
-                Member member = parseMember(guild, args[2]);
-                if(member == null) {
-                    sendError(channel, "Invalid user.");
-                    return;
-                }
-
                 if (args[1].equals("set")) {
+                    Member member = parseMember(guild, args[2]);
+                    if(member == null) {
+                        sendError(channel, "Invalid user.");
+                        return;
+                    }
+
                     if(args.length < 4) {
                         sendError(channel, "Insufficient amount of arguments!");
                         return;
                     }
-                    int returned = userData.setUserInGuild(guildID, member, args[3]);
+                    int returned = userdata.setUserInGuild(guildID, member, args[3]);
                     if(returned == 1)
                         sendSuccess(channel, "Set ``" + args[3] + "`` as username of " + member.getAsMention() + ".");
                     else if(returned == 0)
@@ -237,8 +237,20 @@ public class Commands {
                     else
                         sendError(channel, "An error occurred. Please try again later.");
                 } else if (args[1].equals("remove")) {
-                    userData.removeUserFromGuild(guildID, member.getUser().getId());
-                    sendSuccess(channel, "Removed " + member.getAsMention() + "'s username.");
+                    long memberID;
+                    Member member = parseMember(guild, args[2]);
+                    if(member == null) {
+                        memberID = parseID(args[2]);
+                        if(memberID == 0) {
+                            sendError(channel, "Invalid user.");
+                            return;
+                        }
+                    }
+                    else
+                        memberID = member.getIdLong();
+
+                    userdata.removeUserFromGuild(guildID, String.valueOf(memberID));
+                    sendSuccess(channel, "Removed <@" + memberID + ">'s username.");
                 } else
                     sendError(channel, "Unknown action! Allowed actions: ``set, remove``.");
             }
@@ -246,8 +258,8 @@ public class Commands {
 
         else if (msg.equals("!updatenames")) {
             if(isModerator(guildID, sender, serverdata)) {
-                channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).").complete();
-                updateNames(channel, userData, guild, false);
+                channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).")
+                        .queue((ignored) ->updateNames(channel, userdata, serverdata, guild, false));
             }
         }
 
@@ -274,7 +286,7 @@ public class Commands {
                 int length1 = 12;
                 int length2 = 33;
 
-                List<String> ids = userData.getGuildSavedUserIds(guildID);
+                List<String> ids = userdata.getGuildSavedUserIds(guildID);
                 for(Member m: members) {
                     String mention = '\n' + m.getAsMention();
                     if(ids.contains(m.getUser().getId())) {
@@ -460,9 +472,12 @@ public class Commands {
                     }
                 }
 
+                String finalReason = reason;
+                member.getUser().openPrivateChannel().queue((pc) -> pc.sendMessage("You were banned from " + guild.getName() + ". Reason: " + finalReason).queue());
+
                 Moderation.Punishment p;
                 try {
-                    p = Moderation.punish(member, sev, reason, sender.getIdLong(), serverdata, punishmentHandler);
+                    p = Moderation.punish(member, sev, reason, sender.getIdLong(), serverdata, punishmenthandler);
                 } catch (Moderation.ModerationException e) {
                     sendError(channel, e.getMessage());
                     return;
@@ -474,22 +489,22 @@ public class Commands {
                     case '3':
                     case '4':
                     case '5': {
-                        sendSuccess(channel, "Muted <@" + member.getId() + "> for " + p.length + " minutes.");
+                        sendSuccess(channel, "Muted <@" + member.getId() + "> for " + parseTime(((long) p.length) * 60L));
                         type = "Mute (" + p.severity + ')';
                         break;
                     }
                     case '6': {
-                        sendSuccess(channel, "Banned <@" + member.getId() + "> for " + p.length/60 + " hours.");
+                        sendSuccess(channel, "Banned <@" + member.getId() + "> for " + parseTime(((long) p.length) * 60L));
                         type = "Ban";
                         break;
                     }
                     case 'v': {
-                        sendSuccess(channel, "Removed <@" + member.getId() + ">'s access to <#" + channel.getId() + "> for" + p.length/1440 + " days.");
+                        sendSuccess(channel, "Removed <@" + member.getId() + ">'s access to <#" + channel.getId() + "> for" + parseTime(((long) p.length) * 60L));
                         type = "Vent ban";
                         break;
                     }
                     case 'n': {
-                        sendSuccess(channel, "Removed <@" + member.getId() + ">'s nickname perms for " + p.length/1440 + " days.");
+                        sendSuccess(channel, "Removed <@" + member.getId() + ">'s nickname perms for " + parseTime(((long) p.length) * 60L));
                         type = "Nickname mute";
                         break;
                     }
@@ -503,7 +518,7 @@ public class Commands {
                             .setColor(defaultColor)
                             .setTitle("Case " + p.id)
                             .addField("**User:**", member.getAsMention() + "\n**Type:**\n" + type, true)
-                            .addField("**Length:**", p.length + "mins\n**Moderator:**\n" + sender.getAsMention(), true)
+                            .addField("**Length:**", parseTime(((long) p.length) * 60L) + "\n**Moderator:**\n" + sender.getAsMention(), true)
                             .addField("**Reason:**", p.reason, true)
                             .setTimestamp(Instant.now())
                             .build()
@@ -743,12 +758,11 @@ public class Commands {
                 }
                 else {
                     EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor)
-                            .setDescription("__**<@" + memberID + ">'s punishment history:**__\n\u200B");
+                            .setDescription("__**<@" + memberID + ">'s punishment history:**__");
                     List<MessageEmbed.Field> fields = new LinkedList<>();
                     for(Moderation.Punishment p: pList) {
                         String caseS = String.valueOf(p.id);
                         String date  = Instant.ofEpochMilli(p.date).toString();
-                        String length = p.length + "mins";
                         String moderator = "<@" + p.punisherID + ">";
                         String type, pardonedID = null, reason;
                         char sev;
@@ -804,7 +818,7 @@ public class Commands {
                         if(pardon)
                             fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Effected pID:**\n" + pardonedID, true));
                         else
-                            fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Length:**\n" + length, true));
+                            fields.add(new MessageEmbed.Field("**Date:**", date + "\n**Length:**\n" + parseTime(((long) p.length) * 60L), true));
                         fields.add(new MessageEmbed.Field("**Moderator:**", moderator + "\n**Reason:**\n" + reason + "\n\u200B", true));
                     }
                     int c = 0;
@@ -869,12 +883,7 @@ public class Commands {
                             default:
                                 type = "Unknown (" + p.severity + ")";
                         }
-                        long totalTimeLeft = ((p.date + (((long) p.length) * 60000)) - System.currentTimeMillis()) / 1000; //Time left in seconds
-                        long s = totalTimeLeft % 60;
-                        long m = (totalTimeLeft / 60) % 60;
-                        long h = (totalTimeLeft / (60 * 60)) % 24;
-                        long d = (totalTimeLeft / (60 * 60 * 24));
-                        String timeLeft = (d == 0? "": d + "d, ") + (h == 0? "": h + "h, ") + m + "m, " + s + "s";
+                        String timeLeft = parseTime(((p.date + (((long) p.length) * 60000L)) - System.currentTimeMillis()) / 1000L);
 
                         fields.add(new MessageEmbed.Field("**Case:**", caseS, false));
                         fields.add(new MessageEmbed.Field("**User:**", "<@" + ap.memberID + ">\n**Type:**\n" + type, true));
@@ -935,17 +944,21 @@ public class Commands {
                             return;
                         }
                         long id = parseID(args[2]);
-                        Role r = guild.getRoleById(id);
-                        if (r == null) {
+                        if(id == 0) {
                             sendError(channel, "Invalid role!");
                             return;
                         }
 
                         if (args[2].equals("add")) {
+                            Role r = guild.getRoleById(id);
+                            if (r == null) {
+                                sendError(channel, "Invalid role!");
+                                return;
+                            }
                             serverdata.addModRole(guildID, String.valueOf(id));
                             sendSuccess(channel, "Added <@&" + id + "> to moderator roles.");
                         } else if (args[1].equals("remove")) {
-                            serverdata.removeModRole(guildID, r.getId());
+                            serverdata.removeModRole(guildID, String.valueOf(id));
                             sendSuccess(channel, "Removed <@&" + id + "> from moderator roles.");
                         } else
                             sendError(channel, "Unknown action! Allowed actions: ``add, remove``.");
@@ -1053,7 +1066,7 @@ public class Commands {
                     return;
                 }
 
-                List<String> lb = leaderboards.lbToString(boardNum, guildID, userData);
+                List<String> lb = leaderboards.lbToString(boardNum, guildID, userdata);
 
                 EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
                 eb.addField(leaderboardNames[boardNum] + " Leaderboard:", lb.remove(0), false);
@@ -1085,7 +1098,7 @@ public class Commands {
 
         else if (msg.equals("!updatelb")) {
             if(sender.hasPermission(Permission.ADMINISTRATOR))
-                updateLeaderboards(channel, leaderboards, serverdata, userData, guild);
+                updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);
         }
 
         /*
@@ -1114,7 +1127,7 @@ public class Commands {
                             name = matcher.group(1);
                     }
                     //System.out.println(name);
-                    int x = userData.setUserInGuild(guildID, m, name);
+                    int x = userdata.setUserInGuild(guildID, m, name);
                     if(x == 0)
                         failed.add(m);
                 }
@@ -1138,7 +1151,7 @@ public class Commands {
                 try {
                     engine.put("event", event);
                     engine.put("serverdata", serverdata);
-                    engine.put("userData", userData);
+                    engine.put("userdata", userdata);
                     engine.put("leaderboards", leaderboards);
 
                     Object result = engine.eval("load(\"nashorn:mozilla_compat.js\"); " + msg.substring(6));
@@ -1296,7 +1309,7 @@ public class Commands {
      * @param input
      *          The input sting to be parsed.
      * @return
-     *          The ID in the string.
+     *          The ID in the string or 0 if none could be parsed.
      */
     public static long parseID(String input) {
         if(input.startsWith("\\<"))
@@ -1313,6 +1326,8 @@ public class Commands {
                     input = input.substring(1);
             }
         }
+        if(input.isEmpty())
+            return 0;
         try {
             return Long.parseLong(input);
         } catch (NumberFormatException ignored) {
@@ -1340,6 +1355,18 @@ public class Commands {
         return m;
     }
 
+    public static String parseTime(long timeInSec) {
+        List<String> time = new LinkedList<>();
+        time.add(timeInSec / (60 * 60 * 24) + "d");
+        time.add((timeInSec / (60 * 60)) % 24 + "h");
+        time.add((timeInSec / 60) % 60 + "m");
+        time.add(timeInSec % 60 + "s");
+        time.removeIf(v -> v.charAt(0) == '0');
+        if(time.size() == 0)
+            return "0s";
+        return String.join(", ", time);
+    }
+
     /**
      * Updates the nicknames of users in a specified guild.
      *
@@ -1352,7 +1379,7 @@ public class Commands {
      * @param hide
      *          If no message should be sent when no names are updated.
      */
-    public static void updateNames(TextChannel channel, UserData userData, Guild guild, boolean hide) {
+    public static void updateNames(TextChannel channel, UserData userData, ServerData serverdata, Guild guild, boolean hide) {
         String guildID = guild.getId();
 
         List<Member> members = guild.getMembers();
@@ -1364,6 +1391,8 @@ public class Commands {
         EmbedBuilder eb = new EmbedBuilder()
                 .setTitle("Updated Users:")
                 .setColor(defaultColor);
+        if(changed.size() == 1)
+            eb.setTitle("Updated User:");
 
         if(!changed.isEmpty()) {
             StringBuilder updated = new StringBuilder();
@@ -1397,6 +1426,12 @@ public class Commands {
                 else
                     eb.addField("", "Updating failed on " + failed.length() + " users.", false);
             }
+
+            TextChannel namechannel = guild.getTextChannelById(serverdata.getNameChannelID(guild.getId()));
+            try {
+                if ((namechannel != null) && (!namechannel.equals(channel)))
+                    namechannel.sendMessage(eb.build()).queue();
+            } catch (InsufficientPermissionException ignored) {}
         }
         else {
             if(hide)
