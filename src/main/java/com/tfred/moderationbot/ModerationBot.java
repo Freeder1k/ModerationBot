@@ -43,7 +43,7 @@ public class ModerationBot extends ListenerAdapter
     private static Leaderboards leaderboards;
     private static AutoRun autoRun;
     private static Moderation.PunishmentHandler punishmenthandler;
-
+//t
     public static void main(String[] args)
     {
         System.out.println("Hello world but Frederik was here!");
