@@ -1,9 +1,6 @@
 package com.tfred.moderationbot;
 
-import net.dv8tion.jda.api.EmbedBuilder;
-import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.*;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.DisconnectEvent;
 import net.dv8tion.jda.api.events.ReconnectedEvent;
@@ -87,7 +84,7 @@ public class ModerationBot extends ListenerAdapter
             e.printStackTrace();
             return;
         }
-
+jda.getPresence().setStatus(OnlineStatus.OFFLINE);
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
         punishmenthandler = new Moderation.PunishmentHandler(jda, serverdata);
@@ -406,6 +403,9 @@ public class ModerationBot extends ListenerAdapter
         autoRun.pause();
         punishmenthandler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
+        try {
+            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException ignored) {}
     }
 
     @Override
@@ -413,6 +413,9 @@ public class ModerationBot extends ListenerAdapter
         autoRun.stop();
         punishmenthandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
+        try {
+            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException ignored) {}
     }
 
     private static class AutoRun {
