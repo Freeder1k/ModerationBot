@@ -84,7 +84,6 @@ public class ModerationBot extends ListenerAdapter
             e.printStackTrace();
             return;
         }
-jda.getPresence().setStatus(OnlineStatus.OFFLINE);
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
         punishmenthandler = new Moderation.PunishmentHandler(jda, serverdata);
