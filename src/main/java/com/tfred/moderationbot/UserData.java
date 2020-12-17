@@ -233,7 +233,9 @@ public class UserData {
     public String getUsername(long userID) {
         try {
             String[] names = usernameCache.get(userID);
-            if (names.length == 1) {
+            if(names.length == 0)
+                return "";
+            else if (names.length == 1) {
                 if (names[0].equals("-") || names[0].equals("e"))
                     return "";
                 else
