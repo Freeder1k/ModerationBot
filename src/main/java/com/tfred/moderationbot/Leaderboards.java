@@ -9,97 +9,41 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class Leaderboards {
-    private static class LbSpot {
-        private final String uuid; //MC uuid
-        private final String name; //MC username
-        private final int position;
-        private final int score;
-        private transient String change = ""; //change in position since last time step
-
-        LbSpot(String name, String uuid, int position, int score) {
-            this.name = name;
-            this.uuid = uuid;
-            this.position = position;
-            this.score = score;
-        }
-        public String getUuid() {
-            return uuid;
-        }
-
-        public void setChange(int change) {
-            if (change == 0)
-                this.change = "";
-            else if (change == 100)
-                this.change = ":new:";
-            else if (change > 0)
-                this.change = "**" + change + "**:arrow_up:";
-            else
-                this.change = "**" + (-change) + "**:arrow_down:";
-        }
-
-        @Override
-        public String toString() {
-            return this.toString("");
-        }
-
-        public String toString(String userID) {
-            String special_emoji = "";
-            if (position <= 10) {
-                switch (position) {
-                    case 1:
-                        special_emoji = " :first_place:";
-                        break;
-                    case 2:
-                        special_emoji = " :second_place:";
-                        break;
-                    case 3:
-                        special_emoji = " :third_place:";
-                        break;
-                    default:
-                        special_emoji = " :trophy:";
-                }
-            }
-
-            String mention = "";
-            if (!userID.isEmpty())
-                mention = " **[<@" + userID + ">]**";
-
-            return position + "." + special_emoji + " **" + (name.replaceAll("_", "\\\\_")) + "**" + mention + " - " + score + "    " + change + "\u200B";
-        }
-    }
-
     private static final Path path = Paths.get("leaderboards.data");
-
+    /**
+     * True if {@link Leaderboards#updateLeaderboards() Leaderboards.updateLeaderboards()} failed to fetch new leaderboard data.
+     */
+    public boolean failed = false;
     private long date;
     private List<LbSpot> hiderLb = new ArrayList<>(50);
     private List<LbSpot> hunterLb = new ArrayList<>(50);
     private List<LbSpot> killsLb = new ArrayList<>(50);
 
     /**
-     * True if {@link Leaderboards#updateLeaderboards() Leaderboards.updateLeaderboards()} failed to fetch new leaderboard data.
-     */
-    public boolean failed = false;
-
-    /**
      * Represents the bots saved user leaderboard data. The three saved leaderboards are hider wins, hunter wins and kills.
      */
     public Leaderboards() {
         updateLeaderboards();
-        if(!failed)
+        if (!failed)
             System.out.println("Finished reading saved leaderboards data!");
     }
 
     private String[] lbURLs(long date) {
-        String time = LocalDateTime.ofEpochSecond(date/1000, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
+        String time = LocalDateTime.ofEpochSecond(date / 1000, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
         return new String[]{
                 "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hider%20wins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
                 "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hunterwins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
@@ -146,7 +90,7 @@ public class Leaderboards {
                     JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
 
                     data[i] = jsonObject.get("leaderboard");
-                    if(data[i] == null) {
+                    if (data[i] == null) {
                         System.out.println("Leaderboard null! Url: " + lbUrls[i] + "\nServer response: " + response);
                         return null;
                     }
@@ -209,13 +153,13 @@ public class Leaderboards {
     }
 
     private void updateFile(List<String> lines) {
-        int lineNum = lines.size() == 6? 3: 0; //If the file only had 3 lines it reuses those
+        int lineNum = lines.size() == 6 ? 3 : 0; //If the file only had 3 lines it reuses those
         try {
             List<String> data = new ArrayList<>(3);
             data.add(Long.toString(date));
             data.add(lines.get(lineNum));
-            data.add(lines.get(lineNum+1));
-            data.add(lines.get(lineNum+2));
+            data.add(lines.get(lineNum + 1));
+            data.add(lines.get(lineNum + 2));
             data.add("Hider:" + hiderLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
             data.add("Hunter:" + hunterLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
             data.add("Kills:" + killsLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
@@ -240,8 +184,7 @@ public class Leaderboards {
             System.out.println("[FATAL] Error reading new Leaderboards!");
             failed = true;
             return;
-        }
-        else
+        } else
             failed = false;
 
         List<String> lines = new ArrayList<>();
@@ -251,25 +194,24 @@ public class Leaderboards {
             System.out.println("IO error when reading leaderboards data! Creating new leaderboards.data file.");
             empty = true;
         }
-        if(lines.size() < 4) {
+        if (lines.size() < 4) {
             System.out.println("Leaderboards.data is empty! Change will be set to 0.");
             empty = true;
         }
 
-        long date_old = empty? date: Long.parseLong(lines.remove(0));
+        long date_old = empty ? date : Long.parseLong(lines.remove(0));
 
         int lineNum = 0;
-        if((date - date_old > 600000000)) {
+        if ((date - date_old > 600000000)) {
             updateFile(lines);
-            if(lines.size() == 6)
+            if (lines.size() == 6)
                 lineNum = 3;
         }
 
         if (!empty) {
-            for (int i = 0; i < 3; i ++)
-                lbListSetChanges(lines.get(i+lineNum).split(":"));
-        }
-        else {
+            for (int i = 0; i < 3; i++)
+                lbListSetChanges(lines.get(i + lineNum).split(":"));
+        } else {
             hiderLb.forEach(s -> s.setChange(0));
             hunterLb.forEach(s -> s.setChange(0));
             killsLb.forEach(s -> s.setChange(0));
@@ -279,19 +221,12 @@ public class Leaderboards {
     /**
      * Returns a list of containing strings each with 10 positions of a specified leaderboard with optional user mentions.
      *
-     * @param board
-     *          The board to be used. 0: hider wins, 1: hunter wins, 2: kills.
-     * @param guildID
-     *          The ID of the {@link net.dv8tion.jda.api.entities.Guild guild} to get saved user data from. If null the string doesn't have mentions.
-     * @param userData
-     *          The saved {@link UserData user data} to get user IDs associated with minecraft uuids so they can be mentioned if they're on the leaderboard. If null the string doesn't have mentions.
-     * @return
-     *          A {@link List<String> list} of strings.
-     *
-     * @throws IllegalArgumentException
-     *          If the specified board isn't in the range of 0-2.
+     * @param board   The board to be used. 0: hider wins, 1: hunter wins, 2: kills.
+     * @param guildID The ID of the {@link net.dv8tion.jda.api.entities.Guild guild} to get saved user data from. If null the string doesn't have mentions.
+     * @return A {@link List<String> list} of strings.
+     * @throws IllegalArgumentException If the specified board isn't in the range of 0-2.
      */
-    public List<String> lbToString(int board, String guildID, UserData userData) {
+    public List<String> lbToString(int board, String guildID) {
         List<LbSpot> lb;
         switch (board) {
             case 0:
@@ -310,10 +245,10 @@ public class Leaderboards {
         List<String> savedUuids = null;
 
         boolean noMentions = false;
-        if (guildID == null || userData == null)
+        if (guildID == null)
             noMentions = true;
         else
-            savedUuids = userData.getGuildSavedUuids(guildID);
+            savedUuids = UserData.get(Long.parseLong(guildID)).getSavedUuids();
 
         List<String> output = new ArrayList<>(5);
         StringBuilder temp = new StringBuilder();
@@ -324,7 +259,7 @@ public class Leaderboards {
             if (!noMentions) {
                 String uuid = s.getUuid().replace("-", "");
                 if (savedUuids.contains(uuid))
-                    userID = userData.getGuildSavedUuidUserID(guildID, uuid);
+                    userID = String.valueOf(UserData.get(Long.getLong(guildID)).getUserID(uuid));
             }
 
             temp.append(s.toString(userID));
@@ -344,10 +279,69 @@ public class Leaderboards {
     /**
      * Get the date of the last update.
      *
-     * @return
-     *          the date of the last update in milliseconds since epoch.
+     * @return the date of the last update in milliseconds since epoch.
      */
     public long getDate() {
         return date;
+    }
+
+    private static class LbSpot {
+        private final String uuid; //MC uuid
+        private final String name; //MC username
+        private final int position;
+        private final int score;
+        private transient String change = ""; //change in position since last time step
+
+        LbSpot(String name, String uuid, int position, int score) {
+            this.name = name;
+            this.uuid = uuid;
+            this.position = position;
+            this.score = score;
+        }
+
+        public String getUuid() {
+            return uuid;
+        }
+
+        public void setChange(int change) {
+            if (change == 0)
+                this.change = "";
+            else if (change == 100)
+                this.change = ":new:";
+            else if (change > 0)
+                this.change = "**" + change + "**:arrow_up:";
+            else
+                this.change = "**" + (-change) + "**:arrow_down:";
+        }
+
+        @Override
+        public String toString() {
+            return this.toString("");
+        }
+
+        public String toString(String userID) {
+            String special_emoji = "";
+            if (position <= 10) {
+                switch (position) {
+                    case 1:
+                        special_emoji = " :first_place:";
+                        break;
+                    case 2:
+                        special_emoji = " :second_place:";
+                        break;
+                    case 3:
+                        special_emoji = " :third_place:";
+                        break;
+                    default:
+                        special_emoji = " :trophy:";
+                }
+            }
+
+            String mention = "";
+            if (!userID.isEmpty())
+                mention = " **[<@" + userID + ">]**";
+
+            return position + "." + special_emoji + " **" + (name.replaceAll("_", "\\\\_")) + "**" + mention + " - " + score + "    " + change + "\u200B";
+        }
     }
 }

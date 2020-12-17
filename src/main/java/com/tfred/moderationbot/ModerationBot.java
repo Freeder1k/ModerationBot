@@ -1,6 +1,9 @@
 package com.tfred.moderationbot;
 
-import net.dv8tion.jda.api.*;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.DisconnectEvent;
 import net.dv8tion.jda.api.events.ReconnectedEvent;
@@ -33,36 +36,30 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class ModerationBot extends ListenerAdapter
-{
-    private static ServerData serverdata;
-    private static UserData userdata;
+public class ModerationBot extends ListenerAdapter {
+    public static final List<String> ignoredUsers = new LinkedList<>();
+    private static ServerData serverData;
     private static Leaderboards leaderboards;
     private static AutoRun autoRun;
-    private static Moderation.PunishmentHandler punishmenthandler;
+    private static Moderation.PunishmentHandler punishmentHandler;
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         System.out.println("Hello world but Frederik was here!");
 
-        serverdata = new ServerData();
-        userdata = new UserData();
+        serverData = new ServerData();
 
         leaderboards = new Leaderboards();
-        if(leaderboards.failed) {
+        if (leaderboards.failed) {
             System.out.println("Trying to initialize leaderboards again.");
             leaderboards.updateLeaderboards();
-            if(!leaderboards.failed)
+            if (!leaderboards.failed)
                 System.out.println("Finished reading saved leaderboards data!");
             else
                 System.out.println("Failed reading saved leaderboards data!");
         }
 
         JDA jda;
-        //We construct a builder for a BOT account. If we wanted to use a CLIENT account
-        // we would use AccountType.CLIENT
-        try
-        {
+        try {
             jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
                     .addEventListeners(new ModerationBot())   // An instance of a class that will handle events.
                     .setChunkingFilter(ChunkingFilter.ALL)          //
@@ -72,9 +69,7 @@ public class ModerationBot extends ListenerAdapter
                     .build();
             jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
             System.out.println("Finished Building JDA!");
-        }
-        catch (LoginException | InterruptedException e)
-        {
+        } catch (LoginException | InterruptedException e) {
             //If anything goes wrong in terms of authentication, this is the exception that will represent it
 
             //Due to the fact that awaitReady is a blocking method, one which waits until JDA is fully loaded,
@@ -86,31 +81,33 @@ public class ModerationBot extends ListenerAdapter
         }
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
-        punishmenthandler = new Moderation.PunishmentHandler(jda, serverdata);
-        for(Guild g: jda.getGuilds()) {
+        punishmentHandler = new Moderation.PunishmentHandler(jda, serverData);
+        for (Guild g : jda.getGuilds()) {
             try {
                 List<Moderation.ActivePunishment> apList = Moderation.getActivePunishments(g.getId());
-                if(!apList.isEmpty()) {
-                    for(Moderation.ActivePunishment ap: apList) {
-                        punishmenthandler.newPunishment(ap.memberID, g.getId(), ap.punishment);
+                if (!apList.isEmpty()) {
+                    for (Moderation.ActivePunishment ap : apList) {
+                        punishmentHandler.newPunishment(ap.memberID, g.getId(), ap.punishment);
                     }
                 }
             } catch (IOException ignored) {
                 System.out.println("Failed to read active punishments in " + g.getName());
             }
+
+            UserData.get(g.getIdLong()); // Initialize userdata
         }
-        System.out.println("Finished activating punishment handler!");
+        System.out.println("Finished activating punishment handler and initializing userdata!");
 
         autoRun = new AutoRun(jda);
         System.out.println("Finished activating autoRun!");
         try {
             List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
-            if(!botdata.isEmpty()) {
+            if (!botdata.isEmpty()) {
                 long start = 1603602000000L;
                 long delay = 86400000L;
                 long lastDate = Long.parseLong(botdata.get(0)) - start;
                 long current = System.currentTimeMillis() - start;
-                if((lastDate/delay) < (current/delay)) {
+                if ((lastDate / delay) < (current / delay)) {
                     System.out.println("Running daily update...");
                     autoRun.autoRunDaily();
                 }
@@ -123,70 +120,63 @@ public class ModerationBot extends ListenerAdapter
     /**
      * NOTE THE @Override!
      * This method is actually overriding a method in the ListenerAdapter class! We place an @Override annotation
-     *  right before any method that is overriding another to guarantee to ourselves that it is actually overriding
-     *  a method from a super class properly. You should do this every time you override a method!
-     *
+     * right before any method that is overriding another to guarantee to ourselves that it is actually overriding
+     * a method from a super class properly. You should do this every time you override a method!
+     * <p>
      * As stated above, this method is overriding a hook method in the
      * {@link net.dv8tion.jda.api.hooks.ListenerAdapter ListenerAdapter} class. It has convenience methods for all JDA events!
      * Consider looking through the events it offers if you plan to use the ListenerAdapter.
-     *
+     * <p>
      * In this example, when a message is received it is printed to the console.
      *
-     * @param event
-     *          An event containing information about a {@link net.dv8tion.jda.api.entities.Message Message} that was
-     *          sent in a channel.
+     * @param event An event containing information about a {@link net.dv8tion.jda.api.entities.Message Message} that was
+     *              sent in a channel.
      */
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
-        //These are provided with every event in JDA
-        //JDA jda = event.getJDA();                       //JDA, the core of the api.
-        //long responseNumber = event.getResponseNumber();//The amount of discord events that JDA has received since the last reconnect.
-
         //Event specific information
-        User author = event.getAuthor();                //The user that sent the message
-        Message message = event.getMessage();           //The message that was received.
-        //MessageChannel channel = event.getChannel();    //This is the MessageChannel that the message was sent to. This could be a TextChannel, PrivateChannel, or Group!
-
-        String msg = message.getContentRaw();       //This returns a not rly human readable version of the Message. not Similar to what you would see in the client.
-
-        boolean bot = author.isBot();                   //This boolean is useful to determine if the User that sent the Message is a BOT or not!
+        Message message = event.getMessage();
+        String msg = message.getContentRaw();
 
         if (event.isFromType(ChannelType.TEXT))         //If this message was sent to a Guild TextChannel
         {
-            //Because we now know that this message was sent in a Guild, we can do guild specific things
-            // Note, if you don't check the ChannelType before using these methods, they might return null due
-            // the message possibly not being from a Guild!
+            Guild guild = event.getGuild();
+            TextChannel textChannel = event.getTextChannel();
+            Member member = event.getMember();
+            User user = event.getAuthor();
 
-            Guild guild = event.getGuild();             //The Guild that this message was sent in. (note, in the API, Guilds are Servers)
-            TextChannel textChannel = event.getTextChannel(); //The TextChannel that this message was sent to.
-            Member member = event.getMember();          //This Member that sent the message. Contains Guild specific information about the User!
+            boolean isPerson;
 
             String name;
             if (message.isWebhookMessage()) {
-                name = author.getName();                //If this is a Webhook message, then there is no Member associated
-            }                                           // with the User, thus we default to the author for name.
-            else {
+                name = "[webhook]" + user.getName();                //If this is a Webhook message, then there is no Member associated
+                isPerson = false;
+            } else {
                 assert member != null;
-                name = member.getEffectiveName();       //This will either use the Member's nickname if they have one,
-            }                                           // otherwise it will default to their username. (User#getName())
+                name = member.getEffectiveName();
+                isPerson = !user.isBot();
+                if (!isPerson)
+                    name = "[bot]" + name;
+            }
 
             System.out.printf("(%s)[%s]<%s>: %s\n", guild.getName(), textChannel.getName(), name, msg);
-            if(guild.getIdLong() == 265883416036245507L) {
+            //Blockhunt backup
+            if (guild.getIdLong() == 265883416036245507L) {
                 try {
-                    if(!Files.exists(Paths.get("blockhunt_backup.txt")))
+                    if (!Files.exists(Paths.get("blockhunt_backup.txt")))
                         Files.createFile(Paths.get("blockhunt_backup.txt"));
 
                     String attachments = message.getAttachments().stream().map(attachment -> '\n' + attachment.getUrl()).collect(Collectors.joining());
-                    Files.write(Paths.get("blockhunt_backup.txt"), ("(" + System.currentTimeMillis() + ")[#" + textChannel.getName() + "]<@" + author.getId() + ">: " + msg + attachments + '\n').getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("blockhunt_backup.txt"), ("(" + System.currentTimeMillis() + ")[#" + textChannel.getName() + "]<@" + user.getId() + "(" + name + ")>: " + msg + attachments + '\n').getBytes(), StandardOpenOption.APPEND);
                 } catch (IOException ignored) {
                     System.out.println("Backup failed!");
                 }
             }
 
             //Process commands
-            if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && !author.isBot()) {
-                if(guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
-                    Commands.process(event, serverdata, userdata, leaderboards, punishmenthandler);
+            if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && isPerson) {
+                if (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
+                    Commands.process(event, serverData, leaderboards, punishmentHandler);
                 else
                     textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
 
@@ -194,18 +184,13 @@ public class ModerationBot extends ListenerAdapter
 
             //Delete messages with salt emoji if nosalt is enabled
             else if (msg.contains("\uD83E\uDDC2"))
-                if((!bot) && serverdata.isNoSalt(guild.getId()))
+                if (isPerson && serverData.isNoSalt(guild.getId()))
                     if (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_MANAGE))
                         message.delete().queue();
 
         } else if (event.isFromType(ChannelType.PRIVATE)) //If this message was sent to a PrivateChannel
         {
-            //The message was sent in a PrivateChannel.
-            //In this example we don't directly use the privateChannel, however, be sure, there are uses for it!
-
-            //PrivateChannel privateChannel = event.getPrivateChannel();
-
-            System.out.printf("[PRIV]<%s>: %s\n", author.getName(), msg);
+            System.out.printf("[PRIV]<%s>: %s\n", event.getAuthor().getName(), msg);
         }
     }
 
@@ -213,24 +198,23 @@ public class ModerationBot extends ListenerAdapter
      * Checks whether a user that joins a server is saved in the username system and if they are it
      * updates their nickname accordingly and sends a message to the join channel.
      *
-     * @param event
-     *          An event containing information about a new join.
+     * @param event An event containing information about a new join.
      */
     @Override
     public void onGuildMemberJoin(GuildMemberJoinEvent event) {
         Member m = event.getMember();
         Guild guild = event.getGuild();
         //Manages associated mc names
-        TextChannel channel = guild.getTextChannelById(serverdata.getJoinChannelID(guild.getId()));
+        TextChannel channel = guild.getTextChannelById(serverData.getJoinChannelID(guild.getId()));
         boolean canWrite = true;
-        if(channel == null)
+        if (channel == null)
             canWrite = false;
-        else if(!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE, Permission.VIEW_CHANNEL, Permission.MESSAGE_EMBED_LINKS))
+        else if (!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE, Permission.VIEW_CHANNEL, Permission.MESSAGE_EMBED_LINKS))
             canWrite = false;
 
-        String mcName = userdata.getUserInGuild(guild.getId(), m.getId());
+        String mcName = UserData.get(guild.getIdLong()).getUsername(m.getIdLong());
 
-        if(!mcName.isEmpty() && canWrite)
+        if (!mcName.isEmpty() && canWrite)
             channel.sendMessage("<@" + m.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
 
         try {
@@ -243,19 +227,19 @@ public class ModerationBot extends ListenerAdapter
         //Manages punished users
         try {
             String response = "";
-            for(Moderation.ActivePunishment ap: Moderation.getActivePunishments(guild.getId())) {
-                if(ap.memberID.equals(m.getId())) {
+            for (Moderation.ActivePunishment ap : Moderation.getActivePunishments(guild.getId())) {
+                if (ap.memberID.equals(m.getId())) {
                     String id;
                     Role role;
                     TextChannel channel2;
 
-                    switch(ap.punishment.severity) {
+                    switch (ap.punishment.severity) {
                         case '1':
                         case '2':
                         case '3':
                         case '4':
                         case '5': {
-                            id = serverdata.getMutedRoleID(guild.getId());
+                            id = serverData.getMutedRoleID(guild.getId());
                             if (id.equals("0")) {
                                 response = "Please set a muted role with ``!config mutedrole <@role>``!";
                             } else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
@@ -272,50 +256,43 @@ public class ModerationBot extends ListenerAdapter
                         case '6': {
                             if (!guild.getSelfMember().hasPermission(Permission.BAN_MEMBERS)) {
                                 response = "The bot is missing the ban members permission!";
-                            }
-                            else
+                            } else
                                 response = m.getAsMention() + " should be banned!";
                             break;
                         }
                         case 'v': {
-                            id = serverdata.getVentChannelID(guild.getId());
+                            id = serverData.getVentChannelID(guild.getId());
                             if (id.equals("0")) {
                                 response = "Please set a vent channel with ``!config ventchannel <#channel>``!";
-                            }
-                            else {
+                            } else {
                                 channel2 = guild.getTextChannelById(id);
                                 if (channel2 == null) {
                                     response = "Vent channel was deleted! Please set a new vent channel with ``!config ventchannel <#channel>``!";
-                                }
-                                else if (!guild.getSelfMember().hasPermission(channel2, Permission.MANAGE_PERMISSIONS)) {
+                                } else if (!guild.getSelfMember().hasPermission(channel2, Permission.MANAGE_PERMISSIONS)) {
                                     response = "The bot is missing the manage permissions permission in " + channel2.getAsMention() + "!";
-                                }
-                                else
+                                } else
                                     channel2.putPermissionOverride(m).setDeny(Permission.VIEW_CHANNEL).queue();
                             }
                             break;
                         }
                         case 'n': {
-                            id = serverdata.getNoNickRoleID(guild.getId());
+                            id = serverData.getNoNickRoleID(guild.getId());
                             if (id.equals("0")) {
                                 response = "Please set a no nickname role with ``!config nonickrole <@role>``!";
-                            }
-                            else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
+                            } else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
                                 response = "The bot is missing the manage roles permission!";
-                            }
-                            else {
+                            } else {
                                 role = guild.getRoleById(id);
                                 if (role == null) {
                                     response = "noNickname role was deleted! Please set a no nickname role with ``!config nonickrole <@role>``!";
-                                }
-                                else
+                                } else
                                     guild.addRoleToMember(m, role).queue();
                             }
                             break;
                         }
                     }
                 }
-                if((!response.isEmpty()) && canWrite)
+                if ((!response.isEmpty()) && canWrite)
                     Commands.sendError(channel, response);
             }
         } catch (IOException ignored) {
@@ -323,17 +300,15 @@ public class ModerationBot extends ListenerAdapter
         }
     }
 
-    public static final List<String> ignoredUsers = new LinkedList<>();
     /**
      * When a user updates their nickname the bot tests to see if their new nickname is compliant with the username system.
      *
-     * @param event
-     *          An event containing information about a nickname change.
+     * @param event An event containing information about a nickname change.
      */
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         Member m = event.getMember();
-        if(!ignoredUsers.contains(m.getId()))
+        if (!ignoredUsers.contains(m.getId()))
             checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
     }
 
@@ -341,25 +316,25 @@ public class ModerationBot extends ListenerAdapter
     public void onUserUpdateName(UserUpdateNameEvent event) {
         User u = event.getUser();
 
-        for(Guild g: event.getJDA().getGuilds()) {
+        for (Guild g : event.getJDA().getGuilds()) {
             Member m = g.getMember(u);
-            if(m != null)
-                if(m.getNickname() == null)
+            if (m != null)
+                if (m.getNickname() == null)
                     checkNameChange(event.getOldName(), event.getNewName(), m);
         }
     }
 
-    private void checkNameChange (String old_n, String new_n, Member m) {//TODO cache some data and update name if necessary
+    private void checkNameChange(String old_n, String new_n, Member m) {//TODO cache some data and update name if necessary
         Guild g = m.getGuild();
-        String mc_n = userdata.getUserInGuild(g.getId(), m.getId());
-        if(mc_n.isEmpty())
+        String mc_n = UserData.get(g.getIdLong()).getUsername(m.getIdLong());
+        if (mc_n.isEmpty())
             return;
 
-        if(new_n == null)
+        if (new_n == null)
             new_n = m.getUser().getName();
         new_n = Commands.getName(new_n);
 
-        if(!mc_n.equals(new_n)) {
+        if (!mc_n.equals(new_n)) {
             try {
                 ignoredUsers.add(m.getId());
                 m.modifyNickname(old_n).queue((ignored) -> ignoredUsers.remove(m.getId()));
@@ -368,53 +343,55 @@ public class ModerationBot extends ListenerAdapter
             }
 
             m.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + g.getName() + " was reset due to it being incompatible with the username system.").queue());
-        }
-        else {
-            if(old_n == null)
+        } else {
+            if (old_n == null)
                 old_n = m.getUser().getName();
             old_n = Commands.getName(old_n);
-            if(!old_n.equals(new_n)) {
-                TextChannel namechannel = g.getTextChannelById(serverdata.getNameChannelID(g.getId()));
-                if(namechannel == null) {
-                    namechannel = g.getTextChannelById(serverdata.getLogChannelID((g.getId())));
+            if (!old_n.equals(new_n)) {
+                TextChannel namechannel = g.getTextChannelById(serverData.getNameChannelID(g.getId()));
+                if (namechannel == null) {
+                    namechannel = g.getTextChannelById(serverData.getLogChannelID((g.getId())));
                 }
-                if(namechannel != null)
+                if (namechannel != null)
                     namechannel.sendMessage(new EmbedBuilder().setColor(Commands.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
             }
-        }}
+        }
+    }
 
     @Override
     public void onResume(ResumedEvent event) {
         autoRun.resume(event.getJDA());
-        punishmenthandler.resume(event.getJDA(), serverdata);
+        punishmentHandler.resume(event.getJDA(), serverData);
         System.out.println("\n\nRESUMED\n\n");
     }
 
     @Override
     public void onReconnect(ReconnectedEvent event) {
         autoRun.resume(event.getJDA());
-        punishmenthandler.resume(event.getJDA(), serverdata);
+        punishmentHandler.resume(event.getJDA(), serverData);
         System.out.println("\n\nRECONNECTED\n\n");
     }
 
     @Override
     public void onDisconnect(@NotNull DisconnectEvent event) {
         autoRun.pause();
-        punishmenthandler.pause();
+        punishmentHandler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
         try {
             Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
     }
 
     @Override
     public void onShutdown(@NotNull ShutdownEvent event) {
         autoRun.stop();
-        punishmenthandler.stop();
+        punishmentHandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
         try {
             Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
     }
 
     private static class AutoRun {
@@ -439,10 +416,9 @@ public class ModerationBot extends ListenerAdapter
             scheduler = Executors.newScheduledThreadPool(1);
             scheduler.scheduleAtFixedRate(
                     () -> {
-                        if(paused) {
+                        if (paused) {
                             ranWhilePaused = true;
-                        }
-                        else {
+                        } else {
                             try {
                                 autoRunDaily();
                             } catch (Exception ex) {
@@ -458,7 +434,8 @@ public class ModerationBot extends ListenerAdapter
         public void stop() {
             try {
                 scheduler.shutdownNow();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
 
         public void pause() {
@@ -492,21 +469,20 @@ public class ModerationBot extends ListenerAdapter
                 weekly = true;
 
             for (Guild guild : jda.getGuilds()) {
-                TextChannel channel = guild.getTextChannelById(serverdata.getLogChannelID(guild.getId()));
-                if(!guild.getSelfMember().hasPermission(Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS, Permission.MESSAGE_READ))
+                TextChannel channel = guild.getTextChannelById(serverData.getLogChannelID(guild.getId()));
+                if (!guild.getSelfMember().hasPermission(Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS, Permission.MESSAGE_READ))
                     channel = null;
 
                 if (channel != null) {
                     channel.sendMessage("Daily update in progress...").queue();
                     TextChannel finalChannel = channel;
                     channel.sendMessage("Updating usernames...")
-                            .queue((ignored) -> Commands.updateNames(finalChannel, userdata, serverdata, guild, true));
-                }
-                else
-                    Commands.updateNames(null, userdata, serverdata, guild, true);
+                            .queue((ignored) -> Commands.updateNames(finalChannel, serverData, guild, true));
+                } else
+                    Commands.updateNames(null, serverData, guild, true);
 
                 if (weekly)
-                    Commands.updateLeaderboards(channel, leaderboards, serverdata, userdata, guild);
+                    Commands.updateLeaderboards(channel, leaderboards, serverData, guild);
             }
         }
     }
