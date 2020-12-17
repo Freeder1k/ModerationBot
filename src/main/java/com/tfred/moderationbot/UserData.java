@@ -325,7 +325,7 @@ public class UserData {
      * @param members A list of all the members to be checked.
      * @return A hashmap of all updated user's IDs and their new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
-    public HashMap<Long, String[]> updateNames(List<Member> members) { //TODO doesnt return desired result
+    public HashMap<Long, String[]> updateNames(List<Member> members) {
         HashMap<Long, String[]> updated = new HashMap<>();
         for (Member member : members) {
             String uuid = uuidMap.get(member.getIdLong());
