@@ -324,7 +324,7 @@ public class ModerationBot extends ListenerAdapter {
         }
     }
 
-    private void checkNameChange(String old_n, String new_n, Member m) {//TODO cache some data and update name if necessary
+    private void checkNameChange(String old_n, String new_n, Member m) {
         Guild g = m.getGuild();
         String mc_n = UserData.get(g.getIdLong()).getUsername(m.getIdLong());
         if (mc_n.isEmpty())

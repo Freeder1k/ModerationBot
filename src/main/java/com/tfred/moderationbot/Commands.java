@@ -1561,7 +1561,7 @@ public class Commands {
         EmbedBuilder eb = new EmbedBuilder()
                 .setTitle("Updated Users:")
                 .setColor(defaultColor);
-//TODO check if previous nickname was previous mc name
+
         HashMap<Long, String[]> changed = UserData.get(guild.getIdLong()).updateNames(guild.getMembers());
         if (changed.size() == 1)
             eb.setTitle("Updated User:");
