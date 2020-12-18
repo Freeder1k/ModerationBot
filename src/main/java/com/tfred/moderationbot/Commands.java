@@ -520,11 +520,6 @@ public class Commands {
                 EmbedBuilder embedBuilder = new EmbedBuilder();
                 embedBuilder.setTitle("__Settings for " + guild.getName() + ":__").setColor(defaultColor);
 
-
-                String saltMode = serverData.isNoSalt() ? "✅ ``Enabled``" : "❌ ``Disabled``";
-                embedBuilder.addField("**No Salt Mode:**", saltMode, false);
-
-
                 Set<Long> modRoleIds = serverData.getModRoles();
                 String modRoles;
                 if (modRoleIds.isEmpty())
@@ -1093,25 +1088,6 @@ public class Commands {
             }
 
             switch (args[1]) {
-                case "nosalt": {
-                    if (checkPerms(channel, null, Permission.MESSAGE_MANAGE))
-                        return;
-
-                    boolean value = args[2].equals("y");
-                    if (!value && !args[2].equals("n")) {
-                        sendError(channel, "Invalid value! Value must be either ``y`` or ``n``.");
-                        return;
-                    }
-
-                    if (value) {
-                        serverData.setNoSalt(true);
-                        sendSuccess(channel, "No salt mode enabled.");
-                    } else {
-                        serverData.setNoSalt(false);
-                        sendSuccess(channel, "No salt mode disabled.");
-                    }
-                    break;
-                }
                 case "modrole": {
                     if (args.length < 4) {
                         sendError(channel, "Insufficient amount of arguments!");

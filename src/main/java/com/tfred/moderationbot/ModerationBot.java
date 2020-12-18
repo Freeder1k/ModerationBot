@@ -179,13 +179,6 @@ public class ModerationBot extends ListenerAdapter {
                     textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
 
             }
-
-            //Delete messages with salt emoji if nosalt is enabled
-            else if (msg.contains("\uD83E\uDDC2"))
-                if (isPerson && ServerData.get(guild.getIdLong()).isNoSalt())
-                    if (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_MANAGE))
-                        message.delete().queue();
-
         } else if (event.isFromType(ChannelType.PRIVATE)) //If this message was sent to a PrivateChannel
         {
             System.out.printf("[PRIV]<%s>: %s\n", event.getAuthor().getName(), msg);

@@ -1,6 +1,7 @@
 package com.tfred.moderationbot;
 
 import java.io.IOException;
+import java.lang.ref.SoftReference;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -8,9 +9,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class ServerData {
-    private static final HashMap<Long, ServerData> allServerData = new HashMap<>();
+    private static final HashMap<Long, SoftReference<ServerData>> allServerData = new HashMap<>();
     public final long guildID;
-    private boolean noSalt = false;
     private final long[][] lbMessages = new long[][]{{0, 0}, {0, 0}, {0, 0}}; //channelID:messageID x3
     private final HashSet<Long> modRoles = new HashSet<>(4);
     private long memberRole = 0;
@@ -37,9 +37,7 @@ public class ServerData {
                 return;
             }
             try {
-                noSalt = Boolean.parseBoolean(lines.get(0));
-
-                String[] temp = lines.get(1).split(" ");
+                String[] temp = lines.get(0).split(" ");
                 try {
                     for (int i = 0; i < 3; i++) {
                         String[] temp2 = temp[i].split(":");
@@ -50,27 +48,27 @@ public class ServerData {
                     System.out.println("Formatting error in " + guildID + ".serverdata!");
                 }
 
-                for (String id : lines.get(2).split(" ")) {
+                for (String id : lines.get(1).split(" ")) {
                     modRoles.add(Long.parseLong(id));
                 }
 
-                memberRole = Long.parseLong(lines.get(3));
+                memberRole = Long.parseLong(lines.get(2));
 
-                mutedRole = Long.parseLong(lines.get(4));
+                mutedRole = Long.parseLong(lines.get(3));
 
-                noNicknameRole = Long.parseLong(lines.get(5));
+                noNicknameRole = Long.parseLong(lines.get(4));
 
-                logChannel = Long.parseLong(lines.get(6));
+                logChannel = Long.parseLong(lines.get(5));
 
-                joinChannel = Long.parseLong(lines.get(7));
+                joinChannel = Long.parseLong(lines.get(6));
 
-                punishmentChannel = Long.parseLong(lines.get(8));
+                punishmentChannel = Long.parseLong(lines.get(7));
 
-                ventChannel = Long.parseLong(lines.get(9));
+                ventChannel = Long.parseLong(lines.get(8));
 
-                nameChannel = Long.parseLong(lines.get(10));
+                nameChannel = Long.parseLong(lines.get(9));
 
-                currentPunishmentID = Integer.parseInt(lines.get(11));
+                currentPunishmentID = Integer.parseInt(lines.get(10));
             } catch (IndexOutOfBoundsException e) {/*this can be ignored*/} catch (NumberFormatException e) {
                 System.out.println("Formatting error in " + guildID + ".serverdata!");
             }
@@ -97,20 +95,19 @@ public class ServerData {
      * @return The server data.
      */
     public static ServerData get(long guildID) {
-        if (allServerData.containsKey(guildID))
-            return allServerData.get(guildID);
-
-        else {
-            ServerData newSD = new ServerData(guildID);
-            allServerData.put(guildID, newSD);
-            return newSD;
+        if (allServerData.containsKey(guildID)) {
+            ServerData serverData = allServerData.get(guildID).get();
+            if(serverData != null)
+                return serverData;
         }
+        ServerData newSD = new ServerData(guildID);
+        allServerData.put(guildID, new SoftReference<>(newSD));
+        return newSD;
     }
 
     private void updateFile() {
         try {
-            List<String> lines = new ArrayList<>(12);
-            lines.add(String.valueOf(noSalt));
+            List<String> lines = new ArrayList<>(11);
             lines.add(String.valueOf(lbMessages[0][0]) + ':' + lbMessages[0][1] + ' ' +
                     lbMessages[1][0] + ':' + lbMessages[1][1] + ' ' +
                     lbMessages[2][0] + ':' + lbMessages[2][1]);
@@ -129,16 +126,6 @@ public class ServerData {
         } catch (IOException e) {
             System.out.println("IO error when updating server data!");
         }
-    }
-
-
-    public boolean isNoSalt() {
-        return noSalt;
-    }
-
-    public void setNoSalt(boolean noSalt) {
-        this.noSalt = noSalt;
-        updateFile();
     }
 
     public Set<Long> getModRoles() {
