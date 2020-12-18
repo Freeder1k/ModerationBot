@@ -1,649 +1,266 @@
 package com.tfred.moderationbot;
 
-import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.TextChannel;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ServerData {
-    private static final Path path = Paths.get("servers.data");
-    private final List<SingleServer> serverList = new ArrayList<>();
+    private static final HashMap<Long, ServerData> allServerData = new HashMap<>();
+    public final long guildID;
+    private boolean noSalt = false;
+    private final long[][] lbMessages = new long[][]{{0, 0}, {0, 0}, {0, 0}}; //channelID:messageID x3
+    private final HashSet<Long> modRoles = new HashSet<>(4);
+    private long memberRole = 0;
+    private long mutedRole = 0;
+    private long noNicknameRole = 0;
+    private long logChannel = 0;
+    private long joinChannel = 0;
+    private long punishmentChannel = 0;
+    private long ventChannel = 0;
+    private long nameChannel = 0;
+    private int currentPunishmentID = 0;
 
-    /**
-     * Represents the bots saved server data. This contains mostly data like moderator roles and log channels.
-     */
-    public ServerData() {
-        List<String> lines;
-        try {
-            lines = Files.readAllLines(path);
-        } catch (IOException e) {
-            System.out.println("IO error when reading server data!");
-            return;
-        }
+    private ServerData(long guildID) {
+        this.guildID = guildID;
 
-        //Line format: <Server ID> noSalt(0 or 1) &modroles &lbMessages(boardNum:channelID:messageID) &logchannel &joinchannel &punishment-log-channel &mutedrole &ventchannel &nicknamerole &memberrole
+        // Initialize the server data
+        Path filepath = Paths.get("serverdata/" + guildID + ".serverdata");
+        if (Files.exists(filepath)) {
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(filepath);
+            } catch (IOException e) {
+                System.out.println("IO error when reading server data!");
+                return;
+            }
+            try {
+                noSalt = Boolean.parseBoolean(lines.get(0));
 
-        for (String s : lines) {
-            String[] data = s.split(" ");
-
-            List<String> modRoleIDs = new ArrayList<>();
-            String[] ids = data[2].substring(1).split(",");
-            Collections.addAll(modRoleIDs, ids);
-            if (modRoleIDs.get(0).isEmpty())
-                modRoleIDs.remove(0);
-
-            List<LbData> lbData = new ArrayList<>(3);
-            if (data.length >= 4) {
-                String[] temp = data[3].substring(1).split(",");
-                for (String a : temp) {
-                    lbData.add(LbData.create(a));
+                String[] temp = lines.get(1).split(" ");
+                try {
+                    for (int i = 0; i < 3; i++) {
+                        String[] temp2 = temp[i].split(":");
+                        lbMessages[i][0] = Long.parseLong(temp2[0]);
+                        lbMessages[i][1] = Long.parseLong(temp2[1]);
+                    }
+                } catch (IndexOutOfBoundsException ignored) {
+                    System.out.println("Formatting error in " + guildID + ".serverdata!");
                 }
-                if (lbData.size() != 3)
-                    while (lbData.size() < 3)
-                        lbData.add(new LbData(-1, null, null));
-            } else {
-                for (int i = 0; i < 3; i++) {
-                    lbData.add(new LbData(-1, null, null));
+
+                for (String id : lines.get(2).split(" ")) {
+                    modRoles.add(Long.parseLong(id));
+                }
+
+                memberRole = Long.parseLong(lines.get(3));
+
+                mutedRole = Long.parseLong(lines.get(4));
+
+                noNicknameRole = Long.parseLong(lines.get(5));
+
+                logChannel = Long.parseLong(lines.get(6));
+
+                joinChannel = Long.parseLong(lines.get(7));
+
+                punishmentChannel = Long.parseLong(lines.get(8));
+
+                ventChannel = Long.parseLong(lines.get(9));
+
+                nameChannel = Long.parseLong(lines.get(10));
+
+                currentPunishmentID = Integer.parseInt(lines.get(11));
+            } catch (IndexOutOfBoundsException e) {/*this can be ignored*/} catch (NumberFormatException e) {
+                System.out.println("Formatting error in " + guildID + ".serverdata!");
+            }
+        } else {
+            if (!Files.isDirectory(Paths.get("serverdata"))) {
+                try {
+                    Files.createDirectory(Paths.get("serverdata"));
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             }
-
-            String logChannelID = "";
-            if (data.length >= 5)
-                logChannelID = data[4].substring(1);
-
-            String joinChannelID = "";
-            if (data.length >= 6)
-                joinChannelID = data[5].substring(1);
-
-            String punishmentChannelID = "";
-            if (data.length >= 7)
-                punishmentChannelID = data[6].substring(1);
-
-            String mutedRoleID = "";
-            if (data.length >= 8)
-                mutedRoleID = data[7].substring(1);
-
-            String ventChannelID = "";
-            if (data.length >= 9)
-                ventChannelID = data[8].substring(1);
-
-            String noNickRoleID = "";
-            if (data.length >= 10)
-                noNickRoleID = data[9].substring(1);
-
-            String memberRoleID = "";
-            if (data.length >= 11)
-                memberRoleID = data[10].substring(1);
-
-            int nextPunishmentID = 1;
-            if (data.length >= 12)
-                nextPunishmentID = Integer.parseInt(data[11]);
-
-            String nameChannelID = "";
-            if (data.length >= 13)
-                nameChannelID = data[12].substring(1);
-
-            SingleServer x = new SingleServer(data[0], data[1].equals("1"), modRoleIDs, lbData, logChannelID, joinChannelID, punishmentChannelID, mutedRoleID, ventChannelID, noNickRoleID, memberRoleID, nextPunishmentID, nameChannelID);
-
-            serverList.add(x);
+            try {
+                Files.createFile(filepath);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
-
-        System.out.println("Finished reading saved server data.");
     }
 
-    //Line numbers start at 0
+    /**
+     * Get the server data of a guild.
+     *
+     * @param guildID The {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
+     * @return The server data.
+     */
+    public static ServerData get(long guildID) {
+        if (allServerData.containsKey(guildID))
+            return allServerData.get(guildID);
+
+        else {
+            ServerData newSD = new ServerData(guildID);
+            allServerData.put(guildID, newSD);
+            return newSD;
+        }
+    }
+
     private void updateFile() {
         try {
-            Files.deleteIfExists(path);
-            Files.write(path, serverList.stream().map(SingleServer::toString).collect(Collectors.toList()), StandardOpenOption.CREATE);
+            List<String> lines = new ArrayList<>(12);
+            lines.add(String.valueOf(noSalt));
+            lines.add(String.valueOf(lbMessages[0][0]) + ':' + lbMessages[0][1] + ' ' +
+                    lbMessages[1][0] + ':' + lbMessages[1][1] + ' ' +
+                    lbMessages[2][0] + ':' + lbMessages[2][1]);
+            lines.add(modRoles.stream().map(Object::toString).collect(Collectors.joining(" ")));
+            lines.add(String.valueOf(memberRole));
+            lines.add(String.valueOf(mutedRole));
+            lines.add(String.valueOf(noNicknameRole));
+            lines.add(String.valueOf(logChannel));
+            lines.add(String.valueOf(joinChannel));
+            lines.add(String.valueOf(punishmentChannel));
+            lines.add(String.valueOf(ventChannel));
+            lines.add(String.valueOf(nameChannel));
+            lines.add(String.valueOf(currentPunishmentID));
+
+            Files.write(Paths.get("serverdata/" + guildID + ".serverdata"), lines);
         } catch (IOException e) {
-            System.out.println("IO error when writing server data!");
+            System.out.println("IO error when updating server data!");
         }
     }
 
-    /**
-     * Returns true if the specified guild has no salt mode enabled. Default is false.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return True if the specified guild has no salt mode enabled.
-     */
-    public boolean isNoSalt(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID))
-                return s.noSalt;
-        }
-        return false;
+
+    public boolean isNoSalt() {
+        return noSalt;
+    }
+
+    public void setNoSalt(boolean noSalt) {
+        this.noSalt = noSalt;
+        updateFile();
+    }
+
+    public Set<Long> getModRoles() {
+        return Collections.unmodifiableSet(modRoles);
+    }
+
+    public void addModRole(long modRole) {
+        modRoles.add(modRole);
+    }
+
+    public void removeModRole(long modRole) {
+        modRoles.remove(modRole);
+    }
+
+    public long getMemberRole() {
+        return memberRole;
+    }
+
+    public void setMemberRole(long memberRole) {
+        this.memberRole = memberRole;
+        updateFile();
+    }
+
+    public long getMutedRole() {
+        return mutedRole;
+    }
+
+    public void setMutedRole(long mutedRole) {
+        this.mutedRole = mutedRole;
+        updateFile();
+    }
+
+    public long getNoNicknameRole() {
+        return noNicknameRole;
+    }
+
+    public void setNoNicknameRole(long noNicknameRole) {
+        this.noNicknameRole = noNicknameRole;
+        updateFile();
+    }
+
+    public long[][] getAllLbMessages() {
+        // Create a new array so the private one can't be changed
+        return new long[][]{{lbMessages[0][0], lbMessages[0][1]}, {lbMessages[1][0], lbMessages[1][1]}, {lbMessages[2][0], lbMessages[2][1]}};
     }
 
     /**
-     * Enable/Disable no salt mode in the specified guild.
+     * Get the leaderboard message for a specific board.
      *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param noSalt   True to enable, false to disable.
+     * @param board The board ID. Throws an IndexOutOfBoundsException if this isn't between 0 and 2
+     * @return an array with form {channelID, messageID}.
      */
-    public void setNoSalt(String serverID, boolean noSalt) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.noSalt = noSalt;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.noSalt = noSalt;
-        serverList.add(s_new);
+    public long[] getLbMessage(int board) {
+        return new long[]{lbMessages[board][0], lbMessages[board][1]};
+    }
 
+    /**
+     * Set the leaderboard message for a specific board.
+     *
+     * @param board     The board ID. Throws an IndexOutOfBoundsException if this isn't between 0 and 2
+     * @param channelID The ID of the {@link net.dv8tion.jda.api.entities.TextChannel channel} the message is in.
+     * @param messageID The ID of the {@link net.dv8tion.jda.api.entities.Message message}.
+     */
+    public void setLbMessage(int board, long channelID, long messageID) {
+        lbMessages[board][0] = channelID;
+        lbMessages[board][1] = messageID;
+    }
+
+    public long getLogChannel() {
+        return logChannel;
+    }
+
+    public void setLogChannel(long logChannel) {
+        this.logChannel = logChannel;
+        updateFile();
+    }
+
+    public long getJoinChannel() {
+        return joinChannel;
+    }
+
+    public void setJoinChannel(long joinChannel) {
+        this.joinChannel = joinChannel;
+        updateFile();
+    }
+
+    public long getPunishmentChannel() {
+        return punishmentChannel;
+    }
+
+    public void setPunishmentChannel(long punishmentChannel) {
+        this.punishmentChannel = punishmentChannel;
+        updateFile();
+    }
+
+    public long getVentChannel() {
+        return ventChannel;
+    }
+
+    public void setVentChannel(long ventChannel) {
+        this.ventChannel = ventChannel;
+        updateFile();
+    }
+
+    public long getNameChannel() {
+        return nameChannel;
+    }
+
+    public void setNameChannel(long nameChannel) {
+        this.nameChannel = nameChannel;
         updateFile();
     }
 
     /**
-     * Adds a role to the list of moderator roles in a specified server. Members with moderator roles can use moderator only commands.
+     * Increments the current punishment ID by 1 and returns this value.
      *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param roleID   The specified {@link net.dv8tion.jda.api.entities.Role role's} ID.
+     * @return
+     *          The next punishment ID.
      */
-    public void addModRole(String serverID, String roleID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!(s.modRoleIDs.contains(roleID))) {
-                    s.modRoleIDs.add(roleID);
-                    updateFile();
-                }
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.modRoleIDs.add(roleID);
-        serverList.add(s_new);
-
+    public int getNextPunishmentID() {
+        currentPunishmentID++;
         updateFile();
+        return currentPunishmentID;
     }
-
-    /**
-     * Remove a role from the list of moderator roles in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param roleID   The specified {@link net.dv8tion.jda.api.entities.Role role's} ID.
-     */
-    public void removeModRole(String serverID, String roleID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.modRoleIDs.remove(roleID);
-                updateFile();
-            }
-        }
-    }
-
-    /**
-     * Returns a list of all moderator roles in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return possibly-empty {@link List<String> list} of all moderator role IDs in the specified server.
-     */
-    public List<String> getModRoles(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                return s.modRoleIDs;
-            }
-        }
-        return new ArrayList<>();
-    }
-
-    /**
-     * Set a specified message to show a leaderboard in a specified server. This message will be edited in the future when {@link Commands#updateLeaderboards(TextChannel, Leaderboards, ServerData, Guild) Commands.upateLeaderboards} is called.
-     *
-     * @param serverID  The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param board     Which board to use.
-     *                  0: hider wins, 1: hunter wins, 2: kills.
-     * @param channelID The {@link TextChannel channel's} ID in which the message is.
-     * @param messageID The {@link net.dv8tion.jda.api.entities.Message message's} ID.
-     */
-    public void setLbData(String serverID, int board, String channelID, String messageID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                LbData lb = s.lbData.get(board);
-                lb.board = board;
-                lb.channelID = channelID;
-                lb.messageID = messageID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        LbData lb = s_new.lbData.get(board);
-        lb.board = board;
-        lb.channelID = channelID;
-        lb.messageID = messageID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Returns an array with the data pertaining to the leaderboard messages in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return An array containing 3 arrays of Strings containing the data. Each string array contains a channel ID and a message ID or is null if it hasn't been set yet with {@link ServerData#setLbData(String, int, String, String) ServerData.setLbData}.
-     */
-    public String[][] getAllLbData(String serverID) {
-        String[][] temp = new String[3][2];
-        for (int i = 0; i < 3; i++) {
-            temp[i] = getLbData(serverID, i);
-        }
-        return temp;
-    }
-
-    private String[] getLbData(String serverID, int board) {
-        String channelID = null;
-        String messageID = null;
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                channelID = s.lbData.get(board).channelID;
-                messageID = s.lbData.get(board).messageID;
-            }
-        }
-        if (channelID == null || messageID == null)
-            return null;
-        return new String[]{channelID, messageID};
-    }
-
-    /**
-     * Set the specified channel to be the log channel for the specified server.
-     *
-     * @param serverID     The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param logChannelID The specified {@link TextChannel log channel's} ID.
-     */
-    public void setLogChannelID(String serverID, String logChannelID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.logChannelID = logChannelID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.logChannelID = logChannelID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the log channel in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link TextChannel log channel's} ID or "0" if none is set.
-     */
-    public String getLogChannelID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.logChannelID.equals(""))
-                    return s.logChannelID;
-            }
-        }
-        return "0";
-    }
-
-    /**
-     * Set the specified channel to be the join channel for the specified server.
-     *
-     * @param serverID      The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param joinChannelID The specified {@link TextChannel log channel's} ID.
-     */
-    public void setJoinChannelID(String serverID, String joinChannelID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.joinChannelID = joinChannelID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.joinChannelID = joinChannelID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the join channel in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link TextChannel log channel's} ID or "0" if none is set.
-     */
-    public String getJoinChannelID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.joinChannelID.equals(""))
-                    return s.joinChannelID;
-            }
-        }
-        return "0";
-    }
-
-    /**
-     * Set the specified channel to be the punishment log channel for the specified server.
-     *
-     * @param serverID            The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param punishmentChannelID The specified {@link TextChannel log channel's} ID.
-     */
-    public void setPunishmentChannelID(String serverID, String punishmentChannelID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.punishmentChannelID = punishmentChannelID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.punishmentChannelID = punishmentChannelID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the punishment log channel in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link TextChannel log channel's} ID or "0" if none is set.
-     */
-    public String getPunishmentChannelID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.punishmentChannelID.equals(""))
-                    return s.punishmentChannelID;
-            }
-        }
-        return "0";
-    }
-
-    /**
-     * Set the specified role to be the muted role for the specified server.
-     *
-     * @param serverID    The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param mutedRoleID The specified {@link net.dv8tion.jda.api.entities.Role role's} ID.
-     */
-    public void setMutedRoleID(String serverID, String mutedRoleID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.mutedRoleID = mutedRoleID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.mutedRoleID = mutedRoleID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the muted role in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link net.dv8tion.jda.api.entities.Role role's} ID or "0" if none is set.
-     */
-    public String getMutedRoleID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.mutedRoleID.equals(""))
-                    return s.mutedRoleID;
-            }
-        }
-        return "0";
-    }
-
-    /**
-     * Set the specified channel to be the vent channel for the specified server.
-     *
-     * @param serverID      The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param ventChannelID The specified {@link TextChannel channel's} ID.
-     */
-    public void setVentChannelID(String serverID, String ventChannelID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.ventChannelID = ventChannelID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.ventChannelID = ventChannelID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the vent channel in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link TextChannel channel's} ID or "0" if none is set.
-     */
-    public String getVentChannelID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.ventChannelID.equals(""))
-                    return s.ventChannelID;
-            }
-        }
-        return "0";
-    }
-
-    /**
-     * Set the specified role to be the noNick role for the specified server.
-     *
-     * @param serverID     The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param noNickRoleID The specified {@link net.dv8tion.jda.api.entities.Role role's} ID.
-     */
-    public void setNoNickRoleID(String serverID, String noNickRoleID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.noNickRoleID = noNickRoleID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.noNickRoleID = noNickRoleID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the noNick role in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link net.dv8tion.jda.api.entities.Role role's} ID or "0" if none is set.
-     */
-    public String getNoNickRoleID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.noNickRoleID.equals(""))
-                    return s.noNickRoleID;
-            }
-        }
-        return "0";
-    }
-
-    /**
-     * Set the specified role to be the member role for the specified server.
-     *
-     * @param serverID     The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param memberRoleID The specified {@link net.dv8tion.jda.api.entities.Role role's} ID.
-     */
-    public void setMemberRoleID(String serverID, String memberRoleID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.memberRoleID = memberRoleID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.memberRoleID = memberRoleID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the member role in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link net.dv8tion.jda.api.entities.Role role's} ID or "0" if none is set.
-     */
-    public String getMemberRoleID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.memberRoleID.equals(""))
-                    return s.memberRoleID;
-            }
-        }
-        return "0";
-    }
-
-    /**
-     * Get the ID of the next punishment in a specified server and update this.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The punishment ID or 1 if none was set yet.
-     */
-    public int nextPunishmentID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.nextPunishmentID++;
-                updateFile();
-                return s.nextPunishmentID - 1;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.nextPunishmentID = 2;
-        serverList.add(s_new);
-
-        updateFile();
-        return 1;
-    }
-
-    /**
-     * Set the specified channel to be the name channel for the specified server.
-     *
-     * @param serverID      The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @param nameChannelID The specified {@link TextChannel channel's} ID.
-     */
-    public void setNameChannelID(String serverID, String nameChannelID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                s.nameChannelID = nameChannelID;
-                updateFile();
-                return;
-            }
-        }
-        SingleServer s_new = SingleServer.createDefault(serverID);
-        s_new.nameChannelID = nameChannelID;
-        serverList.add(s_new);
-
-        updateFile();
-    }
-
-    /**
-     * Get the ID of the name channel in a specified server.
-     *
-     * @param serverID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
-     * @return The {@link TextChannel channel's} ID or "0" if none is set.
-     */
-    public String getNameChannelID(String serverID) {
-        for (SingleServer s : serverList) {
-            if (s.id.equals(serverID)) {
-                if (!s.nameChannelID.equals(""))
-                    return s.nameChannelID;
-            }
-        }
-        return "0";
-    }
-
-    private static class LbData {
-        int board;
-        String channelID;
-        String messageID;
-
-        LbData(int board, String channelID, String messageID) {
-            this.board = board;
-            this.channelID = channelID;
-            this.messageID = messageID;
-        }
-
-        //input format: "boardNum:channelID:messageID"
-        static LbData create(String data) {
-            if (data.equals(""))
-                return new LbData(-1, null, null);
-            String[] temp = data.split(":");
-            return new LbData(Integer.parseInt(temp[0]), temp[1], temp[2]);
-        }
-
-        @Override
-        public String toString() {
-            if (this.board == -1)
-                return "";
-
-            return board + ":" + channelID + ":" + messageID;
-        }
-    }
-
-    private static class SingleServer {
-        String id;
-        boolean noSalt;
-        List<String> modRoleIDs;
-        List<LbData> lbData;
-        String logChannelID, joinChannelID, punishmentChannelID, mutedRoleID, ventChannelID, noNickRoleID, memberRoleID, nameChannelID;
-        int nextPunishmentID;
-
-        SingleServer(String id, boolean noSalt, List<String> modRoleIDs, List<LbData> lbData, String logChannelID, String joinChannelID, String punishmentChannelID, String mutedRoleID, String ventChannelID, String noNickRoleID, String memberRoleID, int nextPunishmentID, String nameChannelID) {
-            this.id = id;
-            this.noSalt = noSalt;
-            this.modRoleIDs = modRoleIDs;
-            this.lbData = lbData;
-            this.logChannelID = logChannelID;
-            this.joinChannelID = joinChannelID;
-            this.punishmentChannelID = punishmentChannelID;
-            this.mutedRoleID = mutedRoleID;
-            this.ventChannelID = ventChannelID;
-            this.noNickRoleID = noNickRoleID;
-            this.memberRoleID = memberRoleID;
-            this.nextPunishmentID = nextPunishmentID;
-            this.nameChannelID = nameChannelID;
-        }
-
-        static SingleServer createDefault(String id) {
-            List<LbData> lbData = new ArrayList<>(3);
-            for (int i = 0; i < 3; i++)
-                lbData.add(new LbData(-1, null, null));
-
-            return new SingleServer(id, false, new ArrayList<>(), lbData, "", "", "", "", "", "", "", 1, "");
-        }
-
-        @Override
-        public String toString() {
-            String noSaltS;
-            if (noSalt)
-                noSaltS = "1";
-            else
-                noSaltS = "0";
-
-            return id + " " + noSaltS + " &" + String.join(",", modRoleIDs) + " &" + lbData.stream().map(LbData::toString).collect(Collectors.joining(",")) + " &" + logChannelID + " &" + joinChannelID + " &" + punishmentChannelID + " &" + mutedRoleID + " &" + ventChannelID + " &" + noNickRoleID + " &" + memberRoleID + " " + nextPunishmentID + " &" + nameChannelID;
-        }
-    }
-
-    //TODO serverdata.log
 }

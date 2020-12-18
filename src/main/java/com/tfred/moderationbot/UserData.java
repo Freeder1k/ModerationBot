@@ -25,9 +25,9 @@ import java.util.regex.Pattern;
 
 public class UserData {
     private static final HashMap<Long, UserData> allUserData = new HashMap<>();
+    public final long guildID;
     private final LoadingCache<Long, String[]> usernameCache;
     private final HashMap<Long, String> uuidMap;
-    public long guildID;
 
     private UserData(long guildID) {
         this.guildID = guildID;
@@ -46,7 +46,6 @@ public class UserData {
                 );
 
         // Initialize the user data
-        uuidMap = new HashMap<>();
         Path filepath = Paths.get("userdata/" + guildID + ".userdata");
         if (Files.exists(filepath)) {
             List<String> lines;
@@ -54,8 +53,20 @@ public class UserData {
                 lines = Files.readAllLines(filepath);
             } catch (IOException e) {
                 System.out.println("IO error when reading user data!");
+                uuidMap = new HashMap<>();
                 return;
             }
+            int v = lines.size();
+            { // Compute the next highest power of 2 (http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2)
+                v--;
+                v |= v >> 1;
+                v |= v >> 2;
+                v |= v >> 4;
+                v |= v >> 8;
+                v |= v >> 16;
+                v++;
+            }
+            uuidMap = new HashMap<>(v);
             for (String line : lines) {
                 String[] data = line.split(" ");
                 try {
@@ -65,6 +76,7 @@ public class UserData {
                 }
             }
         } else {
+            uuidMap = new HashMap<>();
             if (!Files.isDirectory(Paths.get("userdata"))) {
                 try {
                     Files.createDirectory(Paths.get("userdata"));
@@ -80,6 +92,12 @@ public class UserData {
         }
     }
 
+    /**
+     * Get the user data of a guild.
+     *
+     * @param guildID The guild ID of the guild.
+     * @return The userdata.
+     */
     public static UserData get(long guildID) {
         if (allUserData.containsKey(guildID))
             return allUserData.get(guildID);
@@ -233,7 +251,7 @@ public class UserData {
     public String getUsername(long userID) {
         try {
             String[] names = usernameCache.get(userID);
-            if(names.length == 0)
+            if (names.length == 0)
                 return "";
             else if (names.length == 1) {
                 if (names[0].equals("-") || names[0].equals("e"))

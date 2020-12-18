@@ -155,10 +155,9 @@ public class Commands {
      *
      * @param event        An event containing information about a {@link Message Message} that was
      *                     sent in a channel.
-     * @param serverData   The {@link ServerData server data} to work with.
      * @param leaderboards The {@link Leaderboards leaderboards data} to work with.
      */
-    public static void process(MessageReceivedEvent event, ServerData serverData, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
+    public static void process(MessageReceivedEvent event, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
         Message message = event.getMessage();
         String msg = message.getContentRaw();
         String[] args = msg.substring(1).split(" ");
@@ -172,29 +171,29 @@ public class Commands {
                 helpCommand(args, channel);
                 break;
             case "delreaction":
-                delreactionCommand(args, serverData, message, sender, channel, guild);
+                delreactionCommand(args, message, sender, channel, guild);
                 break;
             case "getreactions":
-                getreactionsCommand(args, serverData, sender, channel, guild);
+                getreactionsCommand(args, sender, channel, guild);
                 break;
             case "name":
-                nameCommand(args, serverData, sender, channel, guild);
+                nameCommand(args, sender, channel, guild);
                 break;
             case "updatenames":
-                updatenamesCommand(serverData, sender, channel, guild);
+                updatenamesCommand(sender, channel, guild);
                 break;
             case "listnames":
-                listnamesCommand(args, serverData, sender, channel, guild);
+                listnamesCommand(args, sender, channel, guild);
                 break;
             case "config":
-                configCommand(args, serverData, sender, channel, guild);
+                configCommand(args, sender, channel, guild);
                 break;
             case "puunish":
-                if (isModerator(guild.getId(), sender, serverData))
+                if (isModerator(guild.getId(), sender))
                     channel.sendMessage("*Puunish???*").queue();
                 break;
             case "punish":
-                punishCommand(msg, serverData, punishmentHandler, sender, channel, guild);
+                punishCommand(msg, punishmentHandler, sender, channel, guild);
                 break;
             case "pardon":
             case "unpunish":
@@ -203,22 +202,22 @@ public class Commands {
             case "exculpate":
             case "exonerate":
             case "vindicate":
-                pardonCommand(msg, serverData, sender, channel, guild);
+                pardonCommand(msg, sender, channel, guild);
                 break;
             case "modlogs":
-                modlogsCommand(args, serverData, sender, channel, guild);
+                modlogsCommand(args, sender, channel, guild);
                 break;
             case "moderations":
-                moderationsCommand(serverData, sender, channel, guild.getId());
+                moderationsCommand(sender, channel, guild.getId());
                 break;
             case "lb":
-                lbCommand(msg, serverData, leaderboards, sender, channel, guild);
+                lbCommand(msg, leaderboards, sender, channel, guild);
                 break;
             case "updatelb":
-                updatelbCommand(serverData, leaderboards, sender, channel, guild);
+                updatelbCommand(leaderboards, sender, channel, guild);
                 break;
             case "eval":
-                evalCommand(event, serverData, leaderboards, punishmentHandler);
+                evalCommand(event, leaderboards, punishmentHandler);
                 break;
             case "ip":
                 ipCommand(sender, channel);
@@ -260,9 +259,9 @@ public class Commands {
     /*
      * Moderator commands
      */
-    public static void delreactionCommand(String[] args, ServerData serverData, Message message, Member sender, TextChannel channel, Guild guild) {
+    public static void delreactionCommand(String[] args, Message message, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
-        if (isModerator(guildID, sender, serverData)) {
+        if (isModerator(guildID, sender)) {
             if (checkPerms(channel, channel, Permission.MESSAGE_MANAGE, Permission.MESSAGE_HISTORY))
                 return;
 
@@ -321,10 +320,10 @@ public class Commands {
         }
     }
 
-    public static void getreactionsCommand(String[] args, ServerData serverData, Member sender, TextChannel channel, Guild guild) {
+    public static void getreactionsCommand(String[] args, Member sender, TextChannel channel, Guild guild) {
         assert channel != null;
         String guildID = guild.getId();
-        if (isModerator(guildID, sender, serverData)) {
+        if (isModerator(guildID, sender)) {
             if (args.length == 1) {
                 helpMessage(channel, "getreactions");
                 return;
@@ -376,10 +375,10 @@ public class Commands {
         }
     }
 
-    public static void nameCommand(String[] args, ServerData serverData, Member sender, TextChannel channel, Guild guild) {
+    public static void nameCommand(String[] args, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
         UserData userData = UserData.get(guild.getIdLong());
-        if (isModerator(guildID, sender, serverData)) {
+        if (isModerator(guildID, sender)) {
             if (checkPerms(channel, null, Permission.NICKNAME_MANAGE))
                 return;
 
@@ -435,17 +434,17 @@ public class Commands {
         }
     }
 
-    public static void updatenamesCommand(ServerData serverData, Member sender, TextChannel channel, Guild guild) {
+    public static void updatenamesCommand(Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
-        if (isModerator(guildID, sender, serverData)) {
+        if (isModerator(guildID, sender)) {
             channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).")
-                    .queue((ignored) -> updateNames(channel, serverData, guild, false));
+                    .queue((ignored) -> updateNames(channel, guild, false));
         }
     }
 
-    public static void listnamesCommand(String[] args, ServerData serverData, Member sender, TextChannel channel, Guild guild) {
+    public static void listnamesCommand(String[] args, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
-        if (isModerator(guildID, sender, serverData)) {
+        if (isModerator(guildID, sender)) {
             List<Member> members;
 
             if (args.length > 1) {
@@ -511,57 +510,58 @@ public class Commands {
         }
     }
 
-    public static void configCommand(String[] args, ServerData serverData, Member sender, TextChannel channel, Guild guild) {
+    public static void configCommand(String[] args, Member sender, TextChannel channel, Guild guild) {
         if (args.length > 1)
-            configCommand2(args, serverData, sender, channel, guild);
+            configCommand2(args, sender, channel, guild);
         else {
             String guildID = guild.getId();
-            if (isModerator(guildID, sender, serverData)) {
+            ServerData serverData = ServerData.get(guild.getIdLong());
+            if (isModerator(guildID, sender)) {
                 EmbedBuilder embedBuilder = new EmbedBuilder();
                 embedBuilder.setTitle("__Settings for " + guild.getName() + ":__").setColor(defaultColor);
 
 
-                String saltMode = serverData.isNoSalt(guildID) ? "✅ ``Enabled``" : "❌ ``Disabled``";
+                String saltMode = serverData.isNoSalt() ? "✅ ``Enabled``" : "❌ ``Disabled``";
                 embedBuilder.addField("**No Salt Mode:**", saltMode, false);
 
 
-                List<String> modRoleIds = serverData.getModRoles(guildID);
+                Set<Long> modRoleIds = serverData.getModRoles();
                 String modRoles;
                 if (modRoleIds.isEmpty())
                     modRoles = "*None*";
                 else {
                     StringBuilder stringBuilder = new StringBuilder(modRoleIds.size());
-                    for (String id : modRoleIds) {
+                    for (long id : modRoleIds) {
                         stringBuilder.append("*<@&").append(id).append(">*\n");
                     }
                     modRoles = stringBuilder.toString();
                 }
                 embedBuilder.addField("**Moderator Roles:**", modRoles, false);
 
-                String memberRole = serverData.getMemberRoleID(guildID);
-                if (memberRole.equals("0"))
+                long memberRole = serverData.getMemberRole();
+                if (memberRole == 0)
                     embedBuilder.addField("**Member role:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Member role:**", "<@&" + memberRole + ">", false);
 
-                String mutedRole = serverData.getMutedRoleID(guildID);
-                if (mutedRole.equals("0"))
+                long mutedRole = serverData.getMutedRole();
+                if (mutedRole == 0)
                     embedBuilder.addField("**Muted role:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Muted role:**", "<@&" + mutedRole + ">", false);
 
-                String noNickRole = serverData.getNoNickRoleID(guildID);
-                if (noNickRole.equals("0"))
+                long noNickRole = serverData.getNoNicknameRole();
+                if (noNickRole == 0)
                     embedBuilder.addField("**NoNick role:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**NoNick role:**", "<@&" + noNickRole + ">", false);
 
 
                 StringBuilder leaderboardData = new StringBuilder();
-                String[][] lbData = serverData.getAllLbData(guildID);
+                long[][] lbData = serverData.getAllLbMessages();
                 for (int i = 0; i < 3; i++) {
                     leaderboardData.append('*').append(new String[]{"Hider Wins", "Hunter Wins", "Kills"}[i]).append(":* ");
-                    if (lbData[i] == null)
+                    if (lbData[i][0] == 0)
                         leaderboardData.append("``Not set yet.``\n");
                     else
                         leaderboardData.append("[<#").append(lbData[i][0]).append(">](https://discordapp.com/channels/").append(guildID).append('/').append(lbData[i][0]).append('/').append(lbData[i][1]).append(" 'Message link')\n");
@@ -569,32 +569,32 @@ public class Commands {
                 embedBuilder.addField("**Leaderboards:**", leaderboardData.toString(), false);
 
 
-                String logChannel = serverData.getLogChannelID(guildID);
-                if (logChannel.equals("0"))
+                long logChannel = serverData.getLogChannel();
+                if (logChannel == 0)
                     embedBuilder.addField("**Log channel:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Log channel:**", "<#" + logChannel + ">", false);
 
-                String joinChannel = serverData.getJoinChannelID(guildID);
-                if (joinChannel.equals("0"))
+                long joinChannel = serverData.getJoinChannel();
+                if (joinChannel == 0)
                     embedBuilder.addField("**Join channel:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Join channel:**", "<#" + joinChannel + ">", false);
 
-                String punishmentChannel = serverData.getPunishmentChannelID(guildID);
-                if (punishmentChannel.equals("0"))
+                long punishmentChannel = serverData.getPunishmentChannel();
+                if (punishmentChannel == 0)
                     embedBuilder.addField("**Punishment channel:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Punishment channel:**", "<#" + punishmentChannel + ">", false);
 
-                String ventChannel = serverData.getVentChannelID(guildID);
-                if (ventChannel.equals("0"))
+                long ventChannel = serverData.getVentChannel();
+                if (ventChannel == 0)
                     embedBuilder.addField("**Vent channel:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Vent channel:**", "<#" + ventChannel + ">", false);
 
-                String nameChannel = serverData.getNameChannelID(guildID);
-                if (nameChannel.equals("0"))
+                long nameChannel = serverData.getNameChannel();
+                if (nameChannel == 0)
                     embedBuilder.addField("**Name channel:**", "``Not set yet.``", false);
                 else
                     embedBuilder.addField("**Name channel:**", "<#" + nameChannel + ">", false);
@@ -605,9 +605,10 @@ public class Commands {
         }
     }
 
-    public static void punishCommand(String msg, ServerData serverData, Moderation.PunishmentHandler punishmentHandler, Member sender, TextChannel channel, Guild guild) {
+    public static void punishCommand(String msg, Moderation.PunishmentHandler punishmentHandler, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
-        if (isModerator(guildID, sender, serverData)) {
+        ServerData serverData = ServerData.get(guild.getIdLong());
+        if (isModerator(guildID, sender)) {
             String[] args = msg.split(" ", 4);
 
             if (args.length == 1) {
@@ -625,7 +626,7 @@ public class Commands {
                 sendError(channel, "Invalid user.");
                 return;
             }
-            if (isModerator(guildID, member, serverData)) {
+            if (isModerator(guildID, member)) {
                 sendError(channel, "This user is a server moderator!");
                 return;
             }
@@ -649,12 +650,14 @@ public class Commands {
                 }
             }
 
-            String finalReason = reason;
-            member.getUser().openPrivateChannel().queue((pc) -> pc.sendMessage("You were banned from " + guild.getName() + ". Reason: " + finalReason).queue());
+            if(sev == '6') {
+                String finalReason = reason;
+                member.getUser().openPrivateChannel().queue((pc) -> pc.sendMessage("You were banned from " + guild.getName() + ". Reason: " + finalReason).queue());
+            }
 
             Moderation.Punishment p;
             try {
-                p = Moderation.punish(member, sev, reason, sender.getIdLong(), serverData, punishmentHandler);
+                p = Moderation.punish(member, sev, reason, sender.getIdLong(), punishmentHandler);
             } catch (Moderation.ModerationException e) {
                 sendError(channel, e.getMessage());
                 return;
@@ -687,9 +690,9 @@ public class Commands {
                 }
             }
 
-            TextChannel pchannel = guild.getTextChannelById(serverData.getPunishmentChannelID(guild.getId()));
+            TextChannel pchannel = guild.getTextChannelById(serverData.getPunishmentChannel());
             if (pchannel == null)
-                pchannel = guild.getTextChannelById(serverData.getLogChannelID((guild.getId())));
+                pchannel = guild.getTextChannelById(serverData.getLogChannel());
             if (pchannel != null) {
                 pchannel.sendMessage(new EmbedBuilder()
                         .setColor(defaultColor)
@@ -704,9 +707,10 @@ public class Commands {
         }
     }
 
-    public static void pardonCommand(String msg, ServerData serverData, Member sender, TextChannel channel, Guild guild) {
+    public static void pardonCommand(String msg, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
-        if (isModerator(guildID, sender, serverData)) {
+        ServerData serverData = ServerData.get(guild.getIdLong());
+        if (isModerator(guildID, sender)) {
             String[] args = msg.split(" ", 4);
 
             if (args.length == 1) {
@@ -773,7 +777,7 @@ public class Commands {
                             sendError(channel, "No matching active punishment with id " + id + " found.");
                             return;
                         }
-                        String response = Moderation.stopPunishment(guild, id, reason, sender.getIdLong(), hideC == 'y', serverData, false);
+                        String response = Moderation.stopPunishment(guild, id, reason, sender.getIdLong(), hideC == 'y', false);
                         String[] resS = response.split(" ", 2);
 
                         sendSuccess(channel, resS[1]);
@@ -802,9 +806,9 @@ public class Commands {
                             }
                         }
 
-                        TextChannel pchannel = guild.getTextChannelById(serverData.getPunishmentChannelID(guild.getId()));
+                        TextChannel pchannel = guild.getTextChannelById(serverData.getPunishmentChannel());
                         if (pchannel == null)
-                            pchannel = guild.getTextChannelById(serverData.getLogChannelID((guild.getId())));
+                            pchannel = guild.getTextChannelById(serverData.getLogChannel());
                         if (pchannel != null) {
                             pchannel.sendMessage(new EmbedBuilder()
                                     .setColor(defaultColor)
@@ -841,7 +845,7 @@ public class Commands {
             StringBuilder responses = new StringBuilder();
             for (Moderation.ActivePunishment ap : apList) {
                 try {
-                    String response = Moderation.stopPunishment(guild, ap.punishment.id, reason, sender.getIdLong(), hideC == 'y', serverData, true);
+                    String response = Moderation.stopPunishment(guild, ap.punishment.id, reason, sender.getIdLong(), hideC == 'y', true);
                     String[] resS = response.split(" ", 2);
 
                     responses.append("✅ ").append(resS[1]).append("\n");
@@ -870,9 +874,9 @@ public class Commands {
                         }
                     }
 
-                    TextChannel pchannel = guild.getTextChannelById(serverData.getPunishmentChannelID(guild.getId()));
+                    TextChannel pchannel = guild.getTextChannelById(serverData.getPunishmentChannel());
                     if (pchannel == null)
-                        pchannel = guild.getTextChannelById(serverData.getLogChannelID((guild.getId())));
+                        pchannel = guild.getTextChannelById(serverData.getLogChannel());
                     if (pchannel != null) {
                         pchannel.sendMessage(new EmbedBuilder()
                                 .setColor(defaultColor)
@@ -894,9 +898,9 @@ public class Commands {
         }
     }
 
-    public static void modlogsCommand(String[] args, ServerData serverData, Member sender, TextChannel channel, Guild guild) {
+    public static void modlogsCommand(String[] args, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
-        if (isModerator(guildID, sender, serverData)) {
+        if (isModerator(guildID, sender)) {
             if (args.length == 1) {
                 helpMessage(channel, "modlogs");
                 return;
@@ -1008,8 +1012,8 @@ public class Commands {
         }
     }
 
-    public static void moderationsCommand(ServerData serverData, Member sender, TextChannel channel, String guildID) {
-        if (isModerator(guildID, sender, serverData)) {
+    public static void moderationsCommand(Member sender, TextChannel channel, String guildID) {
+        if (isModerator(guildID, sender)) {
             List<Moderation.ActivePunishment> apList;
             try {
                 apList = Moderation.getActivePunishments(guildID);
@@ -1079,8 +1083,8 @@ public class Commands {
     /*
      * Admin commands
      */
-    public static void configCommand2(String[] args, ServerData serverData, Member sender, TextChannel channel, Guild guild) {
-        String guildID = guild.getId();
+    public static void configCommand2(String[] args, Member sender, TextChannel channel, Guild guild) {
+        ServerData serverData = ServerData.get(guild.getIdLong());
         if (sender.hasPermission(Permission.ADMINISTRATOR)) {
 
             if (args.length < 3) {
@@ -1100,10 +1104,10 @@ public class Commands {
                     }
 
                     if (value) {
-                        serverData.setNoSalt(guildID, true);
+                        serverData.setNoSalt(true);
                         sendSuccess(channel, "No salt mode enabled.");
                     } else {
-                        serverData.setNoSalt(guildID, false);
+                        serverData.setNoSalt(false);
                         sendSuccess(channel, "No salt mode disabled.");
                     }
                     break;
@@ -1119,16 +1123,16 @@ public class Commands {
                         return;
                     }
 
-                    if (args[2].equals("add")) {
+                    if (args[3].equals("add")) {
                         Role r = guild.getRoleById(id);
                         if (r == null) {
                             sendError(channel, "Invalid role!");
                             return;
                         }
-                        serverData.addModRole(guildID, String.valueOf(id));
+                        serverData.addModRole(id);
                         sendSuccess(channel, "Added <@&" + id + "> to moderator roles.");
-                    } else if (args[1].equals("remove")) {
-                        serverData.removeModRole(guildID, String.valueOf(id));
+                    } else if (args[3].equals("remove")) {
+                        serverData.removeModRole(id);
                         sendSuccess(channel, "Removed <@&" + id + "> from moderator roles.");
                     } else
                         sendError(channel, "Unknown action! Allowed actions: ``add, remove``.");
@@ -1140,7 +1144,7 @@ public class Commands {
                         sendError(channel, "Invalid role!");
                         return;
                     }
-                    serverData.setMemberRoleID(guildID, r.getId());
+                    serverData.setMemberRole(r.getIdLong());
                     sendSuccess(channel, "Set the member role to <@&" + r.getId() + ">.");
                     break;
                 }
@@ -1150,7 +1154,7 @@ public class Commands {
                         sendError(channel, "Invalid role!");
                         return;
                     }
-                    serverData.setMutedRoleID(guildID, r.getId());
+                    serverData.setMutedRole(r.getIdLong());
                     sendSuccess(channel, "Set the muted role to <@&" + r.getId() + ">.");
                     break;
                 }
@@ -1160,7 +1164,7 @@ public class Commands {
                         sendError(channel, "Invalid role!");
                         return;
                     }
-                    serverData.setNoNickRoleID(guildID, r.getId());
+                    serverData.setNoNicknameRole(r.getIdLong());
                     sendSuccess(channel, "Set the no nickname role to <@&" + r.getId() + ">.");
                     break;
                 }
@@ -1170,7 +1174,7 @@ public class Commands {
                         sendError(channel, "Invalid channel!");
                         return;
                     }
-                    serverData.setLogChannelID(guildID, c.getId());
+                    serverData.setLogChannel(c.getIdLong());
                     sendSuccess(channel, "Set the log channel to <#" + c.getId() + ">.");
                     break;
                 }
@@ -1180,7 +1184,7 @@ public class Commands {
                         sendError(channel, "Invalid channel!");
                         return;
                     }
-                    serverData.setJoinChannelID(guildID, c.getId());
+                    serverData.setJoinChannel(c.getIdLong());
                     sendSuccess(channel, "Set the join channel to <#" + c.getId() + ">.");
                     break;
                 }
@@ -1190,7 +1194,7 @@ public class Commands {
                         sendError(channel, "Invalid channel!");
                         return;
                     }
-                    serverData.setPunishmentChannelID(guildID, c.getId());
+                    serverData.setPunishmentChannel(c.getIdLong());
                     sendSuccess(channel, "Set the punishment channel to <#" + c.getId() + ">.");
                     break;
                 }
@@ -1200,7 +1204,7 @@ public class Commands {
                         sendError(channel, "Invalid channel!");
                         return;
                     }
-                    serverData.setVentChannelID(guildID, c.getId());
+                    serverData.setVentChannel(c.getIdLong());
                     sendSuccess(channel, "Set the vent channel to <#" + c.getId() + ">.");
                     break;
                 }
@@ -1210,7 +1214,7 @@ public class Commands {
                         sendError(channel, "Invalid channel!");
                         return;
                     }
-                    serverData.setNameChannelID(guildID, c.getId());
+                    serverData.setNameChannel(c.getIdLong());
                     sendSuccess(channel, "Set the name channel to <#" + c.getId() + ">.");
                     break;
                 }
@@ -1218,8 +1222,9 @@ public class Commands {
         }
     }
 
-    public static void lbCommand(String msg, ServerData serverData, Leaderboards leaderboards, Member sender, TextChannel channel, Guild guild) {
+    public static void lbCommand(String msg, Leaderboards leaderboards, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
+        ServerData serverData = ServerData.get(guild.getIdLong());
         if ((sender.hasPermission(Permission.ADMINISTRATOR))) {
             if (msg.length() != 5) {
                 helpMessage(channel, "lb");
@@ -1247,12 +1252,12 @@ public class Commands {
             eb.setFooter("Last update ");
             eb.setTimestamp(new Date(leaderboards.getDate()).toInstant());
 
-            String[] messageData = serverData.getAllLbData(guildID)[boardNum];
+            long[] messageData = serverData.getLbMessage(boardNum);
 
-            channel.sendMessage(eb.build()).queue((m) -> serverData.setLbData(guildID, boardNum, channel.getId(), m.getId()));
+            channel.sendMessage(eb.build()).queue((m) -> serverData.setLbMessage(boardNum, channel.getIdLong(), m.getIdLong()));
 
             //Delete the old message
-            if (messageData != null) {
+            if (messageData[0] != 0) {
                 TextChannel c = guild.getTextChannelById(messageData[0]);
                 if (c != null) {
                     Message prevMsg = c.getHistory().getMessageById(messageData[1]);
@@ -1267,15 +1272,15 @@ public class Commands {
         }
     }
 
-    public static void updatelbCommand(ServerData serverData, Leaderboards leaderboards, Member sender, TextChannel channel, Guild guild) {
+    public static void updatelbCommand(Leaderboards leaderboards, Member sender, TextChannel channel, Guild guild) {
         if (sender.hasPermission(Permission.ADMINISTRATOR))
-            updateLeaderboards(channel, leaderboards, serverData, guild);
+            updateLeaderboards(channel, leaderboards, guild);
     }
 
     /*
      * Private commands
      */
-    public static void evalCommand(MessageReceivedEvent event, ServerData serverData, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
+    public static void evalCommand(MessageReceivedEvent event, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
         String msg = event.getMessage().getContentRaw();
         User sender = event.getAuthor();
         TextChannel channel = event.getTextChannel();
@@ -1284,7 +1289,7 @@ public class Commands {
             ScriptEngine engine = manager.getEngineByName("js");
             try {
                 engine.put("event", event);
-                engine.put("serverdata", serverData);
+                engine.put("serverdata", ServerData.get(event.getGuild().getIdLong()));
                 engine.put("userdata", UserData.get(event.getGuild().getIdLong()));
                 engine.put("leaderboards", leaderboards);
                 engine.put("punishmenthandler", punishmentHandler);
@@ -1364,18 +1369,19 @@ public class Commands {
     /**
      * Check if a member is a moderator in a guild.
      *
-     * @param guildID    The guild to check.
-     * @param member     The member to check.
-     * @param serverdata {@link ServerData Server data} to retrieve the moderator role IDs from.
+     * @param guildID The guild to check.
+     * @param member  The member to check.
      * @return True, if the member is an Admin in the guild or has one of the moderator roles.
      */
-    public static boolean isModerator(String guildID, Member member, ServerData serverdata) {
+    public static boolean isModerator(String guildID, Member member) {
         if (member.hasPermission(Permission.ADMINISTRATOR))
             return true;
 
         List<String> roles = member.getRoles().stream().map(ISnowflake::getId).collect(Collectors.toList());
-        for (String id : serverdata.getModRoles(guildID)) {
-            if (roles.contains(id))
+        Set<Long> modroles = ServerData.get(Long.parseLong(guildID)).getModRoles();
+
+        for (String id : roles) {
+            if (modroles.contains(Long.parseLong(id)))
                 return true;
         }
         return false;
@@ -1557,7 +1563,7 @@ public class Commands {
      * @param guild   The specified {@link Guild guild}.
      * @param hide    If no message should be sent when no names are updated.
      */
-    public static void updateNames(TextChannel channel, ServerData serverdata, Guild guild, boolean hide) {
+    public static void updateNames(TextChannel channel, Guild guild, boolean hide) {
         EmbedBuilder eb = new EmbedBuilder()
                 .setTitle("Updated Users:")
                 .setColor(defaultColor);
@@ -1599,7 +1605,7 @@ public class Commands {
                     eb.addField("", "Updating failed on " + failed.length() + " users.", false);
             }
 
-            TextChannel namechannel = guild.getTextChannelById(serverdata.getNameChannelID(guild.getId()));
+            TextChannel namechannel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getNameChannel());
             try {
                 if ((namechannel != null) && (!namechannel.equals(channel)))
                     namechannel.sendMessage(eb.build()).queue();
@@ -1622,10 +1628,9 @@ public class Commands {
      *
      * @param channel      The {@link TextChannel channel} to send the results to (can be null).
      * @param leaderboards The {@link Leaderboards leaderboards data} to be used.
-     * @param serverdata   The {@link ServerData server data} to be used.
      * @param guild        The specified {@link Guild guild}.
      */
-    public static void updateLeaderboards(TextChannel channel, Leaderboards leaderboards, ServerData serverdata, Guild guild) {
+    public static void updateLeaderboards(TextChannel channel, Leaderboards leaderboards, Guild guild) {
         String guildID = guild.getId();
 
         leaderboards.updateLeaderboards();
@@ -1636,9 +1641,9 @@ public class Commands {
             return;
         }
 
-        String[][] data = serverdata.getAllLbData(guildID);
+        long[][] data = ServerData.get(guild.getIdLong()).getAllLbMessages();
         for (int i = 0; i < 3; i++) {
-            if (data[i] == null)
+            if (data[i][0] == 0)
                 continue;
 
             TextChannel editChannel = guild.getTextChannelById(data[i][0]);

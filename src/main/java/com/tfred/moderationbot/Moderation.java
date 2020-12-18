@@ -133,15 +133,15 @@ public class Moderation {
      * @param severity          The severity.
      * @param reason            The specified reason. If there is none please specify "None." as reason. Empty strings might lead to errors later on.
      * @param punisherID        The member ID of the punisher.
-     * @param serverData        The serverdata to read config information from.
      * @param punishmentHandler The punishment handler that handles the unpunish scheduling.
      * @return The punishment.
      * @throws ModerationException A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
      */
-    public static Punishment punish(Member member, char severity, String reason, long punisherID, ServerData serverData, PunishmentHandler punishmentHandler) throws ModerationException {
+    public static Punishment punish(Member member, char severity, String reason, long punisherID, PunishmentHandler punishmentHandler) throws ModerationException {
         Guild g = member.getGuild();
+        ServerData serverData = ServerData.get(g.getIdLong());
 
-        String id;
+        long id;
         TextChannel channel = null;
         Role role = null;
         Role role2 = null;
@@ -152,8 +152,8 @@ public class Moderation {
             case '3':
             case '4':
             case '5':
-                id = serverData.getMutedRoleID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getMutedRole();
+                if (id == 0) {
                     throw new ModerationException("Please set a muted role with ``!config mutedrole <@role>``!");
                 }
                 if (!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
@@ -170,8 +170,8 @@ public class Moderation {
                 }
                 break;
             case 'v':
-                id = serverData.getVentChannelID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getVentChannel();
+                if (id == 0) {
                     throw new ModerationException("Please set a vent channel with ``!config ventchannel <#channel>``!");
                 }
                 channel = g.getTextChannelById(id);
@@ -183,8 +183,8 @@ public class Moderation {
                 }
                 break;
             case 'n':
-                id = serverData.getNoNickRoleID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getNoNicknameRole();
+                if (id == 0) {
                     throw new ModerationException("Please set a no nickname role with ``!config nonickrole <@role>``!");
                 }
                 if (!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
@@ -194,8 +194,8 @@ public class Moderation {
                 if (role == null) {
                     throw new ModerationException("noNickname role was deleted! Please set a no nickname role with ``!config nonickrole <@role>``!");
                 }
-                id = serverData.getMemberRoleID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getMemberRole();
+                if (id == 0) {
                     throw new ModerationException("Please set a member role with ``!config memberrole <@role>``!");
                 }
                 role2 = g.getRoleById(id);
@@ -209,7 +209,7 @@ public class Moderation {
 
         Punishment p;
         try {
-            int nextID = serverData.nextPunishmentID(g.getId());
+            int nextID = serverData.getNextPunishmentID();
             p = new Punishment(nextID, severity, reason, getPunishmentLength(g.getId(), member.getId(), severity), punisherID);
         } catch (IOException ignored) {
             throw new ModerationException("An internal error occurred while calculating punishment length! Please try again in a bit.");
@@ -277,12 +277,11 @@ public class Moderation {
      * @param reason       The reason for this punishment.
      * @param unpunisherID The ID of the unpunisher.
      * @param hide         Whether the pardoned punishment should influence the length of future punishments. It will still show up in mod logs.
-     * @param serverData   The serverdata to read config data from.
      * @param stopAll      If other active punishments of similar similarity should be ignored while unpunishing. This is mostly to save processing time when pardoning all punishments of a user.
      * @return The response message. Similar to the one from punish but with unpunish messages.
      * @throws ModerationException A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
      */
-    public static String stopPunishment(Guild guild, int punishmentID, String reason, long unpunisherID, boolean hide, ServerData serverData, boolean stopAll) throws ModerationException {
+    public static String stopPunishment(Guild guild, int punishmentID, String reason, long unpunisherID, boolean hide, boolean stopAll) throws ModerationException {
         ActivePunishment ap;
         try {
             ap = removeActivePunishment(guild.getId(), punishmentID);
@@ -295,7 +294,7 @@ public class Moderation {
         String memberID = ap.memberID;
 
         String hideS = hide ? "y " : "n ";
-        int nextID = serverData.nextPunishmentID(guild.getId());
+        int nextID = ServerData.get(guild.getIdLong()).getNextPunishmentID();
         //The extra data for the unpunishment gets stored in the reason
         Punishment p = new Punishment(nextID, 'u', hideS + punishmentID + ' ' + ap.punishment.severity + ' ' + reason, 0, unpunisherID);
         try {
@@ -304,10 +303,10 @@ public class Moderation {
             throw new ModerationException("An IO error occurred while logging the unpunishment (<@470696578403794967>)! " + e.getMessage());
         }
 
-        return p.id + " " + endPunishment(guild, memberID, ap.punishment, serverData, stopAll);
+        return p.id + " " + endPunishment(guild, memberID, ap.punishment, stopAll);
     }
 
-    private static String endPunishment(Guild g, String memberID, Punishment punishment, ServerData serverData, boolean stopAll) throws ModerationException {
+    private static String endPunishment(Guild g, String memberID, Punishment punishment, boolean stopAll) throws ModerationException {
         //check if user has other active punishments
         if (!stopAll) {
             try {
@@ -328,8 +327,10 @@ public class Moderation {
             }
         }
 
+        ServerData serverData = ServerData.get(g.getIdLong());
+
         Member member;
-        String id;
+        long id;
         TextChannel channel;
         Role role;
 
@@ -343,8 +344,8 @@ public class Moderation {
                 if (member == null) {
                     return "Unmuted <@" + memberID + ">.\nNote: User not in guild.";
                 }
-                id = serverData.getMutedRoleID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getMutedRole();
+                if (id == 0) {
                     throw new ModerationException("Unmute of <@" + memberID + "> failed! No muted role set.");
                 }
                 if (!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
@@ -372,8 +373,8 @@ public class Moderation {
                 if (member == null) {
                     return "Removed <@" + memberID + ">'s ban from the vent channel.\nNote: User not in guild.";
                 }
-                id = serverData.getVentChannelID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getVentChannel();
+                if (id == 0) {
                     throw new ModerationException("Failed to remove <@" + memberID + ">'s ban from the vent channel! No vent channel set.");
                 }
                 channel = g.getTextChannelById(id);
@@ -396,8 +397,8 @@ public class Moderation {
                 if (member == null) {
                     return "Removed <@" + memberID + ">'s nickname change ban.\nNote: User not in guild.";
                 }
-                id = serverData.getNoNickRoleID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getNoNicknameRole();
+                if (id == 0) {
                     throw new ModerationException("Failed to re add <@" + memberID + ">'s nickname permissions! No noNick role set.");
                 }
                 if (!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
@@ -408,8 +409,8 @@ public class Moderation {
                     throw new ModerationException("Failed to add back <@" + memberID + ">'s nickname permissions! NoNick role was deleted.");
                 }
 
-                id = serverData.getMemberRoleID(g.getId());
-                if (id.equals("0")) {
+                id = serverData.getMemberRole();
+                if (id == 0) {
                     throw new ModerationException("Failed to re add <@" + memberID + ">'s nickname permissions! No member role set.");
                 }
                 Role role2 = g.getRoleById(id);
@@ -633,17 +634,15 @@ public class Moderation {
         private final ScheduledExecutorService scheduler;
         private final List<EndPunishment> queued;
         private JDA jda;
-        private ServerData serverData;
         private boolean paused;
         private boolean ranWhilePaused;
-        PunishmentHandler(JDA jda, ServerData serverData) {
+        PunishmentHandler(JDA jda) {
             this.jda = jda;
-            this.serverData = serverData;
             paused = false;
             ranWhilePaused = false;
             queued = new ArrayList<>();
 
-            scheduler = Executors.newScheduledThreadPool(1);
+            scheduler = Executors.newScheduledThreadPool(0);
         }
 
         public void newPunishment(String memberID, String guildID, Punishment p) {
@@ -674,7 +673,7 @@ public class Moderation {
                     return; //If this is null then it was already unpunished
                 if (guild != null) {
                     try {
-                        response = endPunishment(guild, memberID, p, serverData, false);
+                        response = endPunishment(guild, memberID, p, false);
                     } catch (ModerationException e) {
                         response = e.getMessage();
                     }
@@ -683,9 +682,10 @@ public class Moderation {
                 response = "An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage();
             }
             if (guild != null) {
-                TextChannel pChannel = guild.getTextChannelById(serverData.getPunishmentChannelID(guildID));
+                ServerData serverData = ServerData.get(guild.getIdLong());
+                TextChannel pChannel = guild.getTextChannelById(serverData.getPunishmentChannel());
                 if (pChannel == null) {
-                    TextChannel lChannel = guild.getTextChannelById(serverData.getLogChannelID(guildID));
+                    TextChannel lChannel = guild.getTextChannelById(serverData.getLogChannel());
                     if (lChannel != null) {
                         Commands.sendInfo(lChannel, response);//TODO maybe differentiate between fail and success
                     }
@@ -705,9 +705,8 @@ public class Moderation {
             paused = true;
         }
 
-        public void resume(JDA jda, ServerData serverData) {
+        public void resume(JDA jda) {
             this.jda = jda;
-            this.serverData = serverData;
             paused = false;
             if (ranWhilePaused) {
                 queued.forEach(EndPunishment::run);
