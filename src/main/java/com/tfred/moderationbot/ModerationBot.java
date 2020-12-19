@@ -38,21 +38,19 @@ import java.util.stream.Collectors;
 
 public class ModerationBot extends ListenerAdapter {
     public static final List<String> ignoredUsers = new LinkedList<>();
-    private static Leaderboards leaderboards;
     private static AutoRun autoRun;
     private static Moderation.PunishmentHandler punishmentHandler;
 
     public static void main(String[] args) {
         System.out.println("Hello world but Frederik was here!");
 
-        leaderboards = new Leaderboards();
-        if (leaderboards.failed) {
-            System.out.println("Trying to initialize leaderboards again.");
-            leaderboards.updateLeaderboards();
-            if (!leaderboards.failed)
-                System.out.println("Finished reading saved leaderboards data!");
-            else
-                System.out.println("Failed reading saved leaderboards data!");
+        try {Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);} catch (IOException ignored) {}
+
+        try {
+            Leaderboards.updateLeaderboards();
+            System.out.println("Finished initializing leaderboards data.");
+        } catch (Leaderboards.LeaderboardFetchFailedException e) {
+            System.out.println("Failed to initialize leaderboards data! "+ e.getMessage());
         }
 
         JDA jda;
@@ -101,13 +99,18 @@ public class ModerationBot extends ListenerAdapter {
         try {
             List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
             if (!botdata.isEmpty()) {
-                long start = 1603602000000L;
-                long delay = 86400000L;
+                long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST
+                long day = 86400000L;
+                long week = 604800000L;
                 long lastDate = Long.parseLong(botdata.get(0)) - start;
                 long current = System.currentTimeMillis() - start;
-                if ((lastDate / delay) < (current / delay)) {
-                    System.out.println("Running daily update...");
-                    autoRun.autoRunDaily();
+                if ((lastDate / day) < (current / day)) {
+                    boolean weekly = ((lastDate / week) < (current / week));
+                    if(weekly)
+                        System.out.println("Running daily and weekly update...");
+                    else
+                        System.out.println("Running daily update...");
+                    autoRun.autoRunDaily(weekly);
                 }
             }
         } catch (IOException ignored) {
@@ -174,7 +177,7 @@ public class ModerationBot extends ListenerAdapter {
             //Process commands
             if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && isPerson) {
                 if (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
-                    Commands.process(event, leaderboards, punishmentHandler);
+                    Commands.process(event, punishmentHandler);
                 else
                     textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
 
@@ -371,10 +374,6 @@ public class ModerationBot extends ListenerAdapter {
         autoRun.pause();
         punishmentHandler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
-        try {
-            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException ignored) {
-        }
     }
 
     @Override
@@ -382,10 +381,6 @@ public class ModerationBot extends ListenerAdapter {
         autoRun.stop();
         punishmentHandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
-        try {
-            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException ignored) {
-        }
     }
 
     private static class AutoRun {
@@ -453,15 +448,14 @@ public class ModerationBot extends ListenerAdapter {
          * This method gets called daily and handles the daily username and weekly leaderboard updating.
          */
         public void autoRunDaily() {
+            autoRunDaily(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY));
+        }
+        public void autoRunDaily(boolean weekly) {
             try {
                 Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
             } catch (IOException ignored) {
                 System.out.println("Failed to write to bot.data!");
             }
-            boolean weekly = false;
-            if (ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
-                weekly = true;
-
             for (Guild guild : jda.getGuilds()) {
                 TextChannel channel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getLogChannel());
                 if (!guild.getSelfMember().hasPermission(Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS, Permission.MESSAGE_READ))
@@ -476,7 +470,7 @@ public class ModerationBot extends ListenerAdapter {
                     Commands.updateNames(null, guild, true);
 
                 if (weekly)
-                    Commands.updateLeaderboards(channel, leaderboards, guild);
+                    Commands.updateLeaderboards(channel, guild);
             }
         }
     }

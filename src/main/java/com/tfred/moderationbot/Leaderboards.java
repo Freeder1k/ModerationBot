@@ -12,8 +12,6 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -24,26 +22,46 @@ import java.util.stream.Collectors;
 
 public class Leaderboards {
     private static final Path path = Paths.get("leaderboards.data");
-    /**
-     * True if {@link Leaderboards#updateLeaderboards() Leaderboards.updateLeaderboards()} failed to fetch new leaderboard data.
-     */
-    public boolean failed = false;
-    private long date;
-    private List<LbSpot> hiderLb = new ArrayList<>(50);
-    private List<LbSpot> hunterLb = new ArrayList<>(50);
-    private List<LbSpot> killsLb = new ArrayList<>(50);
+    private static long date = 0; // Date of the latest leaderboard
+    private static List<LbSpot> hiderLb = new ArrayList<>(50);
+    private static List<LbSpot> hunterLb = new ArrayList<>(50);
+    private static List<LbSpot> killsLb = new ArrayList<>(50);
 
-    /**
-     * Represents the bots saved user leaderboard data. The three saved leaderboards are hider wins, hunter wins and kills.
-     */
-    public Leaderboards() {
-        updateLeaderboards();
-        if (!failed)
-            System.out.println("Finished reading saved leaderboards data!");
+    private static void initialize(long newDate) throws LeaderboardFetchFailedException {
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(path);
+        } catch (IOException ignored) {
+            date = 1;
+            updateLeaderboards();
+            return;
+        }
+
+        long oldDate = Long.parseLong(lines.remove(0));
+
+        if (newDate - oldDate > 600000000) {
+            date = oldDate;
+            updateLeaderboards();
+            return;
+        }
+        date = newDate;
+        fetchNewLeaderboards(date);
+        int lineNum = 0;
+        if (lines.size() == 6)
+            lineNum = 3;
+
+        if (lines.size() > 2) {
+            for (int i = 0; i < 3; i++)
+                lbListSetChanges(lines.get(i + lineNum).split(":"));
+        } else {
+            hiderLb.forEach(s -> s.setChange(0));
+            hunterLb.forEach(s -> s.setChange(0));
+            killsLb.forEach(s -> s.setChange(0));
+        }
     }
 
-    private String[] lbURLs(long date) {
-        String time = LocalDateTime.ofEpochSecond(date / 1000, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
+    private static String[] lbURLs(long dateMillis) {
+        String time = LocalDateTime.ofEpochSecond(dateMillis / 1000, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
         return new String[]{
                 "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hider%20wins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
                 "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hunterwins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
@@ -51,11 +69,8 @@ public class Leaderboards {
         };
     }
 
-    //returns 1 if unsuccessful
-    private int fetchNewLeaderboards() {
-        JsonElement[] leaderboard = getJsonLbData(date);
-        if (leaderboard == null)
-            return 1;
+    private static void fetchNewLeaderboards(long date2) throws LeaderboardFetchFailedException{
+        JsonElement[] leaderboard = getJsonLbData(date2);
         try {
             Type listType = new TypeToken<ArrayList<LbSpot>>() {
             }.getType();
@@ -64,15 +79,14 @@ public class Leaderboards {
             hunterLb = new Gson().fromJson(leaderboard[1], listType);
             killsLb = new Gson().fromJson(leaderboard[2], listType);
         } catch (JsonSyntaxException e) {
-            return 1;
+            throw new LeaderboardFetchFailedException(e.getMessage());
         }
-        return 0;
     }
 
-    private JsonElement[] getJsonLbData(long date) {
+    private static JsonElement[] getJsonLbData(long date2) throws LeaderboardFetchFailedException {
         JsonElement[] data = new JsonElement[3];
         try {
-            String[] lbUrls = lbURLs(date);
+            String[] lbUrls = lbURLs(date2);
             for (int i = 0; i < 3; i++) {
                 URL urlForGetRequest = new URL(lbUrls[i]);
 
@@ -92,21 +106,21 @@ public class Leaderboards {
                     data[i] = jsonObject.get("leaderboard");
                     if (data[i] == null) {
                         System.out.println("Leaderboard null! Url: " + lbUrls[i] + "\nServer response: " + response);
-                        return null;
+                        throw new LeaderboardFetchFailedException("Leaderboard null! Url: " + lbUrls[i] + "\nServer response: " + response);
                     }
                 } else {
                     System.out.println("Http error when fetching leaderboard: " + responseCode + lbUrls[i]);
-                    return null;
+                    throw new LeaderboardFetchFailedException("Http error when fetching leaderboard: " + responseCode + lbUrls[i]);
                 }
             }
         } catch (IOException e) {
             System.out.println("IO Error when fetching leaderboards!");
-            return null;
+            throw new LeaderboardFetchFailedException("IO Error when fetching leaderboards!");
         }
         return data;
     }
 
-    private void lbListSetChanges(String[] data) {
+    private static void lbListSetChanges(String[] data) {
         List<String> uuidsold = new ArrayList<>();
         Collections.addAll(uuidsold, data);
         List<LbSpot> lb;
@@ -137,7 +151,7 @@ public class Leaderboards {
         }
     }
 
-    private List<Integer> listChanges(List<String> before, List<String> after) {
+    private static List<Integer> listChanges(List<String> before, List<String> after) {
         List<Integer> changes = new ArrayList<>(50);
 
         for (int i = 0; i < 50; i++) {
@@ -152,7 +166,7 @@ public class Leaderboards {
         return changes;
     }
 
-    private void updateFile(List<String> lines) {
+    private static void updateFile(List<String> lines) {
         int lineNum = lines.size() == 6 ? 3 : 0; //If the file only had 3 lines it reuses those
         try {
             List<String> data = new ArrayList<>(3);
@@ -164,7 +178,7 @@ public class Leaderboards {
             data.add("Hunter:" + hunterLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
             data.add("Kills:" + killsLb.stream().map(LbSpot::getUuid).collect(Collectors.joining(":")));
 
-            Files.write(path, data, StandardOpenOption.CREATE);
+            Files.write(path, data);
 
             System.out.println("Updated leaderboards.data.");
         } catch (IOException e) {
@@ -174,18 +188,21 @@ public class Leaderboards {
 
     /**
      * Updates the saved leaderboards data. If one week has passed since the reference data for the change has been updated this gets updated too with data from 1 week ago.
-     * If no new data could be fetched {@link Leaderboards#failed Leaderbaords.failed} gets set to true.
      */
-    public void updateLeaderboards() {
-        date = Instant.now().toEpochMilli();
-        boolean empty = false;
-
-        if (fetchNewLeaderboards() == 1) {
-            System.out.println("[FATAL] Error reading new Leaderboards!");
-            failed = true;
+    public static void updateLeaderboards() throws LeaderboardFetchFailedException {
+        long newDate;
+        { // Get the time in Milliseconds of the last Sunday at 6 am CEST
+            long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST
+            long week = 604800000L;
+            long current = System.currentTimeMillis() - start;
+            long weeks = current / week;
+            newDate = weeks * week + start;
+        }
+        if(date == 0) {
+            initialize(newDate);
             return;
-        } else
-            failed = false;
+        }
+        boolean empty = false;
 
         List<String> lines = new ArrayList<>();
         try {
@@ -194,15 +211,22 @@ public class Leaderboards {
             System.out.println("IO error when reading leaderboards data! Creating new leaderboards.data file.");
             empty = true;
         }
-        if (lines.size() < 4) {
+        if (lines.size() == 0) {
             System.out.println("Leaderboards.data is empty! Change will be set to 0.");
             empty = true;
         }
 
-        long date_old = empty ? date : Long.parseLong(lines.remove(0));
+        if(empty)
+            date = 0;
+        else
+            lines.remove(0);
 
         int lineNum = 0;
-        if ((date - date_old > 600000000)) {
+        if (newDate - date > 600000000) {
+            System.out.println("Updating leaderboards.");
+            date = newDate;
+            fetchNewLeaderboards(date);
+
             updateFile(lines);
             if (lines.size() == 6)
                 lineNum = 3;
@@ -219,14 +243,21 @@ public class Leaderboards {
     }
 
     /**
-     * Returns a list of containing strings each with 10 positions of a specified leaderboard with optional user mentions.
+     * Returns a list containing strings each with 10 positions of a specified leaderboard with optional user mentions.
      *
      * @param board   The board to be used. 0: hider wins, 1: hunter wins, 2: kills.
      * @param guildID The ID of the {@link net.dv8tion.jda.api.entities.Guild guild} to get saved user data from. If null the string doesn't have mentions.
-     * @return A {@link List<String> list} of strings.
+     * @return A {@link List<String> list} of strings. Or null if there is no data.
      * @throws IllegalArgumentException If the specified board isn't in the range of 0-2.
      */
-    public List<String> lbToString(int board, String guildID) {
+    public static List<String> lbToString(int board, String guildID) {
+        if(date == 0) {
+            try {
+                updateLeaderboards();
+            } catch (LeaderboardFetchFailedException ignored) {
+                return null;
+            }
+        }
         List<LbSpot> lb;
         switch (board) {
             case 0:
@@ -277,11 +308,11 @@ public class Leaderboards {
     }
 
     /**
-     * Get the date of the last update.
+     * Get the date of the current leaderboard.
      *
-     * @return the date of the last update in milliseconds since epoch.
+     * @return the date in milliseconds since epoch.
      */
-    public long getDate() {
+    public static long getDate() {
         return date;
     }
 
@@ -342,6 +373,12 @@ public class Leaderboards {
                 mention = " **[<@" + userID + ">]**";
 
             return position + "." + special_emoji + " **" + (name.replaceAll("_", "\\\\_")) + "**" + mention + " - " + score + "    " + change + "\u200B";
+        }
+    }
+
+    public static class LeaderboardFetchFailedException extends Exception {
+        public LeaderboardFetchFailedException(String errorMessage) {
+            super(errorMessage);
         }
     }
 }

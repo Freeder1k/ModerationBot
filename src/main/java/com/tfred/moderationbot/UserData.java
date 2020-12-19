@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+//TODO make more ram efficient
 public class UserData {
     private static final HashMap<Long, UserData> allUserData = new HashMap<>();
     public final long guildID;
@@ -149,6 +150,14 @@ public class UserData {
         }
     }
 
+    /**
+     * Get the minecraft uuid of a minecraft ign
+     *
+     * @param name
+     *          The name to get the uuid for.
+     * @return
+     *          The uuid if successful, "!" if the name is invalid, null if an error occured.
+     */
     public static String getUUID(String name) {
         try {
             URL urlForGetRequest = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);

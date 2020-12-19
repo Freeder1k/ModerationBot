@@ -155,9 +155,8 @@ public class Commands {
      *
      * @param event        An event containing information about a {@link Message Message} that was
      *                     sent in a channel.
-     * @param leaderboards The {@link Leaderboards leaderboards data} to work with.
      */
-    public static void process(MessageReceivedEvent event, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
+    public static void process(MessageReceivedEvent event, Moderation.PunishmentHandler punishmentHandler) {
         Message message = event.getMessage();
         String msg = message.getContentRaw();
         String[] args = msg.substring(1).split(" ");
@@ -211,13 +210,13 @@ public class Commands {
                 moderationsCommand(sender, channel, guild.getId());
                 break;
             case "lb":
-                lbCommand(msg, leaderboards, sender, channel, guild);
+                lbCommand(msg, sender, channel, guild);
                 break;
             case "updatelb":
-                updatelbCommand(leaderboards, sender, channel, guild);
+                updatelbCommand(sender, channel, guild);
                 break;
             case "eval":
-                evalCommand(event, leaderboards, punishmentHandler);
+                evalCommand(event, punishmentHandler);
                 break;
             case "ip":
                 ipCommand(sender, channel);
@@ -1198,7 +1197,7 @@ public class Commands {
         }
     }
 
-    public static void lbCommand(String msg, Leaderboards leaderboards, Member sender, TextChannel channel, Guild guild) {
+    public static void lbCommand(String msg, Member sender, TextChannel channel, Guild guild) {
         String guildID = guild.getId();
         ServerData serverData = ServerData.get(guild.getIdLong());
         if ((sender.hasPermission(Permission.ADMINISTRATOR))) {
@@ -1213,12 +1212,11 @@ public class Commands {
             }
             int boardNum = Character.getNumericValue(board);
 
-            if (leaderboards.failed) {
-                sendError(channel, "Leaderboard data invalid! Please try using ``!updatelb`` to fix the data.");
+            List<String> lb = Leaderboards.lbToString(boardNum, guildID);
+            if(lb == null) {
+                sendError(channel, "Failed to fetch leaderboard data!");
                 return;
             }
-
-            List<String> lb = leaderboards.lbToString(boardNum, guildID);
 
             EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
             eb.addField(new String[]{"Hider Wins", "Hunter Wins", "Kills"}[boardNum] + " Leaderboard:", lb.remove(0), false);
@@ -1226,7 +1224,7 @@ public class Commands {
                 eb.addField("", s, false);
             }
             eb.setFooter("Last update ");
-            eb.setTimestamp(new Date(leaderboards.getDate()).toInstant());
+            eb.setTimestamp(new Date(Leaderboards.getDate()).toInstant());
 
             long[] messageData = serverData.getLbMessage(boardNum);
 
@@ -1248,34 +1246,36 @@ public class Commands {
         }
     }
 
-    public static void updatelbCommand(Leaderboards leaderboards, Member sender, TextChannel channel, Guild guild) {
+    public static void updatelbCommand(Member sender, TextChannel channel, Guild guild) {
         if (sender.hasPermission(Permission.ADMINISTRATOR))
-            updateLeaderboards(channel, leaderboards, guild);
+            updateLeaderboards(channel, guild);
     }
 
     /*
      * Private commands
      */
-    public static void evalCommand(MessageReceivedEvent event, Leaderboards leaderboards, Moderation.PunishmentHandler punishmentHandler) {
+    private static final ScriptEngine engine = new ScriptEngineManager().getEngineByName("js");
+    private static boolean ran = false;
+    public static void evalCommand(MessageReceivedEvent event, Moderation.PunishmentHandler punishmentHandler) {
         String msg = event.getMessage().getContentRaw();
         User sender = event.getAuthor();
         TextChannel channel = event.getTextChannel();
         if (sender.getId().equals("470696578403794967")) {
-            ScriptEngineManager manager = new ScriptEngineManager();
-            ScriptEngine engine = manager.getEngineByName("js");
             try {
+                if(!ran) {
+                    ran = true;
+                    engine.eval("load(\"nashorn:mozilla_compat.js\"); ");
+                }
                 engine.put("event", event);
                 engine.put("serverdata", ServerData.get(event.getGuild().getIdLong()));
                 engine.put("userdata", UserData.get(event.getGuild().getIdLong()));
-                engine.put("leaderboards", leaderboards);
                 engine.put("punishmenthandler", punishmentHandler);
 
-                Object result = engine.eval("load(\"nashorn:mozilla_compat.js\"); " + msg.substring(6));
-                try {
-                    channel.sendMessage(result.toString()).queue();
-                } catch (NullPointerException ignored) {
+                Object result = engine.eval(msg.substring(6));
+                if(result == null)
                     channel.sendMessage("null").queue();
-                }
+                else
+                    channel.sendMessage(result.toString()).queue();
             } catch (Exception e) {
                 channel.sendMessage(e.getMessage()).queue();
             }
@@ -1597,23 +1597,21 @@ public class Commands {
             channel.sendMessage(eb.build()).queue();
     }
 
-    //TODO if leaderboards.failed == true try updating data
-
     /**
      * Updates the leaderboard messages in a specified guild.
      *
      * @param channel      The {@link TextChannel channel} to send the results to (can be null).
-     * @param leaderboards The {@link Leaderboards leaderboards data} to be used.
      * @param guild        The specified {@link Guild guild}.
      */
-    public static void updateLeaderboards(TextChannel channel, Leaderboards leaderboards, Guild guild) {
+    public static void updateLeaderboards(TextChannel channel, Guild guild) {
         String guildID = guild.getId();
 
-        leaderboards.updateLeaderboards();
-
-        if (leaderboards.failed) {
-            if (channel != null)
-                sendError(channel, "Leaderboard updating failed! Please try again in a bit or if that doesn't work contact the bot dev.");
+        try {
+            Leaderboards.updateLeaderboards();
+        } catch (Leaderboards.LeaderboardFetchFailedException e) {
+            System.out.println("Leaderboard update failed! " + e.getMessage());
+            if(channel != null)
+                sendError(channel, "Leaderboard updating failed! Please try again in a bit or if that doesn't work contact the bot dev. " + e.getMessage());
             return;
         }
 
@@ -1626,7 +1624,8 @@ public class Commands {
             if (editChannel == null)
                 continue;
 
-            List<String> lb = leaderboards.lbToString(i, guildID);
+            List<String> lb = Leaderboards.lbToString(i, guildID);
+            assert lb != null;
 
             EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
             eb.addField(new String[]{"Hider Wins", "Hunter Wins", "Kills"}[i] + " Leaderboard:", lb.remove(0), false);
@@ -1634,7 +1633,7 @@ public class Commands {
                 eb.addField("", s, false);
             }
             eb.setFooter("Last update: ");
-            eb.setTimestamp(Instant.ofEpochMilli(leaderboards.getDate()));
+            eb.setTimestamp(Instant.ofEpochMilli(Leaderboards.getDate()));
 
             try {
                 editChannel.editMessageById(data[i][1], eb.build()).queue();
