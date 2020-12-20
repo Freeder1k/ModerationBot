@@ -289,8 +289,13 @@ public class Leaderboards {
             String userID = "";
             if (!noMentions) {
                 String uuid = s.getUuid().replace("-", "");
-                if (savedUuids.contains(uuid))
-                    userID = String.valueOf(UserData.get(Long.getLong(guildID)).getUserID(uuid));
+                try {
+                    if (savedUuids.contains(uuid))
+                        userID = String.valueOf(UserData.get(Long.getLong(guildID)).getUserID(uuid));
+                } catch (NullPointerException e) {
+                    e.printStackTrace();
+                    System.out.println("" + uuid + guildID);
+                }
             }
 
             temp.append(s.toString(userID));

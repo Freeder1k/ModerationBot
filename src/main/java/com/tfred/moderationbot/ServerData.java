@@ -134,10 +134,12 @@ public class ServerData {
 
     public void addModRole(long modRole) {
         modRoles.add(modRole);
+        updateFile();
     }
 
     public void removeModRole(long modRole) {
         modRoles.remove(modRole);
+        updateFile();
     }
 
     public long getMemberRole() {
@@ -192,6 +194,7 @@ public class ServerData {
     public void setLbMessage(int board, long channelID, long messageID) {
         lbMessages[board][0] = channelID;
         lbMessages[board][1] = messageID;
+        updateFile();
     }
 
     public long getLogChannel() {

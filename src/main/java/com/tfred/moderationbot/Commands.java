@@ -1627,21 +1627,24 @@ public class Commands {
             List<String> lb = Leaderboards.lbToString(i, guildID);
             assert lb != null;
 
-            EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
+            EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor).setDescription(String.valueOf(System.currentTimeMillis()));
             eb.addField(new String[]{"Hider Wins", "Hunter Wins", "Kills"}[i] + " Leaderboard:", lb.remove(0), false);
             for (String s : lb) {
                 eb.addField("", s, false);
             }
             eb.setFooter("Last update: ");
             eb.setTimestamp(Instant.ofEpochMilli(Leaderboards.getDate()));
-
+System.out.println("1," + i);
             try {
                 editChannel.editMessageById(data[i][1], eb.build()).queue();
+                System.out.println("4," + i);
             } catch (IllegalArgumentException ignored) {
+                System.out.println("3," + i);
             } catch (ErrorResponseException e) {
                 if (channel != null)
                     sendError(channel, "An error occurred when updating lb " + i + ": " + e.getMessage());
             }
+            System.out.println("2," + i);
         }
         if (channel != null)
             sendSuccess(channel, "Updated leaderboards.");
