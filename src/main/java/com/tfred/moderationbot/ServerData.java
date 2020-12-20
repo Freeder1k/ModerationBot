@@ -175,16 +175,6 @@ public class ServerData {
     }
 
     /**
-     * Get the leaderboard message for a specific board.
-     *
-     * @param board The board ID. Throws an IndexOutOfBoundsException if this isn't between 0 and 2
-     * @return an array with form {channelID, messageID}.
-     */
-    public long[] getLbMessage(int board) {
-        return new long[]{lbMessages[board][0], lbMessages[board][1]};
-    }
-
-    /**
      * Set the leaderboard message for a specific board.
      *
      * @param board     The board ID. Throws an IndexOutOfBoundsException if this isn't between 0 and 2

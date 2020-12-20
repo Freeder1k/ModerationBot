@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.ref.SoftReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
@@ -23,12 +24,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-//TODO make more ram efficient
 public class UserData {
     private static final HashMap<Long, UserData> allUserData = new HashMap<>();
     public final long guildID;
     private final LoadingCache<Long, String[]> usernameCache;
-    private final HashMap<Long, String> uuidMap;
+    private SoftReference<HashMap<Long, String>> uuidMapReference;
 
     private UserData(long guildID) {
         this.guildID = guildID;
@@ -38,6 +38,12 @@ public class UserData {
                         new CacheLoader<Long, String[]>() {
                             @Override
                             public String[] load(@NotNull Long userID) {
+                                HashMap<Long, String> uuidMap = uuidMapReference.get();
+                                if(uuidMap == null) {
+                                    loadData();
+                                    uuidMap = uuidMapReference.get();
+                                }
+                                assert uuidMap != null;
                                 String uuid = uuidMap.get(userID);
                                 if (uuid == null)
                                     return new String[]{};
@@ -45,52 +51,7 @@ public class UserData {
                             }
                         }
                 );
-
-        // Initialize the user data
-        Path filepath = Paths.get("userdata/" + guildID + ".userdata");
-        if (Files.exists(filepath)) {
-            List<String> lines;
-            try {
-                lines = Files.readAllLines(filepath);
-            } catch (IOException e) {
-                System.out.println("IO error when reading user data!");
-                uuidMap = new HashMap<>();
-                return;
-            }
-            int v = lines.size();
-            { // Compute the next highest power of 2 (http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2)
-                v--;
-                v |= v >> 1;
-                v |= v >> 2;
-                v |= v >> 4;
-                v |= v >> 8;
-                v |= v >> 16;
-                v++;
-            }
-            uuidMap = new HashMap<>(v);
-            for (String line : lines) {
-                String[] data = line.split(" ");
-                try {
-                    uuidMap.put(Long.parseLong(data[0]), data[1]);
-                } catch (IndexOutOfBoundsException ignored) {
-                    System.out.println("Formatting error in file " + guildID + ".userdata!");
-                }
-            }
-        } else {
-            uuidMap = new HashMap<>();
-            if (!Files.isDirectory(Paths.get("userdata"))) {
-                try {
-                    Files.createDirectory(Paths.get("userdata"));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            try {
-                Files.createFile(filepath);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        uuidMapReference = new SoftReference<>(null);
     }
 
     /**
@@ -107,6 +68,54 @@ public class UserData {
             UserData newUD = new UserData(guildID);
             allUserData.put(guildID, newUD);
             return newUD;
+        }
+    }
+
+    private void loadData() {
+        Path filepath = Paths.get("userdata/" + guildID + ".userdata");
+        if (Files.exists(filepath)) {
+            List<String> lines;
+            try {
+                lines = Files.readAllLines(filepath);
+            } catch (IOException e) {
+                System.out.println("IO error when reading user data!");
+                uuidMapReference = new SoftReference<>(new HashMap<>());
+                return;
+            }
+            int v = lines.size();
+            { // Compute the next highest power of 2 (http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2)
+                v--;
+                v |= v >> 1;
+                v |= v >> 2;
+                v |= v >> 4;
+                v |= v >> 8;
+                v |= v >> 16;
+                v++;
+            }
+            HashMap<Long, String> uuidMap = new HashMap<>(v);
+            for (String line : lines) {
+                String[] data = line.split(" ");
+                try {
+                    uuidMap.put(Long.parseLong(data[0]), data[1]);
+                } catch (IndexOutOfBoundsException ignored) {
+                    System.out.println("Formatting error in file " + guildID + ".userdata!");
+                }
+            }
+            uuidMapReference = new SoftReference<>(uuidMap);
+        } else {
+            uuidMapReference = new SoftReference<>(new HashMap<>());
+            if (!Files.isDirectory(Paths.get("userdata"))) {
+                try {
+                    Files.createDirectory(Paths.get("userdata"));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            try {
+                Files.createFile(filepath);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -226,18 +235,18 @@ public class UserData {
                         if (newNick.length() > 32)
                             newNick = newName;
                         try {
-                            ModerationBot.ignoredUsers.add(m.getId());
-                            m.modifyNickname(newNick).queue((ignored) -> ModerationBot.ignoredUsers.remove(m.getId()));
+                            ModerationBot.ignoredUsers.add(m.getIdLong());
+                            m.modifyNickname(newNick).queue();
                         } catch (HierarchyException | InsufficientPermissionException ignored) {
-                            ModerationBot.ignoredUsers.remove(m.getId());
+                            ModerationBot.ignoredUsers.remove(m.getIdLong());
                         }
                     }
                 } else {
                     try {
-                        ModerationBot.ignoredUsers.add(m.getId());
-                        m.modifyNickname(newName).queue((ignored) -> ModerationBot.ignoredUsers.remove(m.getId()));
+                        ModerationBot.ignoredUsers.add(m.getIdLong());
+                        m.modifyNickname(newName).queue();
                     } catch (HierarchyException | InsufficientPermissionException ignored) {
-                        ModerationBot.ignoredUsers.remove(m.getId());
+                        ModerationBot.ignoredUsers.remove(m.getIdLong());
                     }
                 }
                 if (hide)
@@ -282,6 +291,12 @@ public class UserData {
      * @return The {@link Member member's} ID or 0 if none was found.
      */
     public long getUserID(String uuid) {
+        HashMap<Long, String> uuidMap = uuidMapReference.get();
+        if(uuidMap == null) {
+            loadData();
+            uuidMap = uuidMapReference.get();
+        }
+        assert uuidMap != null;
         for (Map.Entry<Long, String> entry : uuidMap.entrySet()) {
             if (entry.getValue().equals(uuid))
                 return entry.getKey();
@@ -298,17 +313,13 @@ public class UserData {
      */
     public int setUuid(Member member, String name) {
         long userID = member.getIdLong();
-        removeUser(userID
-        );
+        removeUser(userID);
+
         String uuid = getUUID(name);
         if (uuid == null)
             return -1;
         if (uuid.equals("!"))
             return 0;
-
-        uuidMap.put(userID, uuid);
-
-        updateMember(member); // Return value can be ignored since nothing should go wrong
 
         try {
             Files.write(Paths.get("userdata/" + guildID + ".userdata"), (userID + " " + uuid).getBytes(), StandardOpenOption.APPEND);
@@ -316,6 +327,13 @@ public class UserData {
             e.printStackTrace();
             return -1;
         }
+
+        HashMap<Long, String> uuidMap = uuidMapReference.get();
+        if(uuidMap != null)
+            uuidMap.put(userID, uuid);
+
+        usernameCache.put(userID, new String[]{"none", name});
+        updateMember(member); // Return value can be ignored since nothing should go wrong
 
         return 1;
     }
@@ -326,25 +344,25 @@ public class UserData {
      * @param userID The specified {@link Member member's} ID.
      */
     public void removeUser(long userID) {
-        String previous = uuidMap.remove(userID);
+        HashMap<Long, String> uuidMap = uuidMapReference.get();
+        if(uuidMap != null)
+            uuidMap.remove(userID);
         usernameCache.invalidate(userID);
 
         // Update the file
-        if (previous != null) {
-            List<String> lines;
-            try {
-                lines = Files.readAllLines(Paths.get("userdata/" + guildID + ".userdata"));
-            } catch (IOException e) {
-                e.printStackTrace();
-                return;
-            }
-            lines.removeIf(s -> s.startsWith(String.valueOf(userID)));
-            try {
-                Files.write(Paths.get("userdata/" + guildID + ".userdata"), lines);
-            } catch (IOException e) {
-                e.printStackTrace();
-                System.out.println("Userdata: " + lines.toString());
-            }
+        List<String> lines;
+        try {
+            lines = Files.readAllLines(Paths.get("userdata/" + guildID + ".userdata"));
+        } catch (IOException e) {
+            e.printStackTrace();
+            return;
+        }
+        lines.removeIf(s -> s.startsWith(String.valueOf(userID)));
+        try {
+            Files.write(Paths.get("userdata/" + guildID + ".userdata"), lines);
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.out.println("Userdata: " + lines.toString());
         }
     }
 
@@ -356,6 +374,13 @@ public class UserData {
      */
     public HashMap<Long, String[]> updateNames(List<Member> members) {
         HashMap<Long, String[]> updated = new HashMap<>();
+        HashMap<Long, String> uuidMap = uuidMapReference.get();
+        if(uuidMap == null) {
+            loadData();
+            uuidMap = uuidMapReference.get();
+        }
+        assert uuidMap != null;
+
         for (Member member : members) {
             String uuid = uuidMap.get(member.getIdLong());
             long userID = member.getIdLong();
@@ -380,6 +405,12 @@ public class UserData {
      * @return possibly-empty list of user IDs.
      */
     public List<Long> getSavedUserIDs() {
+        HashMap<Long, String> uuidMap = uuidMapReference.get();
+        if(uuidMap == null) {
+            loadData();
+            uuidMap = uuidMapReference.get();
+        }
+        assert uuidMap != null;
         return Collections.unmodifiableList(new ArrayList<>(uuidMap.keySet()));
     }
 
@@ -389,6 +420,12 @@ public class UserData {
      * @return possibly-empty list of minecraft uuids.
      */
     public List<String> getSavedUuids() {
+        HashMap<Long, String> uuidMap = uuidMapReference.get();
+        if(uuidMap == null) {
+            loadData();
+            uuidMap = uuidMapReference.get();
+        }
+        assert uuidMap != null;
         return Collections.unmodifiableList(new ArrayList<>(uuidMap.values()));
     }
 }

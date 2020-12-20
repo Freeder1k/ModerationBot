@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 public class Leaderboards {
     private static final Path path = Paths.get("leaderboards.data");
-    private static long date = 0; // Date of the latest leaderboard
+    private static long date = 0; // Date of the latest leaderboard in milliseconds
     private static List<LbSpot> hiderLb = new ArrayList<>(50);
     private static List<LbSpot> hunterLb = new ArrayList<>(50);
     private static List<LbSpot> killsLb = new ArrayList<>(50);

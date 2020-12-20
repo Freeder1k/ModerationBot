@@ -29,15 +29,19 @@ import java.nio.file.StandardOpenOption;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.LinkedList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class ModerationBot extends ListenerAdapter {
-    public static final List<String> ignoredUsers = new LinkedList<>();
+    /**
+     * IDs of members of which a {@link GuildMemberUpdateNicknameEvent nickname update event} should be ignored
+     */
+    public static final Set<Long> ignoredUsers = new HashSet<>(); //TODO guild specific?
     private static AutoRun autoRun;
     private static Moderation.PunishmentHandler punishmentHandler;
 
@@ -78,8 +82,6 @@ public class ModerationBot extends ListenerAdapter {
 
         punishmentHandler = new Moderation.PunishmentHandler(jda);
         for (Guild g : jda.getGuilds()) {
-            UserData.get(g.getIdLong()); // Initialize user data
-            ServerData.get(g.getIdLong()); // Initialize server data
             try {
                 List<Moderation.ActivePunishment> apList = Moderation.getActivePunishments(g.getId());
                 if (!apList.isEmpty()) {
@@ -92,7 +94,7 @@ public class ModerationBot extends ListenerAdapter {
             }
 
         }
-        System.out.println("Finished activating punishment handler and initializing user and server data!");
+        System.out.println("Finished activating punishment handler!");
 
         autoRun = new AutoRun(jda);
         System.out.println("Finished activating autoRun!");
@@ -214,10 +216,10 @@ public class ModerationBot extends ListenerAdapter {
             channel.sendMessage("<@" + m.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
 
         try {
-            ignoredUsers.add(m.getId());
-            m.modifyNickname(mcName).queue((ignored) -> ignoredUsers.remove(m.getId()));
+            ignoredUsers.add(m.getIdLong());
+            m.modifyNickname(mcName).queue();
         } catch (HierarchyException | InsufficientPermissionException ignored) {
-            ignoredUsers.remove(m.getId());
+            ignoredUsers.remove(m.getIdLong());
         }
 
         //Manages punished users
@@ -304,8 +306,11 @@ public class ModerationBot extends ListenerAdapter {
     @Override
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         Member m = event.getMember();
-        if (!ignoredUsers.contains(m.getId()))
+        long mID = m.getIdLong();
+        if (!ignoredUsers.contains(mID))
             checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
+        else
+            ignoredUsers.remove(mID);
     }
 
     @Override
@@ -333,10 +338,10 @@ public class ModerationBot extends ListenerAdapter {
 
         if (!mc_n.equals(new_n)) {
             try {
-                ignoredUsers.add(m.getId());
-                m.modifyNickname(old_n).queue((ignored) -> ignoredUsers.remove(m.getId()));
+                ignoredUsers.add(m.getIdLong());
+                m.modifyNickname(old_n).queue();
             } catch (HierarchyException | InsufficientPermissionException ignored) {
-                ignoredUsers.remove(m.getId());
+                ignoredUsers.remove(m.getIdLong());
             }
 
             m.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + g.getName() + " was reset due to it being incompatible with the username system.").queue());
@@ -388,11 +393,13 @@ public class ModerationBot extends ListenerAdapter {
         private JDA jda;
         private boolean paused;
         private boolean ranWhilePaused;
+        private boolean weeklyWhilePaused;
 
         AutoRun(JDA jda) {
             this.jda = jda;
             paused = false;
             ranWhilePaused = false;
+            weeklyWhilePaused = false;
 
             ZonedDateTime now = ZonedDateTime.now();
             ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
@@ -407,6 +414,8 @@ public class ModerationBot extends ListenerAdapter {
                     () -> {
                         if (paused) {
                             ranWhilePaused = true;
+                            if(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
+                                weeklyWhilePaused = true;
                         } else {
                             try {
                                 autoRunDaily();
@@ -437,7 +446,10 @@ public class ModerationBot extends ListenerAdapter {
             if (ranWhilePaused) {
                 ranWhilePaused = false;
                 try {
-                    autoRunDaily();
+                    if(weeklyWhilePaused)
+                        autoRunDaily(true);
+                    else
+                        autoRunDaily();
                 } catch (Exception ex) {
                     ex.printStackTrace(); //or logger would be better
                 }
