@@ -250,7 +250,7 @@ public class Leaderboards {
      * @return A {@link List<String> list} of strings. Or null if there is no data.
      * @throws IllegalArgumentException If the specified board isn't in the range of 0-2.
      */
-    public static List<String> lbToString(int board, String guildID) {
+    public static List<String> lbToString(int board, long guildID) {
         if(date == 0) {
             try {
                 updateLeaderboards();
@@ -276,10 +276,10 @@ public class Leaderboards {
         List<String> savedUuids = null;
 
         boolean noMentions = false;
-        if (guildID == null)
+        if (guildID == 0)
             noMentions = true;
         else
-            savedUuids = UserData.get(Long.parseLong(guildID)).getSavedUuids();
+            savedUuids = UserData.get(guildID).getSavedUuids();
 
         List<String> output = new ArrayList<>(5);
         StringBuilder temp = new StringBuilder();
@@ -289,13 +289,8 @@ public class Leaderboards {
             String userID = "";
             if (!noMentions) {
                 String uuid = s.getUuid().replace("-", "");
-                try {
-                    if (savedUuids.contains(uuid))
-                        userID = String.valueOf(UserData.get(Long.getLong(guildID)).getUserID(uuid));
-                } catch (NullPointerException e) {
-                    System.out.println("" + uuid + guildID);
-                    userID = "0";
-                }
+                if (savedUuids.contains(uuid))
+                    userID = String.valueOf(UserData.get(guildID).getUserID(uuid));
             }
 
             temp.append(s.toString(userID));

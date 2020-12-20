@@ -1198,8 +1198,8 @@ public class Commands {
     }
 
     public static void lbCommand(String msg, Member sender, TextChannel channel, Guild guild) {
-        String guildID = guild.getId();
-        ServerData serverData = ServerData.get(guild.getIdLong());
+        long guildID = guild.getIdLong();
+        ServerData serverData = ServerData.get(guildID);
         if ((sender.hasPermission(Permission.ADMINISTRATOR))) {
             if (msg.length() != 5) {
                 helpMessage(channel, "lb");
@@ -1604,7 +1604,7 @@ public class Commands {
      * @param guild        The specified {@link Guild guild}.
      */
     public static void updateLeaderboards(TextChannel channel, Guild guild) {
-        String guildID = guild.getId();
+        long guildID = guild.getIdLong();
 
         try {
             Leaderboards.updateLeaderboards();
@@ -1615,7 +1615,7 @@ public class Commands {
             return;
         }
 
-        long[][] data = ServerData.get(guild.getIdLong()).getAllLbMessages();
+        long[][] data = ServerData.get(guildID).getAllLbMessages();
         for (int i = 0; i < 3; i++) {
             if (data[i][0] == 0)
                 continue;
@@ -1634,17 +1634,13 @@ public class Commands {
             }
             eb.setFooter("Last update: ");
             eb.setTimestamp(Instant.ofEpochMilli(Leaderboards.getDate()));
-System.out.println("1," + i);
             try {
                 editChannel.editMessageById(data[i][1], eb.build()).queue();
-                System.out.println("4," + i);
             } catch (IllegalArgumentException ignored) {
-                System.out.println("3," + i);
             } catch (ErrorResponseException e) {
                 if (channel != null)
                     sendError(channel, "An error occurred when updating lb " + i + ": " + e.getMessage());
             }
-            System.out.println("2," + i);
         }
         if (channel != null)
             sendSuccess(channel, "Updated leaderboards.");
