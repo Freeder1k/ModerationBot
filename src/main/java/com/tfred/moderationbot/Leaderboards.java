@@ -293,8 +293,8 @@ public class Leaderboards {
                     if (savedUuids.contains(uuid))
                         userID = String.valueOf(UserData.get(Long.getLong(guildID)).getUserID(uuid));
                 } catch (NullPointerException e) {
-                    e.printStackTrace();
                     System.out.println("" + uuid + guildID);
+                    userID = "0";
                 }
             }
 
