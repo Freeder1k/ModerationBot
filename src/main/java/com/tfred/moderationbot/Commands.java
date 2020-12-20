@@ -1627,7 +1627,7 @@ public class Commands {
             List<String> lb = Leaderboards.lbToString(i, guildID);
             assert lb != null;
 
-            EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor).setDescription(String.valueOf(System.currentTimeMillis()));
+            EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
             eb.addField(new String[]{"Hider Wins", "Hunter Wins", "Kills"}[i] + " Leaderboard:", lb.remove(0), false);
             for (String s : lb) {
                 eb.addField("", s, false);
