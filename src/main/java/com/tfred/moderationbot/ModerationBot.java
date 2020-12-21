@@ -29,9 +29,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -43,12 +41,11 @@ public class ModerationBot extends ListenerAdapter {
      */
     public static final Set<Long> ignoredUsers = new HashSet<>(); //TODO guild specific?
     private static AutoRun autoRun;
-    private static Moderation.PunishmentHandler punishmentHandler;
 
     public static void main(String[] args) {
         System.out.println("Hello world but Frederik was here!");
 
-        try {Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE".getBytes(), StandardOpenOption.APPEND);} catch (IOException ignored) {}
+        try {Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n".getBytes(), StandardOpenOption.APPEND);} catch (IOException ignored) {}
 
         try {
             Leaderboards.updateLeaderboards();
@@ -80,20 +77,7 @@ public class ModerationBot extends ListenerAdapter {
         }
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
-        punishmentHandler = new Moderation.PunishmentHandler(jda);
-        for (Guild g : jda.getGuilds()) {
-            try {
-                List<Moderation.ActivePunishment> apList = Moderation.getActivePunishments(g.getId());
-                if (!apList.isEmpty()) {
-                    for (Moderation.ActivePunishment ap : apList) {
-                        punishmentHandler.newPunishment(ap.memberID, g.getId(), ap.punishment);
-                    }
-                }
-            } catch (IOException ignored) {
-                System.out.println("Failed to read active punishments in " + g.getName());
-            }
-
-        }
+        Moderation.PunishmentHandler.initialize(jda);
         System.out.println("Finished activating punishment handler!");
 
         autoRun = new AutoRun(jda);
@@ -179,7 +163,7 @@ public class ModerationBot extends ListenerAdapter {
             //Process commands
             if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && isPerson) {
                 if (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
-                    Commands.process(event, punishmentHandler);
+                    Commands.process(event);
                 else
                     textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
 
@@ -225,8 +209,8 @@ public class ModerationBot extends ListenerAdapter {
         //Manages punished users
         try {
             String response = "";
-            for (Moderation.ActivePunishment ap : Moderation.getActivePunishments(guild.getId())) {
-                if (ap.memberID.equals(m.getId())) {
+            for (Moderation.ActivePunishment ap : Moderation.getActivePunishments(guild.getIdLong())) {
+                if (ap.memberID == m.getIdLong()) {
                     long id;
                     Role role;
                     TextChannel channel2;
@@ -363,28 +347,28 @@ public class ModerationBot extends ListenerAdapter {
     @Override
     public void onResume(ResumedEvent event) {
         autoRun.resume(event.getJDA());
-        punishmentHandler.resume(event.getJDA());
+        Moderation.PunishmentHandler.resume(event.getJDA());
         System.out.println("\n\nRESUMED\n\n");
     }
 
     @Override
     public void onReconnect(ReconnectedEvent event) {
         autoRun.resume(event.getJDA());
-        punishmentHandler.resume(event.getJDA());
+        Moderation.PunishmentHandler.resume(event.getJDA());
         System.out.println("\n\nRECONNECTED\n\n");
     }
 
     @Override
     public void onDisconnect(@NotNull DisconnectEvent event) {
         autoRun.pause();
-        punishmentHandler.pause();
+        Moderation.PunishmentHandler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
     }
 
     @Override
     public void onShutdown(@NotNull ShutdownEvent event) {
         autoRun.stop();
-        punishmentHandler.stop();
+        Moderation.PunishmentHandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
@@ -477,9 +461,9 @@ public class ModerationBot extends ListenerAdapter {
                     channel.sendMessage("Daily update in progress...").queue();
                     TextChannel finalChannel = channel;
                     channel.sendMessage("Updating usernames...")
-                            .queue((ignored) -> Commands.updateNames(finalChannel, guild, true));
+                            .queue((ignored) -> Commands.updateNames(finalChannel, guild));
                 } else
-                    Commands.updateNames(null, guild, true);
+                    Commands.updateNames(null, guild);
 
                 if (weekly)
                     Commands.updateLeaderboards(channel, guild);

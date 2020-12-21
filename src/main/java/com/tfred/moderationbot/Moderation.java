@@ -9,40 +9,38 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-//Note: this isn't meant to be accessed often. To reduce memory usage unlike other classes like userdata the data isn't stored in memory for long times.
 public class Moderation {
     /**
-     * Get a list containing the active punishments for a guild.
+     * Get a modifiable list containing the active punishments for a guild. Changes to this list don't reflect back.
      *
      * @param guildID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
      * @return A {@link LinkedList<ActivePunishment> list} of all active {@link Punishment punishments} in the specified guild.
      */
-    public static LinkedList<ActivePunishment> getActivePunishments(String guildID) throws IOException {
-        if (Files.exists(Paths.get("moderations/" + guildID + "/active.data"))) {
-            return Files.readAllLines(Paths.get("moderations/" + guildID + "/active.data")).stream().map(ActivePunishment::fromString).collect(Collectors.toCollection(LinkedList::new));
+    public static LinkedList<ActivePunishment> getActivePunishments(long guildID) throws IOException {
+        if (Files.exists(Paths.get("moderations/" + guildID + "/active.punishments"))) {
+            return Files.readAllLines(Paths.get("moderations/" + guildID + "/active.punishments"))
+                    .stream().map(ActivePunishment::fromString).collect(Collectors.toCollection(LinkedList::new));
         } else
             return new LinkedList<>();
     }
 
     /**
-     * Get a list containing the punishment history for a user in a specified guild.
+     * Get a modifiable list containing the punishment history for a user in a specified guild. Changes to this list don't reflect back.
      *
      * @param guildID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
      * @param userID  The specified {@link net.dv8tion.jda.api.entities.User user's} ID.
      * @return A {@link List<Punishment> list} of all past {@link Punishment punishments} for that user in the specified guild.
      */
-    public static LinkedList<Punishment> getUserPunishments(String guildID, String userID) throws IOException {
-        if (Files.exists(Paths.get("moderations/" + guildID + "/" + userID + ".data")))
-            return Files.readAllLines(Paths.get("moderations/" + guildID + "/" + userID + ".data")).stream().map(Punishment::fromString).collect(Collectors.toCollection(LinkedList::new));
+    public static LinkedList<Punishment> getUserPunishments(long guildID, long userID) throws IOException {
+        if (Files.exists(Paths.get("moderations/" + guildID + "/" + userID + ".punishments")))
+            return Files.readAllLines(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"))
+                    .stream().map(Punishment::fromString).collect(Collectors.toCollection(LinkedList::new));
         else
             return new LinkedList<>();
     }
@@ -55,45 +53,44 @@ public class Moderation {
      * @param sev     The severity of the punishment (1-6 or v or n).
      * @return The length of the next punishment (in minutes).
      */
-    private static int getPunishmentLength(String guildID, String userID, char sev) throws IOException {
-        List<Punishment> punishments = getUserPunishments(guildID, userID);
+    private static int getPunishmentLength(long guildID, long userID, char sev) throws IOException {
+        LinkedList<Punishment> punishments = getUserPunishments(guildID, userID);
 
-        if (punishments.isEmpty()) {
-            return Punishment.defaultLength(sev);
-        } else {
-            int last = -1; //Index of last punishment of same severity
-            long end_date = 0; //end date of ^
-            int p_length = 0;  //duration of ^
-            List<Integer> hidden = new LinkedList<>(); //List of punishment ids that were pardoned and marked as hidden
-            for (int i = punishments.size() - 1; i >= 0; i--) {
-                Punishment p = punishments.get(i);
-                if (p.severity == sev) {
-                    if (!hidden.contains(p.id)) {
-                        last = i;
-                        end_date = p.date + (((long) p.length) * 60000);
-                        p_length = p.length;
-                        break;
-                    }
-                }
-                if (p.severity == 'u') {
-                    if (p.reason.charAt(0) == 'y') {
-                        String s = p.reason.substring(2);
-                        s = s.substring(0, s.indexOf(' '));
-                        hidden.add(Integer.parseInt(s));
-                    }
+        boolean prev = false; // If there is a previous punishment of same severity
+        long end_date = 0;    // time till ^ ends
+        int p_length = 0;     // duration of ^
+        Set<Integer> hidden = new HashSet<>(); // Set of punishment ids that were pardoned and marked as hidden
+
+        while(!punishments.isEmpty()) {
+            Punishment p = punishments.removeLast();
+            if (p.severity == sev) {
+                if (!hidden.contains(p.id)) {
+                    prev = true;
+                    end_date = p.date + (((long) p.length) * 60000);
+                    p_length = p.length;
+                    break;
                 }
             }
-            if (last == -1) {
-                return Punishment.defaultLength(sev);
+            if (p.severity == 'u') {
+                if (p.reason.charAt(0) == 'y') {
+                    String s = p.reason.substring(2);
+                    s = s.substring(0, s.indexOf(' '));
+                    hidden.add(Integer.parseInt(s));
+                }
             }
-            long end_time = (System.currentTimeMillis() - end_date); //time since last punishment ended
-            if (end_time < 0)
-                return p_length;
-            else if (end_time < (((long) Punishment.specialBonusReqTime(sev)) * 60000))
-                return p_length + Punishment.specialBonusLength(sev);
-            else
-                return p_length + Punishment.defaultBonusLength(sev);
         }
+
+        if (!prev)
+            return Punishment.defaultLength(sev);
+
+        long end_time = (System.currentTimeMillis() - end_date); //time since last punishment ended
+
+        if (end_time < 0)
+            return p_length;
+        else if (end_time < (((long) Punishment.specialBonusReqTime(sev)) * 60000))
+            return p_length + Punishment.specialBonusLength(sev);
+        else
+            return p_length + Punishment.defaultBonusLength(sev);
     }
 
     /**
@@ -104,23 +101,23 @@ public class Moderation {
      * @param punishment The punishment to write.
      * @throws IOException If some IO error while creating or writing to the file occurs.
      */
-    private static void addPunishment(String guildID, String userID, Punishment punishment) throws IOException {
-        if (!Files.exists(Paths.get("moderations/" + guildID + "/" + userID + ".data"))) {
+    private static void addPunishment(long guildID, long userID, Punishment punishment) throws IOException {
+        if (!Files.exists(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"))) {
             if (!Files.exists(Paths.get("moderations/" + guildID)))
                 Files.createDirectories(Paths.get("moderations/" + guildID));
-            Files.createFile(Paths.get("moderations/" + guildID + "/" + userID + ".data"));
+            Files.createFile(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"));
         }
-        Files.write(Paths.get("moderations/" + guildID + "/" + userID + ".data"), (punishment.toString() + '\n').getBytes(), StandardOpenOption.APPEND);
+        Files.write(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"), (punishment.toString() + '\n').getBytes(), StandardOpenOption.APPEND);
 
-        if (!Files.exists(Paths.get("moderations/" + guildID + "/active.data")))
-            Files.createFile(Paths.get("moderations/" + guildID + "/active.data"));
+        if (!Files.exists(Paths.get("moderations/" + guildID + "/active.punishments")))
+            Files.createFile(Paths.get("moderations/" + guildID + "/active.punishments"));
         try {
-            Files.write(Paths.get("moderations/" + guildID + "/active.data"), (userID + ": " + punishment.toString() + '\n').getBytes(), StandardOpenOption.APPEND);
+            Files.write(Paths.get("moderations/" + guildID + "/active.punishments"), (userID + ": " + punishment.toString() + '\n').getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
             //Delete the last entry from the file above since that one must've worked.
-            List<String> lines = Files.readAllLines(Paths.get("moderations/" + guildID + "/" + userID + ".data"));
+            List<String> lines = Files.readAllLines(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"));
             lines.remove(lines.size() - 1);
-            Files.write(Paths.get("moderations/" + guildID + "/" + userID + ".data"), lines);
+            Files.write(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"), lines);
 
             throw new IOException(e);
         }
@@ -210,13 +207,13 @@ public class Moderation {
         Punishment p;
         try {
             int nextID = serverData.getNextPunishmentID();
-            p = new Punishment(nextID, severity, reason, getPunishmentLength(g.getId(), member.getId(), severity), punisherID);
+            p = new Punishment(nextID, severity, reason, getPunishmentLength(g.getIdLong(), member.getIdLong(), severity), punisherID);
         } catch (IOException ignored) {
             throw new ModerationException("An internal error occurred while calculating punishment length! Please try again in a bit.");
         }
 
         try {
-            addPunishment(g.getId(), member.getId(), p);
+            addPunishment(g.getIdLong(), member.getIdLong(), p);
         } catch (IOException e) {
             e.printStackTrace();
             throw new ModerationException("An internal error occurred while logging punishment! Please try again in a bit.");
@@ -230,7 +227,7 @@ public class Moderation {
             case '5':
                 try {
                     g.addRoleToMember(member, role).queue();
-                    punishmentHandler.newPunishment(member.getId(), g.getId(), p);
+                    punishmentHandler.newPunishment(member.getIdLong(), g.getIdLong(), p);
                     return p;
                 } catch (Exception e) {
                     throw new ModerationException("Unable to mute <@" + member.getId() + "! " + e.getMessage());
@@ -238,7 +235,7 @@ public class Moderation {
             case '6':
                 try {
                     g.ban(member, 0, reason).queue();
-                    punishmentHandler.newPunishment(member.getId(), g.getId(), p);
+                    punishmentHandler.newPunishment(member.getIdLong(), g.getIdLong(), p);
                     return p;
                 } catch (Exception e) {
                     throw new ModerationException("Unable to ban <@" + member.getId() + ">! " + e.getMessage());
@@ -246,7 +243,7 @@ public class Moderation {
             case 'v':
                 try {
                     channel.putPermissionOverride(member).setDeny(Permission.VIEW_CHANNEL).queue();
-                    punishmentHandler.newPunishment(member.getId(), g.getId(), p);
+                    punishmentHandler.newPunishment(member.getIdLong(), g.getIdLong(), p);
                     return p;
                 } catch (Exception e) {
                     throw new ModerationException("Unable remove <@" + member.getId() + ">'s access to <#" + channel.getId() + "! " + e.getMessage());
@@ -259,7 +256,7 @@ public class Moderation {
                 }
                 try {
                     g.addRoleToMember(member, role).queue();
-                    punishmentHandler.newPunishment(member.getId(), g.getId(), p);
+                    punishmentHandler.newPunishment(member.getIdLong(), g.getIdLong(), p);
                     return p;
                 } catch (Exception e) {
                     throw new ModerationException("Unable to add the " + role.getName() + " role to <@" + member.getId() + "! " + e.getMessage());
@@ -284,21 +281,21 @@ public class Moderation {
     public static String stopPunishment(Guild guild, int punishmentID, String reason, long unpunisherID, boolean hide, boolean stopAll) throws ModerationException {
         ActivePunishment ap;
         try {
-            ap = removeActivePunishment(guild.getId(), punishmentID);
+            ap = removeActivePunishment(guild.getIdLong(), punishmentID);
         } catch (IOException e) {
             throw new ModerationException("An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage());
         }
         if (ap == null)
             throw new ModerationException("No matching active punishment with id " + punishmentID + " found.");
 
-        String memberID = ap.memberID;
+        long memberID = ap.memberID;
 
         String hideS = hide ? "y " : "n ";
         int nextID = ServerData.get(guild.getIdLong()).getNextPunishmentID();
         //The extra data for the unpunishment gets stored in the reason
         Punishment p = new Punishment(nextID, 'u', hideS + punishmentID + ' ' + ap.punishment.severity + ' ' + reason, 0, unpunisherID);
         try {
-            Files.write(Paths.get("moderations/" + guild.getId() + "/" + memberID + ".data"), (p.toString() + '\n').getBytes(), StandardOpenOption.APPEND);
+            Files.write(Paths.get("moderations/" + guild.getId() + "/" + memberID + ".punishments"), (p.toString() + '\n').getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
             throw new ModerationException("An IO error occurred while logging the unpunishment (<@470696578403794967>)! " + e.getMessage());
         }
@@ -306,14 +303,14 @@ public class Moderation {
         return p.id + " " + endPunishment(guild, memberID, ap.punishment, stopAll);
     }
 
-    private static String endPunishment(Guild g, String memberID, Punishment punishment, boolean stopAll) throws ModerationException {
+    private static String endPunishment(Guild g, long memberID, Punishment punishment, boolean stopAll) throws ModerationException {
         //check if user has other active punishments
         if (!stopAll) {
             try {
-                List<ActivePunishment> activePunishments = getActivePunishments(g.getId());
+                List<ActivePunishment> activePunishments = getActivePunishments(g.getIdLong());
                 if (!activePunishments.isEmpty())
                     for (ActivePunishment ap : activePunishments) {
-                        if (ap.memberID.equals(memberID)) {
+                        if (ap.memberID == memberID) {
                             if (("12345".indexOf(punishment.severity) != -1) && ("12345".indexOf(ap.punishment.severity) != -1)) {
                                 return "<@" + memberID + "> still has other active punishments of similar severity.";
                             }
@@ -363,7 +360,7 @@ public class Moderation {
                 }
             case '6':
                 try {
-                    g.unban(memberID).complete();
+                    g.unban(String.valueOf(memberID)).complete();
                     return "Unbanned <@" + memberID + ">.";
                 } catch (Exception e) {
                     throw new ModerationException("Unable to unban <@" + memberID + ">. " + e.getMessage());
@@ -441,7 +438,7 @@ public class Moderation {
      * @param punishmentID The ID of the punishment to remove.
      * @return The {@link ActivePunishment active punishment} that was removed or null if none was found.
      */
-    private static ActivePunishment removeActivePunishment(String guildID, int punishmentID) throws IOException {
+    private static ActivePunishment removeActivePunishment(long guildID, int punishmentID) throws IOException {
         List<ActivePunishment> apList = getActivePunishments(guildID);
         if (apList.isEmpty())
             return null;
@@ -453,7 +450,7 @@ public class Moderation {
             if (ap.punishment.id == punishmentID) {
                 ap_removed = ap;
                 it.remove();
-                Files.write(Paths.get("moderations/" + guildID + "/active.data"), apList.stream().map(ActivePunishment::toString).collect(Collectors.toList()));
+                Files.write(Paths.get("moderations/" + guildID + "/active.punishments"), apList.stream().map(ActivePunishment::toString).collect(Collectors.toList()));
                 break;
             }
         }
@@ -500,6 +497,7 @@ public class Moderation {
             return new Punishment(id, sev, s, length, date, punisherID);
         }
 
+        // in mins
         public static int defaultLength(char sev) {
             switch (sev) {
                 case '1':
@@ -581,6 +579,7 @@ public class Moderation {
             return 0;
         }
 
+        // in milliseconds
         public long getTimeLeft() {
             return (date + (((long) length) * 60000)) - System.currentTimeMillis();
         }
@@ -600,16 +599,16 @@ public class Moderation {
     }
 
     public static class ActivePunishment {
-        public final String memberID;
+        public final long memberID;
         public final Punishment punishment;
 
-        ActivePunishment(String memberID, Punishment punishment) {
+        ActivePunishment(long memberID, Punishment punishment) {
             this.memberID = memberID;
             this.punishment = punishment;
         }
 
         public static ActivePunishment fromString(String s) {
-            return new ActivePunishment(s.substring(0, s.indexOf(' ') - 1), Punishment.fromString(s.substring(s.indexOf(' ') + 1))); //":" has to be ignored
+            return new ActivePunishment(Long.parseLong(s.substring(0, s.indexOf(' ') - 1)), Punishment.fromString(s.substring(s.indexOf(' ') + 1))); //":" should be ignored
         }
 
         @Override
@@ -621,31 +620,66 @@ public class Moderation {
         public boolean equals(Object o) {
             if (!(o instanceof ActivePunishment))
                 return false;
-            ActivePunishment p = (ActivePunishment) o;
+            ActivePunishment ap = (ActivePunishment) o;
 
-            if (memberID.equals(p.memberID))
-                return punishment.equals(p.punishment);
-
-            return false;
+            return memberID == ap.memberID && punishment.equals(ap.punishment);
         }
     }
 
     public static class PunishmentHandler {
+        private static PunishmentHandler punishmentHandler;
+
+        public static PunishmentHandler get() throws NotInitializedException {
+            if(punishmentHandler == null)
+                throw new NotInitializedException();
+
+            return punishmentHandler;
+        }
+
+        public static void initialize(JDA jda) {
+            assert jda != null;
+            if(punishmentHandler == null) {
+                punishmentHandler = new PunishmentHandler(jda);
+
+                try {
+                    List<Long> ids = Files.find(Paths.get("moderations"), 0, (p, bfa) -> bfa.isDirectory() && p.getFileName().toString().matches("\\d+"))
+                            .map(p -> Long.parseLong(p.getFileName().toString()))
+                            .collect(Collectors.toList());
+
+                    for(long id :ids) {
+                        try {
+                            LinkedList<Moderation.ActivePunishment> apList = Moderation.getActivePunishments(id);
+                            while(!apList.isEmpty()) {
+                                ActivePunishment ap = apList.remove();
+                                punishmentHandler.newPunishment(ap.memberID, id, ap.punishment);
+                            }
+                        } catch (IOException ignored) {
+                            System.out.println("Failed to read active punishments for guild with ID " + id);
+                        }
+                    }
+                } catch (IOException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
+
+
         private final ScheduledExecutorService scheduler;
-        private final List<EndPunishment> queued;
-        private JDA jda;
+        private final LinkedList<EndPunishment> queued;
         private boolean paused;
         private boolean ranWhilePaused;
-        PunishmentHandler(JDA jda) {
+        private JDA jda;
+
+        private PunishmentHandler(JDA jda) {
             this.jda = jda;
             paused = false;
             ranWhilePaused = false;
-            queued = new ArrayList<>();
+            queued = new LinkedList<>();
 
             scheduler = Executors.newScheduledThreadPool(0);
         }
 
-        public void newPunishment(String memberID, String guildID, Punishment p) {
+        public void newPunishment(long memberID, long guildID, Punishment p) {
             long time = p.getTimeLeft();
             if (time < 0)
                 runEndPunishment(memberID, guildID, p);
@@ -664,7 +698,7 @@ public class Moderation {
             }
         }
 
-        private void runEndPunishment(String memberID, String guildID, Punishment p) {
+        private void runEndPunishment(long memberID, long guildID, Punishment p) {
             String response = "";
             Guild guild = jda.getGuildById(guildID);
             try {
@@ -682,44 +716,49 @@ public class Moderation {
                 response = "An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage();
             }
             if (guild != null) {
-                ServerData serverData = ServerData.get(guild.getIdLong());
+                ServerData serverData = ServerData.get(guildID);
                 TextChannel pChannel = guild.getTextChannelById(serverData.getPunishmentChannel());
                 if (pChannel == null) {
                     TextChannel lChannel = guild.getTextChannelById(serverData.getLogChannel());
                     if (lChannel != null) {
-                        Commands.sendInfo(lChannel, response);//TODO maybe differentiate between fail and success
+                        Commands.sendInfo(lChannel, response);
                     }
                 } else
                     Commands.sendInfo(pChannel, response);
             }
         }
 
-        public void stop() {
+        public static void stop() {
             try {
-                scheduler.shutdownNow();
+                get().scheduler.shutdownNow();
             } catch (Exception ignored) {
             }
         }
 
-        public void pause() {
-            paused = true;
+        public static void pause() {
+            try {
+                get().paused = true;
+            } catch (NotInitializedException ignored) {}
         }
 
-        public void resume(JDA jda) {
-            this.jda = jda;
-            paused = false;
-            if (ranWhilePaused) {
-                queued.forEach(EndPunishment::run);
-                queued.clear();
-            }
+        public static void resume(JDA jda) {
+            try {
+                PunishmentHandler pH = get();
+                pH.jda = jda;
+                pH.paused = false;
+                if (pH.ranWhilePaused) {
+                    while(!pH.queued.isEmpty())
+                        pH.queued.remove().run();
+                }
+            } catch (NotInitializedException ignored) {}
         }
 
         private class EndPunishment {
-            private final String memberID;
-            private final String guildID;
+            private final long memberID;
+            private final long guildID;
             private final Punishment p;
 
-            public EndPunishment(String memberID, String guildID, Punishment p) {
+            public EndPunishment(long memberID, long guildID, Punishment p) {
                 this.memberID = memberID;
                 this.guildID = guildID;
                 this.p = p;
@@ -727,6 +766,12 @@ public class Moderation {
 
             public void run() {
                 runEndPunishment(memberID, guildID, p);
+            }
+        }
+
+        public static class NotInitializedException extends Exception {
+            public NotInitializedException() {
+                super("Please initialize the punishment handler first by running PunishmentHandler.initialize(jda)!");
             }
         }
     }

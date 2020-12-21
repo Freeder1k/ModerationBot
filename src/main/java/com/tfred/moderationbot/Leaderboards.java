@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+//TODO store latest data in json format
 public class Leaderboards {
     private static final Path path = Paths.get("leaderboards.data");
     private static long date = 0; // Date of the latest leaderboard in milliseconds
@@ -69,7 +70,7 @@ public class Leaderboards {
         };
     }
 
-    private static void fetchNewLeaderboards(long date2) throws LeaderboardFetchFailedException{
+    private static void fetchNewLeaderboards(long date2) throws LeaderboardFetchFailedException {
         JsonElement[] leaderboard = getJsonLbData(date2);
         try {
             Type listType = new TypeToken<ArrayList<LbSpot>>() {
@@ -198,7 +199,7 @@ public class Leaderboards {
             long weeks = current / week;
             newDate = weeks * week + start;
         }
-        if(date == 0) {
+        if (date == 0) {
             initialize(newDate);
             return;
         }
@@ -216,7 +217,7 @@ public class Leaderboards {
             empty = true;
         }
 
-        if(empty)
+        if (empty)
             date = 0;
         else
             lines.remove(0);
@@ -251,7 +252,7 @@ public class Leaderboards {
      * @throws IllegalArgumentException If the specified board isn't in the range of 0-2.
      */
     public static List<String> lbToString(int board, long guildID) {
-        if(date == 0) {
+        if (date == 0) {
             try {
                 updateLeaderboards();
             } catch (LeaderboardFetchFailedException ignored) {

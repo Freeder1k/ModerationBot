@@ -26,7 +26,7 @@ public class ServerData {
     private ServerData(long guildID) {
         this.guildID = guildID;
 
-        // Initialize the server data
+        // Read the server data
         Path filepath = Paths.get("serverdata/" + guildID + ".serverdata");
         if (Files.exists(filepath)) {
             List<String> lines;
@@ -97,7 +97,7 @@ public class ServerData {
     public static ServerData get(long guildID) {
         if (allServerData.containsKey(guildID)) {
             ServerData serverData = allServerData.get(guildID).get();
-            if(serverData != null)
+            if (serverData != null)
                 return serverData;
         }
         ServerData newSD = new ServerData(guildID);
@@ -235,8 +235,7 @@ public class ServerData {
     /**
      * Increments the current punishment ID by 1 and returns this value.
      *
-     * @return
-     *          The next punishment ID.
+     * @return The next punishment ID.
      */
     public int getNextPunishmentID() {
         currentPunishmentID++;

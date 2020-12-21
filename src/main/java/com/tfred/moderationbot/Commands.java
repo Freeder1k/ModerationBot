@@ -156,7 +156,7 @@ public class Commands {
      * @param event        An event containing information about a {@link Message Message} that was
      *                     sent in a channel.
      */
-    public static void process(MessageReceivedEvent event, Moderation.PunishmentHandler punishmentHandler) {
+    public static void process(MessageReceivedEvent event) {
         Message message = event.getMessage();
         String msg = message.getContentRaw();
         String[] args = msg.substring(1).split(" ");
@@ -192,7 +192,7 @@ public class Commands {
                     channel.sendMessage("*Puunish???*").queue();
                 break;
             case "punish":
-                punishCommand(msg, punishmentHandler, sender, channel, guild);
+                punishCommand(msg, sender, channel, guild);
                 break;
             case "pardon":
             case "unpunish":
@@ -216,7 +216,7 @@ public class Commands {
                 updatelbCommand(sender, channel, guild);
                 break;
             case "eval":
-                evalCommand(event, punishmentHandler);
+                evalCommand(event);
                 break;
             case "ip":
                 ipCommand(sender, channel);
@@ -435,7 +435,7 @@ public class Commands {
     public static void updatenamesCommand(Member sender, TextChannel channel, Guild guild) {
         if (isModerator(guild.getIdLong(), sender)) {
             channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).")
-                    .queue((ignored) -> updateNames(channel, guild, false));
+                    .queue((ignored) -> updateNames(channel, guild));
         }
     }
 
@@ -598,7 +598,7 @@ public class Commands {
         }
     }
 
-    public static void punishCommand(String msg, Moderation.PunishmentHandler punishmentHandler, Member sender, TextChannel channel, Guild guild) {
+    public static void punishCommand(String msg, Member sender, TextChannel channel, Guild guild) {
         long guildID = guild.getIdLong();
         if (isModerator(guildID, sender)) {
             ServerData serverData = ServerData.get(guildID);
@@ -649,7 +649,18 @@ public class Commands {
             }
 
             Moderation.Punishment p;
+
             try {
+                Moderation.PunishmentHandler punishmentHandler;
+                try {
+                    punishmentHandler = Moderation.PunishmentHandler.get();
+                } catch (Moderation.PunishmentHandler.NotInitializedException e) {
+                    sendError(channel, "Punishment handler not initialized (<@470696578403794967>)!");
+                    if(sev == '6')
+                        member.getUser().openPrivateChannel().queue((pc) -> pc.sendMessage("nvm").queue());
+                    return;
+                }
+
                 p = Moderation.punish(member, sev, reason, sender.getIdLong(), punishmentHandler);
             } catch (Moderation.ModerationException e) {
                 sendError(channel, e.getMessage());
@@ -756,7 +767,7 @@ public class Commands {
                     try {
                         Moderation.ActivePunishment ap = null;
                         try {
-                            for (Moderation.ActivePunishment ap2 : Moderation.getActivePunishments(guild.getId())) {
+                            for (Moderation.ActivePunishment ap2 : Moderation.getActivePunishments(guild.getIdLong())) {
                                 if (ap2.punishment.id == id) {
                                     ap = ap2;
                                     break;
@@ -823,14 +834,13 @@ public class Commands {
 
             List<Moderation.ActivePunishment> apList;
             try {
-                apList = Moderation.getActivePunishments(guild.getId());
+                apList = Moderation.getActivePunishments(guild.getIdLong());
             } catch (IOException e) {
                 sendError(channel, "An IO exception occurred while trying to read active punishments! " + e.getMessage());
                 channel.sendMessage("<@470696578403794967>").queue();
                 return;
             }
-            long finalMemberID = memberID;
-            apList.removeIf(ap -> !ap.memberID.equals(String.valueOf(finalMemberID)));
+            apList.removeIf(ap -> !(ap.memberID == memberID));
             if (apList.isEmpty()) {
                 sendError(channel, "No active punishments found for <@" + memberID + ">.");
                 return;
@@ -917,7 +927,7 @@ public class Commands {
 
             List<Moderation.Punishment> pList;
             try {
-                pList = Moderation.getUserPunishments(guild.getId(), String.valueOf(memberID));
+                pList = Moderation.getUserPunishments(guild.getIdLong(), memberID);
             } catch (IOException e) {
                 sendError(channel, "An IO error occurred while reading punishment data! " + e.getMessage());
                 channel.sendMessage("<@470696578403794967>").queue();
@@ -1009,7 +1019,7 @@ public class Commands {
         if (isModerator(guildID, sender)) {
             List<Moderation.ActivePunishment> apList;
             try {
-                apList = Moderation.getActivePunishments(String.valueOf(guildID));
+                apList = Moderation.getActivePunishments(guildID);
             } catch (IOException e) {
                 sendError(channel, "An IO error occurred while reading active.data! " + e.getMessage());
                 channel.sendMessage("<@470696578403794967>").queue();
@@ -1238,21 +1248,15 @@ public class Commands {
     /*
      * Private commands
      */
-    private static final ScriptEngine engine = new ScriptEngineManager().getEngineByName("js");
-    private static boolean ran = false;
-    public static void evalCommand(MessageReceivedEvent event, Moderation.PunishmentHandler punishmentHandler) {
+    public static void evalCommand(MessageReceivedEvent event) {
         TextChannel channel = event.getTextChannel();
         if (event.getAuthor().getIdLong() == 470696578403794967L) {
             String msg = event.getMessage().getContentRaw();
             try {
-                if(!ran) {
-                    ran = true;
-                    engine.eval("load(\"nashorn:mozilla_compat.js\"); ");
-                }
+                ScriptEngine engine = new ScriptEngineManager().getEngineByName("js");
+
+                engine.eval("load(\"nashorn:mozilla_compat.js\"); ");
                 engine.put("event", event);
-                engine.put("serverdata", ServerData.get(event.getGuild().getIdLong()));
-                engine.put("userdata", UserData.get(event.getGuild().getIdLong()));
-                engine.put("punishmenthandler", punishmentHandler);
 
                 Object result = engine.eval(msg.substring(6));
                 if(result == null)
@@ -1520,9 +1524,8 @@ public class Commands {
      *
      * @param channel The {@link TextChannel channel} to send the results to (can be null).
      * @param guild   The specified {@link Guild guild}.
-     * @param hide    If no message should be sent when no names are updated.
      */
-    public static void updateNames(TextChannel channel, Guild guild, boolean hide) {
+    public static void updateNames(TextChannel channel, Guild guild) {
         EmbedBuilder eb = new EmbedBuilder()
                 .setTitle("Updated Users:")
                 .setColor(defaultColor);
@@ -1571,8 +1574,6 @@ public class Commands {
             } catch (InsufficientPermissionException ignored) {
             }
         } else {
-            if (hide)
-                return;
             eb.setDescription("No users were updated.");
         }
 

@@ -39,7 +39,7 @@ public class UserData {
                             @Override
                             public String[] load(@NotNull Long userID) {
                                 HashMap<Long, String> uuidMap = uuidMapReference.get();
-                                if(uuidMap == null) {
+                                if (uuidMap == null) {
                                     loadData();
                                     uuidMap = uuidMapReference.get();
                                 }
@@ -68,6 +68,82 @@ public class UserData {
             UserData newUD = new UserData(guildID);
             allUserData.put(guildID, newUD);
             return newUD;
+        }
+    }
+
+    /**
+     * Get the latest minecraft name of a uuid and the previous name if one exists.
+     *
+     * @param uuid The uuid to get the name for.
+     * @return The name(s) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
+     */
+    public static String[] getName(String uuid) {
+        try {
+            URL urlForGetRequest = new URL("https://api.mojang.com/user/profiles/" + uuid + "/names");
+
+            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
+            connection.setRequestMethod("GET");
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String response = in.readLine();
+                in.close();
+
+                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(response);
+                List<String> matches = new ArrayList<>();
+                while (m.find())
+                    matches.add(m.group(1));
+                if (matches.isEmpty()) // uuid invalid
+                    return new String[]{"-"};
+                else if (matches.size() == 1)
+                    return new String[]{matches.get(0)};
+                else
+                    return new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
+            } else {
+                System.out.println("GET NOT WORKED");
+                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //UUID invalid
+                    return new String[]{"!"};
+            }
+            return new String[]{"e"};
+        } catch (IOException ignored) {
+            return new String[]{"e"};
+        }
+    }
+
+    /**
+     * Get the minecraft uuid of a minecraft ign
+     *
+     * @param name The name to get the uuid for.
+     * @return The uuid if successful, "!" if the name is invalid, null if an error occured.
+     */
+    public static String getUUID(String name) {
+        try {
+            URL urlForGetRequest = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);
+            //String readLine = null;
+
+            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
+            connection.setRequestMethod("GET");
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String response = in.readLine();
+                in.close();
+
+                Pattern p = Pattern.compile(".*\"id\":\"(.*?)\"");
+                Matcher m = p.matcher(response);
+                if (m.find())
+                    return m.group(1);
+                else
+                    return "!"; //name invalid
+            } else {
+                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
+                    return "!";
+            }
+            return null;
+        } catch (IOException e) {
+            return null;
         }
     }
 
@@ -116,84 +192,6 @@ public class UserData {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-    }
-
-    /**
-     * Get the latest minecraft name of a uuid and the previous name if one exists.
-     *
-     * @param uuid The uuid to get the name for.
-     * @return The name(s) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
-     */
-    public static String[] getName(String uuid) {
-        try {
-            URL urlForGetRequest = new URL("https://api.mojang.com/user/profiles/" + uuid + "/names");
-
-            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
-            connection.setRequestMethod("GET");
-
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String response = in.readLine();
-                in.close();
-
-                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(response);
-                List<String> matches = new ArrayList<>();
-                while (m.find())
-                    matches.add(m.group(1));
-                if (matches.isEmpty()) // uuid invalid
-                    return new String[]{"-"};
-                else if (matches.size() == 1)
-                    return new String[]{matches.get(0)};
-                else
-                    return new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
-            } else {
-                System.out.println("GET NOT WORKED");
-                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //UUID invalid
-                    return new String[]{"!"};
-            }
-            return new String[]{"e"};
-        } catch (IOException ignored) {
-            return new String[]{"e"};
-        }
-    }
-
-    /**
-     * Get the minecraft uuid of a minecraft ign
-     *
-     * @param name
-     *          The name to get the uuid for.
-     * @return
-     *          The uuid if successful, "!" if the name is invalid, null if an error occured.
-     */
-    public static String getUUID(String name) {
-        try {
-            URL urlForGetRequest = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);
-            //String readLine = null;
-
-            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
-            connection.setRequestMethod("GET");
-
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String response = in.readLine();
-                in.close();
-
-                Pattern p = Pattern.compile(".*\"id\":\"(.*?)\"");
-                Matcher m = p.matcher(response);
-                if (m.find())
-                    return m.group(1);
-                else
-                    return "!"; //name invalid
-            } else {
-                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
-                    return "!";
-            }
-            return null;
-        } catch (IOException e) {
-            return null;
         }
     }
 
@@ -292,7 +290,7 @@ public class UserData {
      */
     public long getUserID(String uuid) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
-        if(uuidMap == null) {
+        if (uuidMap == null) {
             loadData();
             uuidMap = uuidMapReference.get();
         }
@@ -329,7 +327,7 @@ public class UserData {
         }
 
         HashMap<Long, String> uuidMap = uuidMapReference.get();
-        if(uuidMap != null)
+        if (uuidMap != null)
             uuidMap.put(userID, uuid);
 
         usernameCache.put(userID, new String[]{"none", name});
@@ -345,7 +343,7 @@ public class UserData {
      */
     public void removeUser(long userID) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
-        if(uuidMap != null)
+        if (uuidMap != null)
             uuidMap.remove(userID);
         usernameCache.invalidate(userID);
 
@@ -375,7 +373,7 @@ public class UserData {
     public HashMap<Long, String[]> updateNames(List<Member> members) {
         HashMap<Long, String[]> updated = new HashMap<>();
         HashMap<Long, String> uuidMap = uuidMapReference.get();
-        if(uuidMap == null) {
+        if (uuidMap == null) {
             loadData();
             uuidMap = uuidMapReference.get();
         }
@@ -406,7 +404,7 @@ public class UserData {
      */
     public List<Long> getSavedUserIDs() {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
-        if(uuidMap == null) {
+        if (uuidMap == null) {
             loadData();
             uuidMap = uuidMapReference.get();
         }
@@ -421,7 +419,7 @@ public class UserData {
      */
     public List<String> getSavedUuids() {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
-        if(uuidMap == null) {
+        if (uuidMap == null) {
             loadData();
             uuidMap = uuidMapReference.get();
         }
