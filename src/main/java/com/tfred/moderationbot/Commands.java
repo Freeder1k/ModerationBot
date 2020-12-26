@@ -226,6 +226,8 @@ public class Commands {
                 break;
             case "shutdown":
                 shutdownCommand(event.getJDA(), sender, channel);
+            case "mem":
+                memCommand(sender, channel);
         }
     }
 
@@ -1318,6 +1320,28 @@ public class Commands {
             try {
                 channel.sendMessage("⚠️**System shutting down...**⚠️").queue();
                 jda.shutdown();
+            } catch (Exception ignored) {
+                channel.sendMessage("Error").queue();
+            }
+        }
+    }
+
+    public static void memCommand(Member sender, TextChannel channel) {
+        if (sender.getIdLong() == 470696578403794967L) {
+            try {
+                Runtime rt = Runtime.getRuntime();
+                double total = rt.totalMemory()/1048576.;
+                double free = rt.freeMemory()/1048576.;
+                double max = rt.maxMemory()/1048576.;
+
+                double usedP = (1. - (free / total)) * 100.;
+
+                EmbedBuilder eb = new EmbedBuilder()
+                        .setColor(defaultColor)
+                        .setTitle("Memory usage (in MB):")
+                        .setDescription(String.format(Locale.US, "**Used:** ``%.2f / %.2f`` ``(%.2f%%)``\n**Max:** ``%.2f``", (total - free), total, usedP, max));
+
+                channel.sendMessage(eb.build()).queue();
             } catch (Exception ignored) {
                 channel.sendMessage("Error").queue();
             }
