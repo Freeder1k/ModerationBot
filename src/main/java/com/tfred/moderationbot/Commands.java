@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -167,32 +168,32 @@ public class Commands {
 
         switch (args[0]) {
             case "help":
-                helpCommand(args, channel);
+                CompletableFuture.runAsync(() -> helpCommand(args, channel));
                 break;
             case "delreaction":
-                delreactionCommand(args, message, sender, channel, guild.getIdLong());
+                CompletableFuture.runAsync(() -> delreactionCommand(args, message, sender, channel, guild.getIdLong()));
                 break;
             case "getreactions":
-                getreactionsCommand(args, sender, channel, guild);
+                CompletableFuture.runAsync(() -> getreactionsCommand(args, sender, channel, guild));
                 break;
             case "name":
-                nameCommand(args, sender, channel, guild);
+                CompletableFuture.runAsync(() -> nameCommand(args, sender, channel, guild));
                 break;
             case "updatenames":
-                updatenamesCommand(sender, channel, guild);
+                CompletableFuture.runAsync(() -> updatenamesCommand(sender, channel, guild));
                 break;
             case "listnames":
-                listnamesCommand(args, sender, channel, guild);
+                CompletableFuture.runAsync(() -> listnamesCommand(args, sender, channel, guild));
                 break;
             case "config":
-                configCommand(args, sender, channel, guild);
+                CompletableFuture.runAsync(() -> configCommand(args, sender, channel, guild));
                 break;
             case "puunish":
                 if (isModerator(guild.getIdLong(), sender))
-                    channel.sendMessage("*Puunish???*").queue();
+                    CompletableFuture.runAsync(() -> channel.sendMessage("*Puunish???*").queue());
                 break;
             case "punish":
-                punishCommand(msg, sender, channel, guild);
+                CompletableFuture.runAsync(() -> punishCommand(msg, sender, channel, guild));
                 break;
             case "pardon":
             case "unpunish":
@@ -201,33 +202,33 @@ public class Commands {
             case "exculpate":
             case "exonerate":
             case "vindicate":
-                pardonCommand(msg, sender, channel, guild);
+                CompletableFuture.runAsync(() -> pardonCommand(msg, sender, channel, guild));
                 break;
             case "modlogs":
-                modlogsCommand(args, sender, channel, guild);
+                CompletableFuture.runAsync(() -> modlogsCommand(args, sender, channel, guild));
                 break;
             case "moderations":
-                moderationsCommand(sender, channel, guild.getIdLong());
+                CompletableFuture.runAsync(() -> moderationsCommand(sender, channel, guild.getIdLong()));
                 break;
             case "lb":
-                lbCommand(msg, sender, channel, guild);
+                CompletableFuture.runAsync(() -> lbCommand(msg, sender, channel, guild));
                 break;
             case "updatelb":
-                updatelbCommand(sender, channel, guild);
+                CompletableFuture.runAsync(() -> updatelbCommand(sender, channel, guild));
                 break;
             case "eval":
-                evalCommand(event);
+                CompletableFuture.runAsync(() -> evalCommand(event));
                 break;
             case "ip":
-                ipCommand(sender, channel);
+                CompletableFuture.runAsync(() -> ipCommand(sender, channel));
                 break;
             case "test":
-                testCommand(msg, sender, channel);
+                CompletableFuture.runAsync(() -> testCommand(msg, sender, channel));
                 break;
             case "shutdown":
-                shutdownCommand(event.getJDA(), sender, channel);
+                CompletableFuture.runAsync(() -> shutdownCommand(event.getJDA(), sender, channel));
             case "mem":
-                memCommand(sender, channel);
+                CompletableFuture.runAsync(() -> memCommand(sender, channel));
         }
     }
 
