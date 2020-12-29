@@ -226,7 +226,7 @@ public class Commands {
                 CompletableFuture.runAsync(() -> testCommand(msg, sender, channel));
                 break;
             case "shutdown":
-                CompletableFuture.runAsync(() -> shutdownCommand(event.getJDA(), sender, channel));
+                shutdownCommand(event.getJDA(), sender, channel);
             case "mem":
                 CompletableFuture.runAsync(() -> memCommand(sender, channel));
         }
