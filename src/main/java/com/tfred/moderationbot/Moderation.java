@@ -636,7 +636,7 @@ public class Moderation {
             return punishmentHandler;
         }
 
-        public static void initialize(JDA jda) {
+        public static synchronized void initialize(JDA jda) {
             assert jda != null;
             if(punishmentHandler == null) {
                 punishmentHandler = new PunishmentHandler(jda);

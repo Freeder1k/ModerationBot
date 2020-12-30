@@ -190,7 +190,7 @@ public class Leaderboards {
     /**
      * Updates the saved leaderboards data. If one week has passed since the reference data for the change has been updated this gets updated too with data from 1 week ago.
      */
-    public static void updateLeaderboards() throws LeaderboardFetchFailedException {
+    public static synchronized void updateLeaderboards() throws LeaderboardFetchFailedException {
         long newDate;
         { // Get the time in Milliseconds of the last Sunday at 6 am CEST
             long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST

@@ -154,8 +154,8 @@ public class Commands {
     /**
      * The command processing function.
      *
-     * @param event        An event containing information about a {@link Message Message} that was
-     *                     sent in a channel.
+     * @param event An event containing information about a {@link Message Message} that was
+     *              sent in a channel.
      */
     public static void process(MessageReceivedEvent event) {
         Message message = event.getMessage();
@@ -409,13 +409,14 @@ public class Commands {
                     return;
                 }
 
-                int returned = userData.setUuid(member, args[3]);
-                if (returned == 1)
-                    sendSuccess(channel, "Set ``" + args[3] + "`` as username of " + member.getAsMention() + ".");
-                else if (returned == 0)
-                    sendError(channel, "``" + args[3] + "`` isn't a valid Minecraft username!");
-                else
-                    sendError(channel, "An error occurred. Please try again later.");
+                userData.setUuid(member, args[3]).whenComplete((result, t) -> {
+                    if (result == 1)
+                        sendSuccess(channel, "Set ``" + args[3] + "`` as username of " + member.getAsMention() + ".");
+                    else if (result == 0)
+                        sendError(channel, "``" + args[3] + "`` isn't a valid Minecraft username!");
+                    else
+                        sendError(channel, "An error occurred. Please try again later.");
+                });
             } else if (args[1].equals("remove")) {
                 long memberID;
                 Member member = parseMember(guild, args[2]);
@@ -646,7 +647,7 @@ public class Commands {
                 }
             }
 
-            if(sev == '6') {
+            if (sev == '6') {
                 String finalReason = reason;
                 member.getUser().openPrivateChannel().queue((pc) -> pc.sendMessage("You were banned from " + guild.getName() + ". Reason: " + finalReason).queue());
             }
@@ -659,7 +660,7 @@ public class Commands {
                     punishmentHandler = Moderation.PunishmentHandler.get();
                 } catch (Moderation.PunishmentHandler.NotInitializedException e) {
                     sendError(channel, "Punishment handler not initialized (<@470696578403794967>)!");
-                    if(sev == '6')
+                    if (sev == '6')
                         member.getUser().openPrivateChannel().queue((pc) -> pc.sendMessage("nvm").queue());
                     return;
                 }
@@ -1226,7 +1227,7 @@ public class Commands {
             int boardNum = Character.getNumericValue(board);
 
             List<String> lb = Leaderboards.lbToString(boardNum, guildID);
-            if(lb == null) {
+            if (lb == null) {
                 sendError(channel, "Failed to fetch leaderboard data!");
                 return;
             }
@@ -1262,7 +1263,7 @@ public class Commands {
                 engine.put("event", event);
 
                 Object result = engine.eval(msg.substring(6));
-                if(result == null)
+                if (result == null)
                     channel.sendMessage("null").queue();
                 else
                     channel.sendMessage(result.toString()).queue();
@@ -1331,9 +1332,9 @@ public class Commands {
         if (sender.getIdLong() == 470696578403794967L) {
             try {
                 Runtime rt = Runtime.getRuntime();
-                double total = rt.totalMemory()/1048576.;
-                double free = rt.freeMemory()/1048576.;
-                double max = rt.maxMemory()/1048576.;
+                double total = rt.totalMemory() / 1048576.;
+                double free = rt.freeMemory() / 1048576.;
+                double max = rt.maxMemory() / 1048576.;
 
                 double usedP = (1. - (free / total)) * 100.;
 
@@ -1551,66 +1552,67 @@ public class Commands {
      * @param guild   The specified {@link Guild guild}.
      */
     public static void updateNames(TextChannel channel, Guild guild) {
-        EmbedBuilder eb = new EmbedBuilder()
-                .setTitle("Updated Users:")
-                .setColor(defaultColor);
+        UserData.get(guild.getIdLong()).updateNames(guild.getMembers()).whenComplete((changed, t) -> {
+            EmbedBuilder eb = new EmbedBuilder()
+                    .setTitle("Updated Users:")
+                    .setColor(defaultColor);
 
-        HashMap<Long, String[]> changed = UserData.get(guild.getIdLong()).updateNames(guild.getMembers());
-        if (changed.size() == 1)
-            eb.setTitle("Updated User:");
+            if (changed.size() == 1)
+                eb.setTitle("Updated User:");
 
-        if (!changed.isEmpty()) {
-            StringBuilder updated = new StringBuilder();
-            StringBuilder removed = new StringBuilder();
-            StringBuilder failed = new StringBuilder();
-            for (Map.Entry<Long, String[]> entry : changed.entrySet()) {
-                String[] s = entry.getValue();
-                if (s[0].equals("-"))
-                    removed.append("<@").append(entry.getKey()).append(">\n");
-                else if (s[0].equals("e"))
-                    failed.append("<@").append(entry.getKey()).append(">\n");
-                else
-                    updated.append("<@").append(entry.getKey()).append(">").append(" (").append(s[0]).append(" -> ").append(s[1]).append(")\n");
-            }
-            if (updated.length() != 0) {
-                if (updated.length() > 2048)
-                    eb.setDescription(updated.length() + " users were updated.");
-                else
-                    eb.setDescription(updated.toString());
-            } else
+            if (!changed.isEmpty()) {
+                StringBuilder updated = new StringBuilder();
+                StringBuilder removed = new StringBuilder();
+                StringBuilder failed = new StringBuilder();
+                for (Map.Entry<Long, String[]> entry : changed.entrySet()) {
+                    String[] s = entry.getValue();
+                    if (s[0].equals("-"))
+                        removed.append("<@").append(entry.getKey()).append(">\n");
+                    else if (s[0].equals("e"))
+                        failed.append("<@").append(entry.getKey()).append(">\n");
+                    else
+                        updated.append("<@").append(entry.getKey()).append(">").append(" (").append(s[0]).append(" -> ").append(s[1]).append(")\n");
+                }
+                if (updated.length() != 0) {
+                    if (updated.length() > 2048)
+                        eb.setDescription(updated.length() + " users were updated.");
+                    else
+                        eb.setDescription(updated.toString());
+                } else
+                    eb.setDescription("No users were updated.");
+                if (removed.length() != 0) {
+                    if (removed.length() < 1024)
+                        eb.addField("\nRemoved Users:", removed.toString(), false);
+                    else
+                        eb.addField("", removed.length() + " users were removed from the system.", false);
+                }
+                if (failed.length() != 0) {
+                    if (failed.length() < 1024)
+                        eb.addField("\nFailed Users:", failed.toString(), false);
+                    else
+                        eb.addField("", "Updating failed on " + failed.length() + " users.", false);
+                }
+
+                TextChannel namechannel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getNameChannel());
+                try {
+                    if ((namechannel != null) && (!namechannel.equals(channel)))
+                        namechannel.sendMessage(eb.build()).queue();
+                } catch (InsufficientPermissionException ignored) {
+                }
+            } else {
                 eb.setDescription("No users were updated.");
-            if (removed.length() != 0) {
-                if (removed.length() < 1024)
-                    eb.addField("\nRemoved Users:", removed.toString(), false);
-                else
-                    eb.addField("", removed.length() + " users were removed from the system.", false);
-            }
-            if (failed.length() != 0) {
-                if (failed.length() < 1024)
-                    eb.addField("\nFailed Users:", failed.toString(), false);
-                else
-                    eb.addField("", "Updating failed on " + failed.length() + " users.", false);
             }
 
-            TextChannel namechannel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getNameChannel());
-            try {
-                if ((namechannel != null) && (!namechannel.equals(channel)))
-                    namechannel.sendMessage(eb.build()).queue();
-            } catch (InsufficientPermissionException ignored) {
-            }
-        } else {
-            eb.setDescription("No users were updated.");
-        }
-
-        if (channel != null)
-            channel.sendMessage(eb.build()).queue();
+            if (channel != null)
+                channel.sendMessage(eb.build()).queue();
+        });
     }
 
     /**
      * Updates the leaderboard messages in a specified guild.
      *
-     * @param channel      The {@link TextChannel channel} to send the results to (can be null).
-     * @param guild        The specified {@link Guild guild}.
+     * @param channel The {@link TextChannel channel} to send the results to (can be null).
+     * @param guild   The specified {@link Guild guild}.
      */
     public static void updateLeaderboards(TextChannel channel, Guild guild) {
         long guildID = guild.getIdLong();
@@ -1619,7 +1621,7 @@ public class Commands {
             Leaderboards.updateLeaderboards();
         } catch (Leaderboards.LeaderboardFetchFailedException e) {
             System.out.println("Leaderboard update failed! " + e.getMessage());
-            if(channel != null)
+            if (channel != null)
                 sendError(channel, "Leaderboard updating failed! Please try again in a bit or if that doesn't work contact the bot dev. " + e.getMessage());
             return;
         }

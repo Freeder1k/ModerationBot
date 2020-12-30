@@ -3,26 +3,27 @@ package com.tfred.moderationbot;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
+import org.asynchttpclient.*;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.lang.ref.SoftReference;
 import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class UserData {
     private static final HashMap<Long, UserData> allUserData = new HashMap<>();
@@ -47,7 +48,11 @@ public class UserData {
                                 String uuid = uuidMap.get(userID);
                                 if (uuid == null)
                                     return new String[]{};
-                                return getName(uuid);
+                                try {
+                                    return getName(uuid).get();
+                                } catch (Exception e) {
+                                    return new String[]{"e"};
+                                }
                             }
                         }
                 );
@@ -65,86 +70,93 @@ public class UserData {
             return allUserData.get(guildID);
 
         else {
-            UserData newUD = new UserData(guildID);
-            allUserData.put(guildID, newUD);
-            return newUD;
+            synchronized (UserData.class) {
+                if (allUserData.containsKey(guildID))
+                    return allUserData.get(guildID);
+
+                UserData newUD = new UserData(guildID);
+                allUserData.put(guildID, newUD);
+                return newUD;
+            }
         }
     }
 
     /**
      * Get the latest minecraft name of a uuid and the previous name if one exists.
      *
-     * @param uuid The uuid to get the name for.
-     * @return The name(s) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
+     * @param uuid the uuid to get the name for.
+     * @return a {@link CompletableFuture completable future} with a value that is either an array containing the name(s) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
      */
-    public static String[] getName(String uuid) {
-        try {
-            URL urlForGetRequest = new URL("https://api.mojang.com/user/profiles/" + uuid + "/names");
+    public static CompletableFuture<String[]> getName(String uuid) {
+        AsyncHttpClient client = Dsl.asyncHttpClient();
+        BoundRequestBuilder getRequest = client.prepareGet("https://api.mojang.com/user/profiles/" + uuid + "/names");
 
-            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
-            connection.setRequestMethod("GET");
+        return getRequest.execute(new AsyncCompletionHandler<String[]>() {
+            @Override
+            public String[] onCompleted(Response httpResponse) {
+                try {
+                    client.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                int responseCode = httpResponse.getStatusCode();
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    String response = httpResponse.getResponseBody();
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String response = in.readLine();
-                in.close();
-
-                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(response);
-                List<String> matches = new ArrayList<>();
-                while (m.find())
-                    matches.add(m.group(1));
-                if (matches.isEmpty()) // uuid invalid
-                    return new String[]{"-"};
-                else if (matches.size() == 1)
-                    return new String[]{matches.get(0)};
-                else
-                    return new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
-            } else {
-                System.out.println("GET NOT WORKED");
-                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //UUID invalid
+                    Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(response);
+                    List<String> matches = new ArrayList<>();
+                    while (m.find())
+                        matches.add(m.group(1));
+                    if (matches.isEmpty()) // uuid invalid
+                        return new String[]{"-"};
+                    else if (matches.size() == 1)
+                        return new String[]{matches.get(0)};
+                    else
+                        return new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
+                } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //UUID invalid
                     return new String[]{"!"};
+                else {
+                    System.out.println("GET NOT WORKED");
+                    return new String[]{"e"};
+                }
             }
-            return new String[]{"e"};
-        } catch (IOException ignored) {
-            return new String[]{"e"};
-        }
+        }).toCompletableFuture();
     }
 
     /**
      * Get the minecraft uuid of a minecraft ign
      *
      * @param name The name to get the uuid for.
-     * @return The uuid if successful, "!" if the name is invalid, null if an error occured.
+     * @return a {@link CompletableFuture completable future} with a value that is the uuid if successful, "!" if the name is invalid or null if an error occurred.
      */
-    public static String getUUID(String name) {
-        try {
-            URL urlForGetRequest = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);
-            //String readLine = null;
+    public static CompletableFuture<String> getUUID(String name) {
+        AsyncHttpClient client = Dsl.asyncHttpClient();
+        BoundRequestBuilder getRequest = client.prepareGet("https://api.mojang.com/users/profiles/minecraft/" + name);
 
-            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
-            connection.setRequestMethod("GET");
+        return getRequest.execute(new AsyncCompletionHandler<String>() {
+            @Override
+            public String onCompleted(Response httpResponse) {
+                try {
+                    client.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                int responseCode = httpResponse.getStatusCode();
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    String response = httpResponse.getResponseBody();
 
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String response = in.readLine();
-                in.close();
-
-                Pattern p = Pattern.compile(".*\"id\":\"(.*?)\"");
-                Matcher m = p.matcher(response);
-                if (m.find())
-                    return m.group(1);
-                else
-                    return "!"; //name invalid
-            } else {
-                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
+                    Pattern p = Pattern.compile(".*\"id\":\"(.*?)\"");
+                    Matcher m = p.matcher(response);
+                    if (m.find())
+                        return m.group(1);
+                    else
+                        return "!"; //name invalid
+                } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
                     return "!";
+                else
+                    return null;
             }
-            return null;
-        } catch (IOException e) {
-            return null;
-        }
+        }).toCompletableFuture();
     }
 
     private void loadData() {
@@ -291,8 +303,13 @@ public class UserData {
     public long getUserID(String uuid) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
-            loadData();
-            uuidMap = uuidMapReference.get();
+            synchronized (this) {
+                uuidMap = uuidMapReference.get();
+                if (uuidMap == null) {
+                    loadData();
+                    uuidMap = uuidMapReference.get();
+                }
+            }
         }
         assert uuidMap != null;
         for (Map.Entry<Long, String> entry : uuidMap.entrySet()) {
@@ -307,33 +324,35 @@ public class UserData {
      *
      * @param member The specified {@link Member member}.
      * @param name   This minecraft ign to be associated with this member.
-     * @return 1 if successful, 0 if invalid mc name, -1 if an error occurred
+     * @return a {@link CompletableFuture completable future} with value 1 if successful, 0 if invalid mc name or -1 if an error occurred
      */
-    public int setUuid(Member member, String name) {
-        long userID = member.getIdLong();
-        removeUser(userID);
+    public CompletableFuture<Integer> setUuid(Member member, String name) {
+        return getUUID(name).thenApply(uuid -> {
+            if (uuid == null)
+                return -1;
+            if (uuid.equals("!"))
+                return 0;
 
-        String uuid = getUUID(name);
-        if (uuid == null)
-            return -1;
-        if (uuid.equals("!"))
-            return 0;
+            synchronized (this) {
+                long userID = member.getIdLong();
+                removeUser(userID);
+                try {
+                    Files.write(Paths.get("userdata/" + guildID + ".userdata"), (userID + " " + uuid).getBytes(), StandardOpenOption.APPEND);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return -1;
+                }
 
-        try {
-            Files.write(Paths.get("userdata/" + guildID + ".userdata"), (userID + " " + uuid).getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return -1;
-        }
+                HashMap<Long, String> uuidMap = uuidMapReference.get();
+                if (uuidMap != null)
+                    uuidMap.put(userID, uuid);
 
-        HashMap<Long, String> uuidMap = uuidMapReference.get();
-        if (uuidMap != null)
-            uuidMap.put(userID, uuid);
+                usernameCache.put(userID, new String[]{"none", name});
+                updateMember(member); // Return value can be ignored since nothing should go wrong
 
-        usernameCache.put(userID, new String[]{"none", name});
-        updateMember(member); // Return value can be ignored since nothing should go wrong
-
-        return 1;
+                return 1;
+            }
+        });
     }
 
     /**
@@ -341,7 +360,7 @@ public class UserData {
      *
      * @param userID The specified {@link Member member's} ID.
      */
-    public void removeUser(long userID) {
+    public synchronized void removeUser(long userID) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap != null)
             uuidMap.remove(userID);
@@ -368,33 +387,79 @@ public class UserData {
      * Updates the nicknames of all members that changed their minecraft ign.
      *
      * @param members A list of all the members to be checked.
-     * @return A hashmap of all updated user's IDs and their new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
+     * @return a {@link CompletableFuture completable future} with a value that is a hashmap of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
-    public HashMap<Long, String[]> updateNames(List<Member> members) {
-        HashMap<Long, String[]> updated = new HashMap<>();
+    public CompletableFuture<HashMap<Long, String[]>> updateNames(List<Member> members) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
-            loadData();
-            uuidMap = uuidMapReference.get();
+            synchronized (this) {
+                uuidMap = uuidMapReference.get();
+                if (uuidMap == null) {
+                    loadData();
+                    uuidMap = uuidMapReference.get();
+                }
+            }
         }
         assert uuidMap != null;
 
-        for (Member member : members) {
-            String uuid = uuidMap.get(member.getIdLong());
-            long userID = member.getIdLong();
-            if (uuid != null) {
-                String[] res = updateMember(member);
-                if (res.length == 1) {
-                    if (res[0].equals("-")) {
-                        removeUser(userID); //This should be ok since minecraft accounts don't get deleted often.
-                        updated.put(userID, res);
-                    } else if (res[0].equals("e"))
-                        updated.put(userID, res);
-                } else if (res.length == 2)
-                    updated.put(userID, res);
-            }
+        Map<Long, Member> memberMap = members.stream().collect(Collectors.toMap(ISnowflake::getIdLong, m -> m));
+
+        HashMap<Long, String> toChange = new HashMap<>(uuidMap);
+        toChange.keySet().retainAll(memberMap.keySet());
+
+        List<CompletableFuture<Map.Entry<Long, String[]>>> cfs = new ArrayList<>(toChange.size());
+        AsyncHttpClient client = new DefaultAsyncHttpClient();
+        for (Map.Entry<Long, String> entry : toChange.entrySet()) {
+            cfs.add(client.prepareGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names")
+                    .execute(new AsyncCompletionHandler<Map.Entry<Long, String[]>>() {
+                        @Override
+                        public Map.Entry<Long, String[]> onCompleted(Response httpResponse) {
+
+                            int responseCode = httpResponse.getStatusCode();
+                            if (responseCode == HttpURLConnection.HTTP_OK) {
+                                String response = httpResponse.getResponseBody();
+
+                                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(response);
+                                List<String> matches = new ArrayList<>();
+                                while (m.find())
+                                    matches.add(m.group(1));
+
+                                if (matches.isEmpty()) {// uuid invalid
+                                    removeUser(entry.getKey());
+                                    return new AbstractMap.SimpleEntry<>(entry.getKey(), new String[]{"!"});
+                                } else if (matches.size() == 1) {
+                                    usernameCache.put(entry.getKey(), new String[]{matches.get(0)});
+                                    return null;
+                                } else {
+                                    String[] res = new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
+                                    usernameCache.put(entry.getKey(), res);
+                                    if (updateMember(memberMap.get(entry.getKey())).length == 2)
+                                        return new AbstractMap.SimpleEntry<>(entry.getKey(), res);
+                                    else
+                                        return null;
+                                }
+                            } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {//UUID invalid
+                                removeUser(entry.getKey());
+                                return new AbstractMap.SimpleEntry<>(entry.getKey(), new String[]{"!"});
+                            } else {
+                                System.out.println("GET NOT WORKED");
+                                return new AbstractMap.SimpleEntry<>(entry.getKey(), new String[]{"e"});
+                            }
+                        }
+                    }).toCompletableFuture());
         }
-        return updated;
+
+        return CompletableFuture
+                .allOf(cfs.toArray(new CompletableFuture[toChange.size()]))
+                .thenApply(ignored -> {
+                    try {
+                        client.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    return cfs.stream().map(CompletableFuture::join).filter(Objects::nonNull)
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> b, () -> new HashMap<>(cfs.size())));
+                });
     }
 
     /**
@@ -405,8 +470,13 @@ public class UserData {
     public List<Long> getSavedUserIDs() {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
-            loadData();
-            uuidMap = uuidMapReference.get();
+            synchronized (this) {
+                uuidMap = uuidMapReference.get();
+                if (uuidMap == null) {
+                    loadData();
+                    uuidMap = uuidMapReference.get();
+                }
+            }
         }
         assert uuidMap != null;
         return Collections.unmodifiableList(new ArrayList<>(uuidMap.keySet()));
@@ -420,8 +490,13 @@ public class UserData {
     public List<String> getSavedUuids() {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
-            loadData();
-            uuidMap = uuidMapReference.get();
+            synchronized (this) {
+                uuidMap = uuidMapReference.get();
+                if (uuidMap == null) {
+                    loadData();
+                    uuidMap = uuidMapReference.get();
+                }
+            }
         }
         assert uuidMap != null;
         return Collections.unmodifiableList(new ArrayList<>(uuidMap.values()));

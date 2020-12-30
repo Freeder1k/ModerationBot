@@ -30,6 +30,7 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,7 +40,7 @@ public class ModerationBot extends ListenerAdapter {
     /**
      * IDs of members of which a {@link GuildMemberUpdateNicknameEvent nickname update event} should be ignored
      */
-    public static final Set<Long> ignoredUsers = new HashSet<>(); //TODO guild specific?
+    public static final Set<Long> ignoredUsers = ConcurrentHashMap.newKeySet(); //TODO guild specific
     private static AutoRun autoRun;
 
     public static void main(String[] args) {

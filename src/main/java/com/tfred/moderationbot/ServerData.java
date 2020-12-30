@@ -12,7 +12,7 @@ public class ServerData {
     private static final HashMap<Long, SoftReference<ServerData>> allServerData = new HashMap<>();
     public final long guildID;
     private final long[][] lbMessages = new long[][]{{0, 0}, {0, 0}, {0, 0}}; //channelID:messageID x3
-    private final HashSet<Long> modRoles = new HashSet<>(4);
+    private final Set<Long> modRoles = Collections.synchronizedSet(new HashSet<>(4));
     private long memberRole = 0;
     private long mutedRole = 0;
     private long noNicknameRole = 0;
@@ -100,12 +100,19 @@ public class ServerData {
             if (serverData != null)
                 return serverData;
         }
-        ServerData newSD = new ServerData(guildID);
-        allServerData.put(guildID, new SoftReference<>(newSD));
-        return newSD;
+        synchronized (ServerData.class) {
+            if (allServerData.containsKey(guildID)) {
+                ServerData serverData = allServerData.get(guildID).get();
+                if (serverData != null)
+                    return serverData;
+            }
+            ServerData newSD = new ServerData(guildID);
+            allServerData.put(guildID, new SoftReference<>(newSD));
+            return newSD;
+        }
     }
 
-    private void updateFile() {
+    private synchronized void updateFile() {
         try {
             List<String> lines = new ArrayList<>(11);
             lines.add(String.valueOf(lbMessages[0][0]) + ':' + lbMessages[0][1] + ' ' +
@@ -146,7 +153,7 @@ public class ServerData {
         return memberRole;
     }
 
-    public void setMemberRole(long memberRole) {
+    public synchronized void setMemberRole(long memberRole) {
         this.memberRole = memberRole;
         updateFile();
     }
@@ -155,7 +162,7 @@ public class ServerData {
         return mutedRole;
     }
 
-    public void setMutedRole(long mutedRole) {
+    public synchronized void setMutedRole(long mutedRole) {
         this.mutedRole = mutedRole;
         updateFile();
     }
@@ -164,7 +171,7 @@ public class ServerData {
         return noNicknameRole;
     }
 
-    public void setNoNicknameRole(long noNicknameRole) {
+    public synchronized void setNoNicknameRole(long noNicknameRole) {
         this.noNicknameRole = noNicknameRole;
         updateFile();
     }
@@ -181,13 +188,13 @@ public class ServerData {
      * @param channelID The ID of the {@link net.dv8tion.jda.api.entities.TextChannel channel} the message is in.
      * @param messageID The ID of the {@link net.dv8tion.jda.api.entities.Message message}.
      */
-    public void setLbMessage(int board, long channelID, long messageID) {
+    public synchronized void setLbMessage(int board, long channelID, long messageID) {
         lbMessages[board][0] = channelID;
         lbMessages[board][1] = messageID;
         updateFile();
     }
 
-    public long getLogChannel() {
+    public synchronized long getLogChannel() {
         return logChannel;
     }
 
@@ -200,7 +207,7 @@ public class ServerData {
         return joinChannel;
     }
 
-    public void setJoinChannel(long joinChannel) {
+    public synchronized void setJoinChannel(long joinChannel) {
         this.joinChannel = joinChannel;
         updateFile();
     }
@@ -209,7 +216,7 @@ public class ServerData {
         return punishmentChannel;
     }
 
-    public void setPunishmentChannel(long punishmentChannel) {
+    public synchronized void setPunishmentChannel(long punishmentChannel) {
         this.punishmentChannel = punishmentChannel;
         updateFile();
     }
@@ -218,7 +225,7 @@ public class ServerData {
         return ventChannel;
     }
 
-    public void setVentChannel(long ventChannel) {
+    public synchronized void setVentChannel(long ventChannel) {
         this.ventChannel = ventChannel;
         updateFile();
     }
@@ -227,7 +234,7 @@ public class ServerData {
         return nameChannel;
     }
 
-    public void setNameChannel(long nameChannel) {
+    public synchronized void setNameChannel(long nameChannel) {
         this.nameChannel = nameChannel;
         updateFile();
     }
@@ -237,7 +244,7 @@ public class ServerData {
      *
      * @return The next punishment ID.
      */
-    public int getNextPunishmentID() {
+    public synchronized int getNextPunishmentID() {
         currentPunishmentID++;
         updateFile();
         return currentPunishmentID;
