@@ -462,9 +462,9 @@ public class ModerationBot extends ListenerAdapter {
                     channel.sendMessage("Daily update in progress...").queue();
                     TextChannel finalChannel = channel;
                     channel.sendMessage("Updating usernames...")
-                            .queue((ignored) -> Commands.updateNames(finalChannel, guild));
+                            .queue((ignored) -> Commands.updateNames(finalChannel, guild, false));
                 } else
-                    Commands.updateNames(null, guild);
+                    Commands.updateNames(null, guild, false);
 
                 if (weekly)
                     Commands.updateLeaderboards(channel, guild);

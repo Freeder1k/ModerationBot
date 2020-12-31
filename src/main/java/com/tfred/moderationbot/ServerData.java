@@ -10,9 +10,11 @@ import java.util.stream.Collectors;
 
 public class ServerData {
     private static final HashMap<Long, SoftReference<ServerData>> allServerData = new HashMap<>();
+    private static final HashMap<Long, Set<Long>> allServerModRoles = new HashMap<>();
+
     public final long guildID;
     private final long[][] lbMessages = new long[][]{{0, 0}, {0, 0}, {0, 0}}; //channelID:messageID x3
-    private final Set<Long> modRoles = Collections.synchronizedSet(new HashSet<>(4));
+    private Set<Long> modRoles;
     private long memberRole = 0;
     private long mutedRole = 0;
     private long noNicknameRole = 0;
@@ -25,6 +27,8 @@ public class ServerData {
 
     private ServerData(long guildID) {
         this.guildID = guildID;
+
+        modRoles = allServerModRoles.get(guildID);
 
         // Read the server data
         Path filepath = Paths.get("serverdata/" + guildID + ".serverdata");
@@ -48,8 +52,12 @@ public class ServerData {
                     System.out.println("Formatting error in " + guildID + ".serverdata!");
                 }
 
-                for (String id : lines.get(1).split(" ")) {
-                    modRoles.add(Long.parseLong(id));
+                if(modRoles == null) {
+                    modRoles = Collections.synchronizedSet(new HashSet<>(4));
+                    for (String id : lines.get(1).split(" ")) {
+                        modRoles.add(Long.parseLong(id));
+                    }
+                    allServerModRoles.put(guildID, modRoles);
                 }
 
                 memberRole = Long.parseLong(lines.get(2));
@@ -137,6 +145,10 @@ public class ServerData {
 
     public Set<Long> getModRoles() {
         return Collections.unmodifiableSet(modRoles);
+    }
+
+    public static Set<Long> getModRoles(long guildID) {
+        return Collections.unmodifiableSet(allServerModRoles.get(guildID));
     }
 
     public void addModRole(long modRole) {

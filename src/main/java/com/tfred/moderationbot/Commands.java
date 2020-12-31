@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 
 public class Commands {
     public static final int defaultColor = 3603854;
+    private static final Map<Long, Long> updateNamesTimes = Collections.synchronizedMap(new HashMap<>());
 
     private static void helpMessage(TextChannel channel, String command) {
         String usage;
@@ -439,7 +440,7 @@ public class Commands {
     public static void updatenamesCommand(Member sender, TextChannel channel, Guild guild) {
         if (isModerator(guild.getIdLong(), sender)) {
             channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).")
-                    .queue((ignored) -> updateNames(channel, guild));
+                    .queue((ignored) -> updateNames(channel, guild, sender.getIdLong() == 470696578403794967L));
         }
     }
 
@@ -1367,7 +1368,7 @@ public class Commands {
             return true;
 
         List<Long> roles = member.getRoles().stream().map(ISnowflake::getIdLong).collect(Collectors.toList());
-        Set<Long> modroles = ServerData.get(guildID).getModRoles();
+        Set<Long> modroles = ServerData.getModRoles(guildID);
 
         for (long id : roles) {
             if (modroles.contains(id))
@@ -1551,8 +1552,20 @@ public class Commands {
      * @param channel The {@link TextChannel channel} to send the results to (can be null).
      * @param guild   The specified {@link Guild guild}.
      */
-    public static void updateNames(TextChannel channel, Guild guild) {
-        UserData.get(guild.getIdLong()).updateNames(guild.getMembers()).whenComplete((changed, t) -> {
+    public static void updateNames(TextChannel channel, Guild guild, boolean bypassTimeRestriction) {
+        long guildID = guild.getIdLong();
+        if(!bypassTimeRestriction) {
+            Long lastTimeRan = updateNamesTimes.get(guildID);
+            if (lastTimeRan != null) {
+                if (System.currentTimeMillis() - lastTimeRan < 600000) {
+                    sendError(channel, "This command can only be ran once every 10 minutes per guild!");
+                    return;
+                }
+            }
+        }
+        updateNamesTimes.put(guildID, System.currentTimeMillis());
+
+        UserData.get(guildID).updateNames(guild.getMembers()).whenComplete((changed, t) -> {
             EmbedBuilder eb = new EmbedBuilder()
                     .setTitle("Updated Users:")
                     .setColor(defaultColor);
@@ -1593,7 +1606,7 @@ public class Commands {
                         eb.addField("", "Updating failed on " + failed.length() + " users.", false);
                 }
 
-                TextChannel namechannel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getNameChannel());
+                TextChannel namechannel = guild.getTextChannelById(ServerData.get(guildID).getNameChannel());
                 try {
                     if ((namechannel != null) && (!namechannel.equals(channel)))
                         namechannel.sendMessage(eb.build()).queue();
