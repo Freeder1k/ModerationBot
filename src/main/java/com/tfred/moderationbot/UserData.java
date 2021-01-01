@@ -498,20 +498,19 @@ public class UserData {
                             }
                         } finally {
                             latch.countDown();
-                            System.out.println(response.getStatusLine());
                         }
                     }
 
                     @Override
                     public void failed(final Exception ex) {
-                        latch.countDown();
                         System.out.println(ex.toString());
+                        latch.countDown();
                     }
 
                     @Override
                     public void cancelled() {
-                        latch.countDown();
                         System.out.println(" cancelled");
+                        latch.countDown();
                     }
 
                 });
@@ -531,9 +530,7 @@ public class UserData {
         }
         System.out.println("Done");
 
-
-
-        return new HashMap<>();
+        return updated;
 
 
 
