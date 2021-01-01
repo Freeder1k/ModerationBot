@@ -425,6 +425,7 @@ public class UserData {
      * @return a {@link CompletableFuture completable future} with a value that is a hashmap of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
     public Map<Long, String[]> updateNames(List<Member> members) {
+        /*
         RequestConfig requestConfig = RequestConfig.custom()
                 .setSocketTimeout(3000)
                 .setConnectTimeout(3000).build();
@@ -433,7 +434,9 @@ public class UserData {
                 .setMaxConnPerRoute(1000)
                 .setMaxConnTotal(1000)
                 .build();
-        httpclient1.start();
+
+         */
+        //httpclient1.start();
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -453,10 +456,10 @@ public class UserData {
         Map<Long, String[]> updated = new ConcurrentHashMap<>();
 
         try {
-            httpclient1.start();
+            //httpclient.start();
             final CountDownLatch latch = new CountDownLatch(toChange.size());
             for (Map.Entry<Long, String> entry : toChange.entrySet()) {
-                httpclient1.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
+                httpclient.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
 
                     @Override
                     public void completed(final HttpResponse response) {
@@ -520,114 +523,17 @@ public class UserData {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            System.out.println("Shutting down");
         } finally {
+            /*
             try {
                 httpclient1.close();
             } catch (IOException e) {
                 e.printStackTrace();
-            }
+            }*/
         }
         System.out.println("Done");
 
         return updated;
-
-
-
-
-
-
-
-
-
-/*
-        ArrayList<Future<HttpResponse>> fl = new ArrayList<>(toChange.size());
-        try {
-            final CountDownLatch latch = new CountDownLatch(toChange.size());
-            for (Map.Entry<Long, String> entry : toChange.entrySet()) {
-                HttpGet request = new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names");
-
-                fl.add(httpclient1.execute(request, new FutureCallback<HttpResponse>() {
-                    @Override
-                    public void completed(final HttpResponse response) {
-                        try {
-                            request.releaseConnection();
-                            int responseCode = response.getStatusLine().getStatusCode();
-                            if (responseCode == HttpURLConnection.HTTP_OK) {
-                                String responseBody;
-                                try {
-                                    responseBody = EntityUtils.toString(response.getEntity());
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                    updated.put(entry.getKey(), new String[]{"e"});
-                                    return;
-                                }
-
-                                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(responseBody);
-                                List<String> matches = new ArrayList<>();
-                                while (m.find())
-                                    matches.add(m.group(1));
-
-                                if (matches.isEmpty()) {// uuid invalid
-                                    removeUser(entry.getKey());
-                                    updated.put(entry.getKey(), new String[]{"!"});
-                                } else if (matches.size() == 1) {
-                                    usernameCache.put(entry.getKey(), new String[]{matches.get(0)});
-                                } else {
-                                    String[] res = new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
-                                    usernameCache.put(entry.getKey(), res);
-                                    if (updateMember(memberMap.get(entry.getKey())).length == 2) {
-                                        updated.put(entry.getKey(), res);
-                                    }
-                                }
-                            } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {//UUID invalid
-                                removeUser(entry.getKey());
-                                updated.put(entry.getKey(), new String[]{"!"});
-                            } else {
-                                System.out.println("GET NOT WORKED");
-                                updated.put(entry.getKey(), new String[]{"e"});
-                            }
-                        } finally {
-                            latch.countDown();
-                        }
-                    }
-
-                    @Override
-                    public void failed(final Exception ex) {
-                        request.releaseConnection();
-                        System.out.println("GET NOT WORKED");
-                        updated.put(entry.getKey(), new String[]{"e"});
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void cancelled() {
-                        request.releaseConnection();
-                        System.out.println("Request cancelled");
-                        latch.countDown();
-                    }
-
-                }));
-            }
-            latch.await();
-            fl.forEach(f -> {
-                try {
-                    f.get();
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
-                }
-            });
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        try {
-            httpclient1.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return updated;*/
     }
 
     /**
