@@ -29,6 +29,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClients;
 
+//TODO try creating a new client every time
 public class UserData {
     private static final HashMap<Long, UserData> allUserData = new HashMap<>();
     private static final CloseableHttpAsyncClient httpclient = HttpAsyncClients.custom()
@@ -97,40 +98,44 @@ public class UserData {
      */
     public static String[] getName(String uuid) {
         HttpGet request = new HttpGet("https://api.mojang.com/user/profiles/" + uuid + "/names");
-        Future<HttpResponse> future = httpclient.execute(request, null);
-        HttpResponse response;
         try {
-            response = future.get();
-        } catch (InterruptedException | ExecutionException Ignored) {
-            System.out.println("GET NOT WORKED");
-            return new String[]{"e"};
-        }
-
-        int responseCode = response.getStatusLine().getStatusCode();
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            String responseBody;
+            Future<HttpResponse> future = httpclient.execute(request, null);
+            HttpResponse response;
             try {
-                responseBody = EntityUtils.toString(response.getEntity());
-            } catch (IOException ignored) {
+                response = future.get();
+            } catch (InterruptedException | ExecutionException Ignored) {
                 System.out.println("GET NOT WORKED");
                 return new String[]{"e"};
             }
 
-            Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(responseBody);
-            List<String> matches = new ArrayList<>();
-            while (m.find())
-                matches.add(m.group(1));
-            if (matches.isEmpty()) // uuid invalid
-                return new String[]{"-"};
-            else if (matches.size() == 1)
-                return new String[]{matches.get(0)};
-            else
-                return new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
-        } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //UUID invalid
-            return new String[]{"!"};
-        else {
-            System.out.println("GET NOT WORKED");
-            return new String[]{"e"};
+            int responseCode = response.getStatusLine().getStatusCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                String responseBody;
+                try {
+                    responseBody = EntityUtils.toString(response.getEntity());
+                } catch (IOException ignored) {
+                    System.out.println("GET NOT WORKED");
+                    return new String[]{"e"};
+                }
+
+                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(responseBody);
+                List<String> matches = new ArrayList<>();
+                while (m.find())
+                    matches.add(m.group(1));
+                if (matches.isEmpty()) // uuid invalid
+                    return new String[]{"-"};
+                else if (matches.size() == 1)
+                    return new String[]{matches.get(0)};
+                else
+                    return new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
+            } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //UUID invalid
+                return new String[]{"!"};
+            else {
+                System.out.println("GET NOT WORKED");
+                return new String[]{"e"};
+            }
+        } finally {
+            request.releaseConnection();
         }
     }
 
@@ -142,35 +147,39 @@ public class UserData {
      */
     public static String getUUID(String name) {
         HttpGet request = new HttpGet("https://api.mojang.com/users/profiles/minecraft/" + name);
-        Future<HttpResponse> future = httpclient.execute(request, null);
-        HttpResponse response;
         try {
-            response = future.get();
-        } catch (InterruptedException | ExecutionException Ignored) {
-            System.out.println("GET NOT WORKED");
-            return null;
-        }
-
-        int responseCode = response.getStatusLine().getStatusCode();
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-            String responseBody;
+            Future<HttpResponse> future = httpclient.execute(request, null);
+            HttpResponse response;
             try {
-                responseBody = EntityUtils.toString(response.getEntity());
-            } catch (IOException ignored) {
+                response = future.get();
+            } catch (InterruptedException | ExecutionException Ignored) {
                 System.out.println("GET NOT WORKED");
                 return null;
             }
 
-            Pattern p = Pattern.compile(".*\"id\":\"(.*?)\"");
-            Matcher m = p.matcher(responseBody);
-            if (m.find())
-                return m.group(1);
+            int responseCode = response.getStatusLine().getStatusCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                String responseBody;
+                try {
+                    responseBody = EntityUtils.toString(response.getEntity());
+                } catch (IOException ignored) {
+                    System.out.println("GET NOT WORKED");
+                    return null;
+                }
+
+                Pattern p = Pattern.compile(".*\"id\":\"(.*?)\"");
+                Matcher m = p.matcher(responseBody);
+                if (m.find())
+                    return m.group(1);
+                else
+                    return "!"; //name invalid
+            } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
+                return "!";
             else
-                return "!"; //name invalid
-        } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
-            return "!";
-        else
-            return null;
+                return null;
+        } finally {
+            request.releaseConnection();
+        }
     }
 
     public static void start() {
@@ -261,7 +270,6 @@ public class UserData {
 
             // If the old nickname wasn't that persons previous minecraft ign then the name should be updated but an empty array returned.
             boolean hide = !name.equals(nameChange[0]);
-
             if (!(name.equals(newName))) {
                 if (m.getEffectiveName().endsWith(")")) {
                     Pattern pattern = Pattern.compile(".*?\\(");
@@ -292,6 +300,7 @@ public class UserData {
             }
             return new String[]{};
         } catch (HierarchyException | InsufficientPermissionException | ExecutionException e) {
+            e.printStackTrace();
             return new String[]{};
         }
     }
@@ -414,7 +423,7 @@ public class UserData {
      * @param members A list of all the members to be checked.
      * @return a {@link CompletableFuture completable future} with a value that is a hashmap of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
-    public HashMap<Long, String[]> updateNames(List<Member> members) {
+    public Map<Long, String[]> updateNames(List<Member> members) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -431,60 +440,70 @@ public class UserData {
 
         HashMap<Long, String> toChange = new HashMap<>(uuidMap);
         toChange.keySet().retainAll(memberMap.keySet());
-        HashMap<Long, String[]> updated = new HashMap<>();
+        Map<Long, String[]> updated = new ConcurrentHashMap<>();
         try {
             final CountDownLatch latch = new CountDownLatch(toChange.size());
             for (Map.Entry<Long, String> entry : toChange.entrySet()) {
-                httpclient.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
+                HttpGet request = new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names");
+
+                httpclient.execute(request, new FutureCallback<HttpResponse>() {
                     @Override
                     public void completed(final HttpResponse response) {
-                        latch.countDown();
-                        int responseCode = response.getStatusLine().getStatusCode();
-                        if (responseCode == HttpURLConnection.HTTP_OK) {
-                            String responseBody;
-                            try {
-                                responseBody = EntityUtils.toString(response.getEntity());
-                            } catch (IOException ignored) {
-                                updated.put(entry.getKey(), new String[]{"e"});
-                                return;
-                            }
+                        try {
+                            request.releaseConnection();
+                            int responseCode = response.getStatusLine().getStatusCode();
+                            if (responseCode == HttpURLConnection.HTTP_OK) {
+                                String responseBody;
+                                try {
+                                    responseBody = EntityUtils.toString(response.getEntity());
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    updated.put(entry.getKey(), new String[]{"e"});
+                                    return;
+                                }
 
-                            Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(responseBody);
-                            List<String> matches = new ArrayList<>();
-                            while (m.find())
-                                matches.add(m.group(1));
+                                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(responseBody);
+                                List<String> matches = new ArrayList<>();
+                                while (m.find())
+                                    matches.add(m.group(1));
 
-                            if (matches.isEmpty()) {// uuid invalid
+                                if (matches.isEmpty()) {// uuid invalid
+                                    removeUser(entry.getKey());
+                                    updated.put(entry.getKey(), new String[]{"!"});
+                                } else if (matches.size() == 1) {
+                                    usernameCache.put(entry.getKey(), new String[]{matches.get(0)});
+                                } else {
+                                    String[] res = new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
+                                    usernameCache.put(entry.getKey(), res);
+                                    if (updateMember(memberMap.get(entry.getKey())).length == 2) {
+                                        updated.put(entry.getKey(), res);
+                                    }
+                                }
+                            } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {//UUID invalid
                                 removeUser(entry.getKey());
                                 updated.put(entry.getKey(), new String[]{"!"});
-                            } else if (matches.size() == 1) {
-                                usernameCache.put(entry.getKey(), new String[]{matches.get(0)});
                             } else {
-                                String[] res = new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
-                                usernameCache.put(entry.getKey(), res);
-                                if (updateMember(memberMap.get(entry.getKey())).length == 2)
-                                    updated.put(entry.getKey(), res);
+                                System.out.println("GET NOT WORKED");
+                                updated.put(entry.getKey(), new String[]{"e"});
                             }
-                        } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {//UUID invalid
-                            removeUser(entry.getKey());
-                            updated.put(entry.getKey(), new String[]{"!"});
-                        } else {
-                            System.out.println("GET NOT WORKED");
-                            updated.put(entry.getKey(), new String[]{"e"});
+                        } finally {
+                            latch.countDown();
                         }
                     }
 
                     @Override
                     public void failed(final Exception ex) {
-                        latch.countDown();
+                        request.releaseConnection();
                         System.out.println("GET NOT WORKED");
                         updated.put(entry.getKey(), new String[]{"e"});
+                        latch.countDown();
                     }
 
                     @Override
                     public void cancelled() {
-                        latch.countDown();
+                        request.releaseConnection();
                         System.out.println("Request cancelled");
+                        latch.countDown();
                     }
 
                 });

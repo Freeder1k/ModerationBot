@@ -1564,7 +1564,7 @@ public class Commands {
         }
         updateNamesTimes.put(guildID, System.currentTimeMillis());
 
-        HashMap<Long, String[]> changed = UserData.get(guildID).updateNames(guild.getMembers());
+        Map<Long, String[]> changed = UserData.get(guildID).updateNames(guild.getMembers());
             EmbedBuilder eb = new EmbedBuilder()
                     .setTitle("Updated Users:")
                     .setColor(defaultColor);
