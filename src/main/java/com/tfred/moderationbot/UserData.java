@@ -441,12 +441,14 @@ public class UserData {
         HashMap<Long, String> toChange = new HashMap<>(uuidMap);
         toChange.keySet().retainAll(memberMap.keySet());
         Map<Long, String[]> updated = new ConcurrentHashMap<>();
+
+        ArrayList<Future<HttpResponse>> fl = new ArrayList<>(toChange.size());
         try {
             final CountDownLatch latch = new CountDownLatch(toChange.size());
             for (Map.Entry<Long, String> entry : toChange.entrySet()) {
                 HttpGet request = new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names");
 
-                httpclient.execute(request, new FutureCallback<HttpResponse>() {
+                fl.add(httpclient.execute(request, new FutureCallback<HttpResponse>() {
                     @Override
                     public void completed(final HttpResponse response) {
                         try {
@@ -506,9 +508,16 @@ public class UserData {
                         latch.countDown();
                     }
 
-                });
+                }));
             }
             latch.await();
+            fl.forEach(f -> {
+                try {
+                    f.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }
