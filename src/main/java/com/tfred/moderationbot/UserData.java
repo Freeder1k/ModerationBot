@@ -424,6 +424,11 @@ public class UserData {
      * @return a {@link CompletableFuture completable future} with a value that is a hashmap of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
     public Map<Long, String[]> updateNames(List<Member> members) {
+        CloseableHttpAsyncClient httpclient1 = HttpAsyncClients.custom()
+                .setMaxConnPerRoute(1000)
+                .setMaxConnTotal(1000)
+                .build();
+        httpclient1.start();
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -448,7 +453,7 @@ public class UserData {
             for (Map.Entry<Long, String> entry : toChange.entrySet()) {
                 HttpGet request = new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names");
 
-                fl.add(httpclient.execute(request, new FutureCallback<HttpResponse>() {
+                fl.add(httpclient1.execute(request, new FutureCallback<HttpResponse>() {
                     @Override
                     public void completed(final HttpResponse response) {
                         try {
@@ -519,6 +524,12 @@ public class UserData {
                 }
             });
         } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            httpclient1.close();
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
