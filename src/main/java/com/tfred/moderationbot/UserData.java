@@ -454,31 +454,27 @@ public class UserData {
 
         try {
             httpclient1.start();
-            final ArrayList<HttpGet> req = new ArrayList<>(toChange.size());
+            final CountDownLatch latch = new CountDownLatch(toChange.size());
             for (Map.Entry<Long, String> entry : toChange.entrySet()) {
-                req.add(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"));
-            }
-
-            final CountDownLatch latch = new CountDownLatch(req.size());
-            for (final HttpGet request: req) {
-                httpclient1.execute(request, new FutureCallback<HttpResponse>() {
+                httpclient1.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
 
                     @Override
                     public void completed(final HttpResponse response) {
+
                         latch.countDown();
-                        System.out.println(request.getRequestLine() + "->" + response.getStatusLine());
+                        System.out.println(response.getStatusLine());
                     }
 
                     @Override
                     public void failed(final Exception ex) {
                         latch.countDown();
-                        System.out.println(request.getRequestLine() + "->" + ex);
+                        System.out.println(ex.toString());
                     }
 
                     @Override
                     public void cancelled() {
                         latch.countDown();
-                        System.out.println(request.getRequestLine() + " cancelled");
+                        System.out.println(" cancelled");
                     }
 
                 });
