@@ -460,9 +460,46 @@ public class UserData {
 
                     @Override
                     public void completed(final HttpResponse response) {
+                        try {
+                            int responseCode = response.getStatusLine().getStatusCode();
+                            if (responseCode == HttpURLConnection.HTTP_OK) {
+                                String responseBody;
+                                try {
+                                    responseBody = EntityUtils.toString(response.getEntity());
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    updated.put(entry.getKey(), new String[]{"e"});
+                                    return;
+                                }
 
-                        latch.countDown();
-                        System.out.println(response.getStatusLine());
+                                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(responseBody);
+                                List<String> matches = new ArrayList<>();
+                                while (m.find())
+                                    matches.add(m.group(1));
+
+                                if (matches.isEmpty()) {// uuid invalid
+                                    removeUser(entry.getKey());
+                                    updated.put(entry.getKey(), new String[]{"!"});
+                                } else if (matches.size() == 1) {
+                                    usernameCache.put(entry.getKey(), new String[]{matches.get(0)});
+                                } else {
+                                    String[] res = new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
+                                    usernameCache.put(entry.getKey(), res);
+                                    if (updateMember(memberMap.get(entry.getKey())).length == 2) {
+                                        updated.put(entry.getKey(), res);
+                                    }
+                                }
+                            } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {//UUID invalid
+                                removeUser(entry.getKey());
+                                updated.put(entry.getKey(), new String[]{"!"});
+                            } else {
+                                System.out.println("GET NOT WORKED");
+                                updated.put(entry.getKey(), new String[]{"e"});
+                            }
+                        } finally {
+                            latch.countDown();
+                            System.out.println(response.getStatusLine());
+                        }
                     }
 
                     @Override
