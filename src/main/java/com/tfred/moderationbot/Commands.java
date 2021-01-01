@@ -410,14 +410,13 @@ public class Commands {
                     return;
                 }
 
-                userData.setUuid(member, args[3]).whenComplete((result, t) -> {
-                    if (result == 1)
-                        sendSuccess(channel, "Set ``" + args[3] + "`` as username of " + member.getAsMention() + ".");
-                    else if (result == 0)
-                        sendError(channel, "``" + args[3] + "`` isn't a valid Minecraft username!");
-                    else
-                        sendError(channel, "An error occurred. Please try again later.");
-                });
+                int result = userData.setUuid(member, args[3]);
+                if (result == 1)
+                    sendSuccess(channel, "Set ``" + args[3] + "`` as username of " + member.getAsMention() + ".");
+                else if (result == 0)
+                    sendError(channel, "``" + args[3] + "`` isn't a valid Minecraft username!");
+                else
+                    sendError(channel, "An error occurred. Please try again later.");
             } else if (args[1].equals("remove")) {
                 long memberID;
                 Member member = parseMember(guild, args[2]);
@@ -1565,7 +1564,7 @@ public class Commands {
         }
         updateNamesTimes.put(guildID, System.currentTimeMillis());
 
-        UserData.get(guildID).updateNames(guild.getMembers()).whenComplete((changed, t) -> {
+        HashMap<Long, String[]> changed = UserData.get(guildID).updateNames(guild.getMembers());
             EmbedBuilder eb = new EmbedBuilder()
                     .setTitle("Updated Users:")
                     .setColor(defaultColor);
@@ -1618,7 +1617,6 @@ public class Commands {
 
             if (channel != null)
                 channel.sendMessage(eb.build()).queue();
-        });
     }
 
     /**

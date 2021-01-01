@@ -55,6 +55,9 @@ public class ModerationBot extends ListenerAdapter {
             System.out.println("Failed to initialize leaderboards data! "+ e.getMessage());
         }
 
+        UserData.start();
+        System.out.println("Started http client for userdata.");
+
         JDA jda;
         try {
             jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
@@ -371,6 +374,7 @@ public class ModerationBot extends ListenerAdapter {
         autoRun.stop();
         Moderation.PunishmentHandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
+        UserData.shutdown();
     }
 
     private static class AutoRun {
