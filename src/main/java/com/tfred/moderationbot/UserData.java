@@ -428,15 +428,13 @@ public class UserData {
         /*
         RequestConfig requestConfig = RequestConfig.custom()
                 .setSocketTimeout(3000)
-                .setConnectTimeout(3000).build();
+                .setConnectTimeout(3000).build();*/
         CloseableHttpAsyncClient httpclient1 = HttpAsyncClients.custom()
-                .setDefaultRequestConfig(requestConfig)
+                //.setDefaultRequestConfig(requestConfig)
                 .setMaxConnPerRoute(1000)
                 .setMaxConnTotal(1000)
                 .build();
-
-         */
-        //httpclient1.start();
+        httpclient1.start();
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -456,10 +454,10 @@ public class UserData {
         Map<Long, String[]> updated = new ConcurrentHashMap<>();
 
         try {
-            //httpclient.start();
+            httpclient1.start();
             final CountDownLatch latch = new CountDownLatch(toChange.size());
             for (Map.Entry<Long, String> entry : toChange.entrySet()) {
-                httpclient.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
+                httpclient1.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
 
                     @Override
                     public void completed(final HttpResponse response) {
@@ -524,12 +522,11 @@ public class UserData {
                 e.printStackTrace();
             }
         } finally {
-            /*
             try {
                 httpclient1.close();
             } catch (IOException e) {
                 e.printStackTrace();
-            }*/
+            }
         }
         System.out.println("Done");
 
