@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.util.EntityUtils;
 import org.jetbrains.annotations.NotNull;
@@ -424,7 +425,11 @@ public class UserData {
      * @return a {@link CompletableFuture completable future} with a value that is a hashmap of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
     public Map<Long, String[]> updateNames(List<Member> members) {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setSocketTimeout(3000)
+                .setConnectTimeout(3000).build();
         CloseableHttpAsyncClient httpclient1 = HttpAsyncClients.custom()
+                .setDefaultRequestConfig(requestConfig)
                 .setMaxConnPerRoute(1000)
                 .setMaxConnTotal(1000)
                 .build();
@@ -447,6 +452,65 @@ public class UserData {
         toChange.keySet().retainAll(memberMap.keySet());
         Map<Long, String[]> updated = new ConcurrentHashMap<>();
 
+        try {
+            httpclient1.start();
+            final ArrayList<HttpGet> req = new ArrayList<>(toChange.size());
+            for (Map.Entry<Long, String> entry : toChange.entrySet()) {
+                req.add(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"));
+            }
+
+            final CountDownLatch latch = new CountDownLatch(req.size());
+            for (final HttpGet request: req) {
+                httpclient1.execute(request, new FutureCallback<HttpResponse>() {
+
+                    @Override
+                    public void completed(final HttpResponse response) {
+                        latch.countDown();
+                        System.out.println(request.getRequestLine() + "->" + response.getStatusLine());
+                    }
+
+                    @Override
+                    public void failed(final Exception ex) {
+                        latch.countDown();
+                        System.out.println(request.getRequestLine() + "->" + ex);
+                    }
+
+                    @Override
+                    public void cancelled() {
+                        latch.countDown();
+                        System.out.println(request.getRequestLine() + " cancelled");
+                    }
+
+                });
+            }
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("Shutting down");
+        } finally {
+            try {
+                httpclient1.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("Done");
+
+
+
+        return new HashMap<>();
+
+
+
+
+
+
+
+
+
+/*
         ArrayList<Future<HttpResponse>> fl = new ArrayList<>(toChange.size());
         try {
             final CountDownLatch latch = new CountDownLatch(toChange.size());
@@ -533,7 +597,7 @@ public class UserData {
             e.printStackTrace();
         }
 
-        return updated;
+        return updated;*/
     }
 
     /**
