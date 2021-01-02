@@ -7,14 +7,20 @@ import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
-import org.apache.http.client.config.RequestConfig;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.concurrent.FutureCallback;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.http.util.EntityUtils;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.ref.SoftReference;
 import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,18 +31,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
-import org.apache.http.impl.nio.client.HttpAsyncClients;
-
-//TODO try creating a new client every time
 public class UserData {
     private static final HashMap<Long, UserData> allUserData = new HashMap<>();
-    private static final CloseableHttpAsyncClient httpclient = HttpAsyncClients.custom()
-            .setMaxConnPerRoute(1000)
-            .setMaxConnTotal(1000)
-            .build();
     public final long guildID;
     private final LoadingCache<Long, String[]> usernameCache;
     private SoftReference<HashMap<Long, String>> uuidMapReference;
@@ -94,9 +90,81 @@ public class UserData {
     /**
      * Get the latest minecraft name of a uuid and the previous name if one exists.
      *
+     * @param uuid The uuid to get the name for.
+     * @return The name(s) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
+     */
+    public static String[] getName(String uuid) {
+        try {
+            URL urlForGetRequest = new URL("https://api.mojang.com/user/profiles/" + uuid + "/names");
+            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
+            connection.setRequestMethod("GET");
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String response = in.readLine();
+                in.close();
+                Matcher m = Pattern.compile("\"name\":\"(.*?)\"").matcher(response);
+                List<String> matches = new ArrayList<>();
+                while (m.find())
+                    matches.add(m.group(1));
+                if (matches.isEmpty()) // uuid invalid
+                    return new String[]{"-"};
+                else if (matches.size() == 1)
+                    return new String[]{matches.get(0)};
+                else
+                    return new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
+            } else {
+                System.out.println("GET NOT WORKED");
+                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) //UUID invalid
+                    return new String[]{"!"};
+            }
+            return new String[]{"e"};
+        } catch (IOException ignored) {
+            return new String[]{"e"};
+        }
+    }
+
+    /**
+     * Get the minecraft uuid of a minecraft ign
+     *
+     * @param name The name to get the uuid for.
+     * @return The uuid if successful, "!" if the name is invalid, null if an error occured.
+     */
+    public static String getUUID(String name) {
+        try {
+            URL urlForGetRequest = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);
+            //String readLine = null;
+            HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
+            connection.setRequestMethod("GET");
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String response = in.readLine();
+                in.close();
+                Pattern p = Pattern.compile(".*\"id\":\"(.*?)\"");
+                Matcher m = p.matcher(response);
+                if (m.find())
+                    return m.group(1);
+                else
+                    return "!"; //name invalid
+            } else {
+                if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST || responseCode == HttpURLConnection.HTTP_NO_CONTENT) //name invalid
+                    return "!";
+            }
+            return null;
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+/*
+    /**
+     * Get the latest minecraft name of a uuid and the previous name if one exists.
+     *
      * @param uuid the uuid to get the name for.
      * @return a {@link CompletableFuture completable future} with a value that is either an array containing the name(s) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
      */
+    /*
     public static String[] getName(String uuid) {
         HttpGet request = new HttpGet("https://api.mojang.com/user/profiles/" + uuid + "/names");
         try {
@@ -140,12 +208,15 @@ public class UserData {
         }
     }
 
+     */
+/*
     /**
      * Get the minecraft uuid of a minecraft ign
      *
      * @param name The name to get the uuid for.
      * @return a {@link CompletableFuture completable future} with a value that is the uuid if successful, "!" if the name is invalid or null if an error occurred.
      */
+    /*
     public static String getUUID(String name) {
         HttpGet request = new HttpGet("https://api.mojang.com/users/profiles/minecraft/" + name);
         try {
@@ -183,17 +254,7 @@ public class UserData {
         }
     }
 
-    public static void start() {
-        httpclient.start();
-    }
-
-    public static void shutdown() {
-        try {
-            httpclient.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
+     */
 
     private void loadData() {
         Path filepath = Paths.get("userdata/" + guildID + ".userdata");
@@ -425,16 +486,11 @@ public class UserData {
      * @return a {@link CompletableFuture completable future} with a value that is a hashmap of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
     public Map<Long, String[]> updateNames(List<Member> members) {
-        /*
-        RequestConfig requestConfig = RequestConfig.custom()
-                .setSocketTimeout(3000)
-                .setConnectTimeout(3000).build();*/
-        CloseableHttpAsyncClient httpclient1 = HttpAsyncClients.custom()
-                //.setDefaultRequestConfig(requestConfig)
+        CloseableHttpAsyncClient httpclient = HttpAsyncClients.custom()
                 .setMaxConnPerRoute(1000)
                 .setMaxConnTotal(1000)
                 .build();
-        httpclient1.start();
+        httpclient.start();
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -454,10 +510,10 @@ public class UserData {
         Map<Long, String[]> updated = new ConcurrentHashMap<>();
 
         try {
-            httpclient1.start();
+            httpclient.start();
             final CountDownLatch latch = new CountDownLatch(toChange.size());
             for (Map.Entry<Long, String> entry : toChange.entrySet()) {
-                httpclient1.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
+                httpclient.execute(new HttpGet("https://api.mojang.com/user/profiles/" + entry.getValue() + "/names"), new FutureCallback<HttpResponse>() {
 
                     @Override
                     public void completed(final HttpResponse response) {
@@ -523,12 +579,11 @@ public class UserData {
             }
         } finally {
             try {
-                httpclient1.close();
+                httpclient.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        System.out.println("Done");
 
         return updated;
     }
