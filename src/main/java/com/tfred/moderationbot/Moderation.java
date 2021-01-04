@@ -438,7 +438,7 @@ public class Moderation {
      * @param punishmentID The ID of the punishment to remove.
      * @return The {@link ActivePunishment active punishment} that was removed or null if none was found.
      */
-    private static ActivePunishment removeActivePunishment(long guildID, int punishmentID) throws IOException {
+    private static synchronized ActivePunishment removeActivePunishment(long guildID, int punishmentID) throws IOException {
         List<ActivePunishment> apList = getActivePunishments(guildID);
         if (apList.isEmpty())
             return null;
@@ -642,17 +642,13 @@ public class Moderation {
                 punishmentHandler = new PunishmentHandler(jda);
 
                 try {
-                    List<Long> ids = Files.find(Paths.get("moderations"), 0, (p, bfa) -> bfa.isDirectory() && p.getFileName().toString().matches("\\d+"))
+                    List<Long> ids = Files.find(Paths.get("moderations"), 1, (p, bfa) -> bfa.isDirectory() && p.getFileName().toString().matches("\\d+"))
                             .map(p -> Long.parseLong(p.getFileName().toString()))
                             .collect(Collectors.toList());
 
                     for(long id :ids) {
                         try {
-                            LinkedList<Moderation.ActivePunishment> apList = Moderation.getActivePunishments(id);
-                            while(!apList.isEmpty()) {
-                                ActivePunishment ap = apList.remove();
-                                punishmentHandler.newPunishment(ap.memberID, id, ap.punishment);
-                            }
+                            Moderation.getActivePunishments(id).forEach((ap) -> punishmentHandler.newPunishment(ap.memberID, id, ap.punishment));
                         } catch (IOException ignored) {
                             System.out.println("Failed to read active punishments for guild with ID " + id);
                         }

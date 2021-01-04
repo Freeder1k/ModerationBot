@@ -81,6 +81,20 @@ public class ModerationBot extends ListenerAdapter {
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
         Moderation.PunishmentHandler.initialize(jda);
+        /*
+        try {
+            Moderation.PunishmentHandler pH = Moderation.PunishmentHandler.get();
+            for(Guild g: jda.getGuilds()) {
+                try {
+                    long guildID = g.getIdLong();
+                    LinkedList<Moderation.ActivePunishment> APs = Moderation.getActivePunishments(guildID);
+
+                    APs.forEach((ap) -> pH.newPunishment(ap.memberID, guildID, ap.punishment));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        } catch (Moderation.PunishmentHandler.NotInitializedException ignored) {}*/
         System.out.println("Finished activating punishment handler!");
 
         autoRun = new AutoRun(jda);
