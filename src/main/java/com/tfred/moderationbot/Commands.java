@@ -7,7 +7,6 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
-import org.apache.commons.text.StringEscapeUtils;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;

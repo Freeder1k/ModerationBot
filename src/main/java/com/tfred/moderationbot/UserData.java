@@ -345,7 +345,6 @@ public class UserData {
             if (uuidMap != null)
                 uuidMap.put(userID, uuid);
 
-            usernameCache.put(userID, new String[]{"none", name});
             updateMember(member); // Return value can be ignored since nothing should go wrong
 
             return 1;
