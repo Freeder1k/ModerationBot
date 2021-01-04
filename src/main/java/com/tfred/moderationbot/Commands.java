@@ -409,13 +409,13 @@ public class Commands {
                     return;
                 }
 
-                int result = userData.setUuid(member, args[3]);
-                if (result == 1)
-                    sendSuccess(channel, "Set ``" + args[3] + "`` as username of " + member.getAsMention() + ".");
-                else if (result == 0)
+                String result = userData.setUuid(member, args[3]);
+                if (result.equals("e"))
+                    sendError(channel, "An error occurred. Please try again later.");
+                else if (result.equals(""))
                     sendError(channel, "``" + args[3] + "`` isn't a valid Minecraft username!");
                 else
-                    sendError(channel, "An error occurred. Please try again later.");
+                    sendSuccess(channel, "Set ``" + result + "`` as username of " + member.getAsMention() + ".");
             } else if (args[1].equals("remove")) {
                 long memberID;
                 Member member = parseMember(guild, args[2]);

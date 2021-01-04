@@ -322,14 +322,14 @@ public class UserData {
      *
      * @param member The specified {@link Member member}.
      * @param name   This minecraft ign to be associated with this member.
-     * @return a {@link CompletableFuture completable future} with value 1 if successful, 0 if invalid mc name or -1 if an error occurred
+     * @return a String containing the case-corrected username or "e" if an error occured or an empty string if that name doesnt exist
      */
-    public int setUuid(Member member, String name) {
+    public String setUuid(Member member, String name) {
         String uuid = getUUID(name);
         if (uuid == null)
-            return -1;
+            return "e";
         if (uuid.equals("!"))
-            return 0;
+            return "";
 
         synchronized (this) {
             long userID = member.getIdLong();
@@ -338,7 +338,7 @@ public class UserData {
                 Files.write(Paths.get("userdata/" + guildID + ".userdata"), (userID + " " + uuid).getBytes(), StandardOpenOption.APPEND);
             } catch (IOException e) {
                 e.printStackTrace();
-                return -1;
+                return "e";
             }
 
             HashMap<Long, String> uuidMap = uuidMapReference.get();
@@ -347,7 +347,20 @@ public class UserData {
 
             updateMember(member); // Return value can be ignored since nothing should go wrong
 
-            return 1;
+            try {
+                String[] mcname= usernameCache.get(userID);
+                if(mcname.length == 1) {
+                    if(mcname[0].equals("-1"))
+                        return "";
+                    return mcname[0];
+                }
+                if(mcname.length == 2)
+                    return mcname[1];
+                return "e";
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+                return "e";
+            }
         }
     }
 
