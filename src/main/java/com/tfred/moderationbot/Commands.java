@@ -958,10 +958,10 @@ public class Commands {
                         int i = data.indexOf(' ');
                         pardonedID = data.substring(0, i) + " (" + hide + ")";
                         sev = data.charAt(i + 1);
-                        reason = StringEscapeUtils.unescapeJava(data.substring(i + 3));
+                        reason = data.substring(i + 3);
                     } else {
                         sev = p.severity;
-                        reason = StringEscapeUtils.unescapeJava(p.reason);
+                        reason = p.reason;
                     }
                     switch (sev) {
                         case '1':
@@ -1042,7 +1042,7 @@ public class Commands {
                     String date = Instant.ofEpochMilli(p.date).toString();
                     String moderator = "<@" + p.punisherID + ">";
                     String type;
-                    String reason = StringEscapeUtils.unescapeJava(p.reason);
+                    String reason = p.reason;
 
                     switch (p.severity) {
                         case '1':

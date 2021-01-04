@@ -492,9 +492,9 @@ public class Moderation {
             s = s.substring(i + 1);
             i = s.indexOf(" ");
             long punisherID = Long.parseLong(s.substring(0, i));
-            s = s.substring(i + 1);
+            String reason = StringEscapeUtils.unescapeJava(s.substring(i + 1));
 
-            return new Punishment(id, sev, s, length, date, punisherID);
+            return new Punishment(id, sev, reason, length, date, punisherID);
         }
 
         // in mins
