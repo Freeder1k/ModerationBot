@@ -41,7 +41,6 @@ public class Commands {
                 description = "View or modify the configuration for this guild.\nValid syntax:```\n" +
                         "option:           │ value:  │ action:\n" +
                         "——————————————————│—————————│————————————\n" +
-                        "nosalt            │ y|n     │\n" +
                         "modrole           │ role    │ add|remove\n" +
                         "memberrole        │ role    │\n" +
                         "mutedrole         │ role    │\n" +
@@ -1203,6 +1202,10 @@ public class Commands {
                     }
                     serverData.setNameChannel(c.getIdLong());
                     sendSuccess(channel, "Set the name channel to <#" + c.getId() + ">.");
+                    break;
+                }
+                default: {
+                    sendError(channel, "Invalid option: " + args[1] + "!");
                     break;
                 }
             }

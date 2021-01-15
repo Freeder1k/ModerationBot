@@ -28,8 +28,6 @@ public class ServerData {
     private ServerData(long guildID) {
         this.guildID = guildID;
 
-        modRoles = allServerModRoles.get(guildID);
-
         // Read the server data
         Path filepath = Paths.get("serverdata/" + guildID + ".serverdata");
         if (Files.exists(filepath)) {
@@ -52,6 +50,7 @@ public class ServerData {
                     System.out.println("Formatting error in " + guildID + ".serverdata!");
                 }
 
+                modRoles = allServerModRoles.get(guildID);
                 if(modRoles == null) {
                     modRoles = Collections.synchronizedSet(new HashSet<>(4));
                     for (String id : lines.get(1).split(" ")) {
@@ -81,6 +80,7 @@ public class ServerData {
                 System.out.println("Formatting error in " + guildID + ".serverdata!");
             }
         } else {
+            modRoles = Collections.synchronizedSet(new HashSet<>(4));
             if (!Files.isDirectory(Paths.get("serverdata"))) {
                 try {
                     Files.createDirectory(Paths.get("serverdata"));
