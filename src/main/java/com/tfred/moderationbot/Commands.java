@@ -729,11 +729,15 @@ public class Commands {
                 return;
             }
 
+
+            char hideC;
             if (args[2].length() != 1) {
-                sendError(channel, "Invalid hide option.");
-                return;
+                if(!(args[2].equals("yes") || args[2].equals("no"))) {
+                    sendError(channel, "Invalid hide option.");
+                    return;
+                }
             }
-            char hideC = args[2].charAt(0);
+            hideC = args[2].charAt(0);
             if ("yn".indexOf(hideC) == -1) {
                 sendError(channel, "Invalid hide option.");
                 return;
@@ -1351,7 +1355,7 @@ public class Commands {
             }
         }
     }
-
+    
 
     /*
      * Other stuff
