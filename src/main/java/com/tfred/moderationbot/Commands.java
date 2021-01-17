@@ -685,7 +685,7 @@ public class Commands {
                     break;
                 }
                 case 'v': {
-                    sendSuccess(channel, "Removed <@" + member.getId() + ">'s access to <#" + channel.getId() + "> for" + parseTime(((long) p.length) * 60L));
+                    sendSuccess(channel, "Removed <@" + member.getId() + ">'s access to <#" + serverData.getVentChannel() + "> for" + parseTime(((long) p.length) * 60L));
                     type = "Vent ban";
                     break;
                 }
