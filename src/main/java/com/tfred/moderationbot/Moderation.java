@@ -60,11 +60,15 @@ public class Moderation {
         long end_date = 0;    // time till ^ ends
         int p_length = 0;     // duration of ^
         Set<Integer> hidden = new HashSet<>(); // Set of punishment ids that were pardoned and marked as hidden
+        Set<Integer> pardoned = new HashSet<>(); // Set of punishment ids that were pardoned and not marked as hidden
+        boolean was_pardoned = false;
 
         while(!punishments.isEmpty()) {
             Punishment p = punishments.removeLast();
             if (p.severity == sev) {
                 if (!hidden.contains(p.id)) {
+                    if(pardoned.contains(p.id))
+                        was_pardoned = true;
                     prev = true;
                     end_date = p.date + (((long) p.length) * 60000);
                     p_length = p.length;
@@ -77,6 +81,11 @@ public class Moderation {
                     s = s.substring(0, s.indexOf(' '));
                     hidden.add(Integer.parseInt(s));
                 }
+                else {
+                    String s = p.reason.substring(2);
+                    s = s.substring(0, s.indexOf(' '));
+                    pardoned.add(Integer.parseInt(s));
+                }
             }
         }
 
@@ -85,7 +94,7 @@ public class Moderation {
 
         long end_time = (System.currentTimeMillis() - end_date); //time since last punishment ended
 
-        if (end_time < 0)
+        if (end_time < 0 && !was_pardoned)
             return p_length;
         else if (end_time < (((long) Punishment.specialBonusReqTime(sev)) * 60000))
             return p_length + Punishment.specialBonusLength(sev);
