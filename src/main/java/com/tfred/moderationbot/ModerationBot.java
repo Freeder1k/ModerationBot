@@ -29,38 +29,63 @@ import java.nio.file.StandardOpenOption;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class ModerationBot extends ListenerAdapter {
     /**
      * IDs of members of which a {@link GuildMemberUpdateNicknameEvent nickname update event} should be ignored
      */
-    public static final Set<Long> ignoredUsers = ConcurrentHashMap.newKeySet(); //TODO guild specific
-    private static AutoRun autoRun;
+    private final Map<Long, Set<Long>> ignoredUsers = new ConcurrentHashMap<>();
+    private final AutoRun autoRun;
+
+    private ModerationBot(JDA jda) {
+        autoRun = new AutoRun(jda);
+        System.out.println("Finished activating autoRun!");
+        try {
+            List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
+            if (!botdata.isEmpty()) {
+                long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST
+                long day = 86400000L;
+                long week = 604800000L;
+                long lastDate = Long.parseLong(botdata.get(0)) - start;
+                long current = System.currentTimeMillis() - start;
+                if ((lastDate / day) < (current / day)) {
+                    boolean weekly = ((lastDate / week) < (current / week));
+                    if (weekly)
+                        System.out.println("Running daily and weekly update...");
+                    else
+                        System.out.println("Running daily update...");
+                    autoRun.autoRunDaily(weekly);
+                }
+            }
+        } catch (IOException ignored) {
+            System.out.println("Failed to read bot data!");
+        }
+    }
 
     public static void main(String[] args) {
         System.out.println("Hello world but Frederik was here!");
 
-        try {Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n".getBytes(), StandardOpenOption.APPEND);} catch (IOException ignored) {}
+        try {
+            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n".getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException ignored) {
+        }
 
         try {
             Leaderboards.updateLeaderboards();
             System.out.println("Finished initializing leaderboards data.");
         } catch (Leaderboards.LeaderboardFetchFailedException e) {
-            System.out.println("Failed to initialize leaderboards data! "+ e.getMessage());
+            System.out.println("Failed to initialize leaderboards data! " + e.getMessage());
         }
-
-        System.out.println("Started http client for userdata.");
 
         JDA jda;
         try {
             jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
-                    .addEventListeners(new ModerationBot())   // An instance of a class that will handle events.
                     .setChunkingFilter(ChunkingFilter.ALL)          //
                     .setMemberCachePolicy(MemberCachePolicy.ALL)    // These three are needed for some commands to do with the naming system
                     .enableIntents(GatewayIntent.GUILD_MEMBERS)     //
@@ -81,44 +106,27 @@ public class ModerationBot extends ListenerAdapter {
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
         Moderation.PunishmentHandler.initialize(jda);
-        /*
-        try {
-            Moderation.PunishmentHandler pH = Moderation.PunishmentHandler.get();
-            for(Guild g: jda.getGuilds()) {
-                try {
-                    long guildID = g.getIdLong();
-                    LinkedList<Moderation.ActivePunishment> APs = Moderation.getActivePunishments(guildID);
-
-                    APs.forEach((ap) -> pH.newPunishment(ap.memberID, guildID, ap.punishment));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        } catch (Moderation.PunishmentHandler.NotInitializedException ignored) {}*/
         System.out.println("Finished activating punishment handler!");
 
-        autoRun = new AutoRun(jda);
-        System.out.println("Finished activating autoRun!");
-        try {
-            List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
-            if (!botdata.isEmpty()) {
-                long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST
-                long day = 86400000L;
-                long week = 604800000L;
-                long lastDate = Long.parseLong(botdata.get(0)) - start;
-                long current = System.currentTimeMillis() - start;
-                if ((lastDate / day) < (current / day)) {
-                    boolean weekly = ((lastDate / week) < (current / week));
-                    if(weekly)
-                        System.out.println("Running daily and weekly update...");
-                    else
-                        System.out.println("Running daily update...");
-                    autoRun.autoRunDaily(weekly);
-                }
-            }
-        } catch (IOException ignored) {
-            System.out.println("Failed to read bot data!");
-        }
+        jda.addEventListener(new ModerationBot(jda));   // An instance of a class that will handle events.);
+    }
+
+    public void addIgnoredUser(long userID, long guildID) {
+        Set<Long> guildSet = ignoredUsers.computeIfAbsent(guildID, k -> ConcurrentHashMap.newKeySet());
+        guildSet.add(userID);
+    }
+
+    public void removeIgnoredUser(long userID, long guildID) {
+        Set<Long> guildSet = ignoredUsers.get(guildID);
+        if (guildSet != null)
+            guildSet.remove(userID);
+    }
+
+    private boolean isIgnoredUser(long userID, long guildID) {
+        Set<Long> guildSet = ignoredUsers.get(guildID);
+        if (guildSet != null)
+            return guildSet.contains(userID);
+        return false;
     }
 
     /**
@@ -211,16 +219,23 @@ public class ModerationBot extends ListenerAdapter {
         else if (!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE, Permission.VIEW_CHANNEL, Permission.MESSAGE_EMBED_LINKS))
             canWrite = false;
 
-        String mcName = UserData.get(guild.getIdLong()).getUsername(m.getIdLong());
+        String mcName;
+        try {
+            mcName = UserData.get(guild.getIdLong()).getUsername(m.getIdLong());
+        } catch (UserData.RateLimitException e) {
+            if (canWrite)
+                Commands.sendError(channel, "Failed to get <@" + m.getId() + ">'s minecraft name: " + e.getMessage());
+            mcName = "";
+        }
 
         if (!mcName.isEmpty() && canWrite)
             channel.sendMessage("<@" + m.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
 
         try {
-            ignoredUsers.add(m.getIdLong());
+            addIgnoredUser(m.getIdLong(), guild.getIdLong());
             m.modifyNickname(mcName).queue();
         } catch (HierarchyException | InsufficientPermissionException ignored) {
-            ignoredUsers.remove(m.getIdLong());
+            removeIgnoredUser(m.getIdLong(), guild.getIdLong());
         }
 
         //Manages punished users
@@ -308,10 +323,10 @@ public class ModerationBot extends ListenerAdapter {
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         Member m = event.getMember();
         long mID = m.getIdLong();
-        if (!ignoredUsers.contains(mID))
+        if (!isIgnoredUser(mID, m.getGuild().getIdLong()))
             checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
         else
-            ignoredUsers.remove(mID);
+            removeIgnoredUser(mID, m.getGuild().getIdLong());
     }
 
     @Override
@@ -328,7 +343,14 @@ public class ModerationBot extends ListenerAdapter {
 
     private void checkNameChange(String old_n, String new_n, Member m) {
         Guild g = m.getGuild();
-        String mc_n = UserData.get(g.getIdLong()).getUsername(m.getIdLong());
+        long guildID = g.getIdLong();
+        String mc_n;
+        try {
+            mc_n = UserData.get(guildID).getUsername(m.getIdLong());
+        } catch (UserData.RateLimitException e) {
+            autoRun.scheduleNameCheck(old_n, m, e.timeLeft);
+            return;
+        }
         ServerData serverData = ServerData.get(g.getIdLong());
         if (mc_n.isEmpty())
             return;
@@ -339,10 +361,10 @@ public class ModerationBot extends ListenerAdapter {
 
         if (!mc_n.equals(new_n)) {
             try {
-                ignoredUsers.add(m.getIdLong());
+                addIgnoredUser(m.getIdLong(), m.getGuild().getIdLong());
                 m.modifyNickname(old_n).queue();
             } catch (HierarchyException | InsufficientPermissionException ignored) {
-                ignoredUsers.remove(m.getIdLong());
+                removeIgnoredUser(m.getIdLong(), m.getGuild().getIdLong());
             }
 
             m.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + g.getName() + " was reset due to it being incompatible with the username system.").queue());
@@ -389,8 +411,10 @@ public class ModerationBot extends ListenerAdapter {
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
-    private static class AutoRun {
+    private class AutoRun {
         private final ScheduledExecutorService scheduler;
+        private final AtomicBoolean isNameCheckSchedulerActive = new AtomicBoolean(false);
+        private final LinkedBlockingDeque<ScheduledNameCheck> scheduledNameChecks = new LinkedBlockingDeque<>();
         private JDA jda;
         private boolean paused;
         private boolean ranWhilePaused;
@@ -415,7 +439,7 @@ public class ModerationBot extends ListenerAdapter {
                     () -> {
                         if (paused) {
                             ranWhilePaused = true;
-                            if(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
+                            if (ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
                                 weeklyWhilePaused = true;
                         } else {
                             try {
@@ -447,7 +471,7 @@ public class ModerationBot extends ListenerAdapter {
             if (ranWhilePaused) {
                 ranWhilePaused = false;
                 try {
-                    if(weeklyWhilePaused)
+                    if (weeklyWhilePaused)
                         autoRunDaily(true);
                     else
                         autoRunDaily();
@@ -458,11 +482,40 @@ public class ModerationBot extends ListenerAdapter {
         }
 
         /**
+         * Schedule a members nickname to be checked once the rate limit timer is over.
+         *
+         * @param old_n       The old nickname.
+         * @param m           The member to check.
+         * @param timeSeconds The time in seconds until the rate limit is over.
+         */
+        public void scheduleNameCheck(String old_n, Member m, int timeSeconds) {
+            if (isNameCheckSchedulerActive.compareAndSet(false, true)) {
+                scheduler.schedule(() -> {
+                    scheduledNameChecks.forEach(snc -> {
+                        Guild g = jda.getGuildById(snc.guildID);
+                        if (g != null) {
+                            Member member = g.getMemberById(snc.memberID);
+                            if (member != null)
+                                checkNameChange(snc.old_n, member.getEffectiveName(), member);
+                        }
+                    });
+                    scheduledNameChecks.clear();
+                    isNameCheckSchedulerActive.set(false);
+                }, timeSeconds, TimeUnit.SECONDS);
+            }
+            long guildID = m.getGuild().getIdLong();
+            long memberID = m.getIdLong();
+            if (scheduledNameChecks.stream().noneMatch(snc -> snc.guildID == guildID && snc.memberID == memberID))
+                scheduledNameChecks.add(new ScheduledNameCheck(old_n, guildID, memberID));
+        }
+
+        /**
          * This method gets called daily and handles the daily username and weekly leaderboard updating.
          */
         public void autoRunDaily() {
             autoRunDaily(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY));
         }
+
         public void autoRunDaily(boolean weekly) {
             try {
                 Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
@@ -484,6 +537,18 @@ public class ModerationBot extends ListenerAdapter {
 
                 if (weekly)
                     Commands.updateLeaderboards(channel, guild);
+            }
+        }
+
+        private class ScheduledNameCheck {
+            public final String old_n;
+            public final long guildID;
+            public final long memberID;
+
+            public ScheduledNameCheck(String old_n, long guildID, long memberID) {
+                this.old_n = old_n;
+                this.guildID = guildID;
+                this.memberID = memberID;
             }
         }
     }

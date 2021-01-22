@@ -26,13 +26,18 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class UserData {
     private static final HashMap<Long, UserData> allUserData = new HashMap<>();
+    private static int requestCount = 0;
+    private static long lastRatelimitReset = 0L;
     public final long guildID;
     private final LoadingCache<Long, String[]> usernameCache;
     private SoftReference<HashMap<Long, String>> uuidMapReference;
@@ -44,7 +49,7 @@ public class UserData {
                 .build(
                         new CacheLoader<Long, String[]>() {
                             @Override
-                            public String[] load(@NotNull Long userID) {
+                            public String[] load(@NotNull Long userID) throws RateLimitException {
                                 HashMap<Long, String> uuidMap = uuidMapReference.get();
                                 if (uuidMap == null) {
                                     loadData();
@@ -57,12 +62,32 @@ public class UserData {
                                 try {
                                     return getName(uuid);
                                 } catch (Exception e) {
+                                    if (e instanceof RateLimitException)
+                                        throw e;
                                     return new String[]{"e"};
                                 }
                             }
                         }
                 );
         uuidMapReference = new SoftReference<>(null);
+    }
+
+    /**
+     * Checks whether a certain amount of requests can be sent and increases the request counter if possible.
+     *
+     * @param extraRequestCount The amount of requests we want to send.
+     * @throws RateLimitException If the extra amount of requests would exceed the request limit.
+     */
+    private static synchronized void increaseRequestCount(int extraRequestCount) throws RateLimitException {
+        if (System.currentTimeMillis() - 601000L > lastRatelimitReset) {
+            requestCount = extraRequestCount;
+            lastRatelimitReset = System.currentTimeMillis();
+            return;
+        }
+        if (requestCount + extraRequestCount > 600)
+            throw new RateLimitException((int) ((lastRatelimitReset + 601000L - System.currentTimeMillis()) / 1000));
+
+        requestCount += extraRequestCount;
     }
 
     /**
@@ -93,7 +118,8 @@ public class UserData {
      * @param uuid The uuid to get the name for.
      * @return The name(s) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
      */
-    public static String[] getName(String uuid) {
+    public static String[] getName(String uuid) throws RateLimitException {
+        increaseRequestCount(1);
         try {
             URL urlForGetRequest = new URL("https://api.mojang.com/user/profiles/" + uuid + "/names");
             HttpURLConnection connection = (HttpURLConnection) urlForGetRequest.openConnection();
@@ -130,7 +156,8 @@ public class UserData {
      * @param name The name to get the uuid for.
      * @return The uuid if successful, "!" if the name is invalid, null if an error occured.
      */
-    public static String getUUID(String name) {
+    public static String getUUID(String name) throws RateLimitException {
+        increaseRequestCount(1);
         try {
             URL urlForGetRequest = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);
             //String readLine = null;
@@ -211,8 +238,11 @@ public class UserData {
      * @param m The {@link Member member} to update.
      * @return an empty array if nothing changed or their previous nickname didn't match their old username, {oldUsername, newUsername} if changed, {"-"} if entry should be deleted, {"e"} if other error.
      */
-    private String[] updateMember(Member m) {
+    public String[] updateMember(Member m) throws RateLimitException {
         try {
+            List<ModerationBot> botListenerList = m.getJDA().getRegisteredListeners()
+                    .stream().filter(o -> o instanceof ModerationBot).map(o -> (ModerationBot) o).collect(Collectors.toList());
+
             String[] nameChange = usernameCache.get(m.getIdLong());
             if (nameChange.length == 1) {
                 if (nameChange[0].equals("-") || nameChange[0].equals("e"))
@@ -242,18 +272,22 @@ public class UserData {
                         if (newNick.length() > 32)
                             newNick = newName;
                         try {
-                            ModerationBot.ignoredUsers.add(m.getIdLong());
+                            botListenerList.forEach(b -> b.addIgnoredUser(m.getIdLong(), m.getGuild().getIdLong()));
+                            //ModerationBot.ignoredUsers.add(m.getIdLong());
                             m.modifyNickname(newNick).queue();
                         } catch (HierarchyException | InsufficientPermissionException ignored) {
-                            ModerationBot.ignoredUsers.remove(m.getIdLong());
+                            botListenerList.forEach(b -> b.removeIgnoredUser(m.getIdLong(), m.getGuild().getIdLong()));
+                            //ModerationBot.ignoredUsers.remove(m.getIdLong());
                         }
                     }
                 } else {
                     try {
-                        ModerationBot.ignoredUsers.add(m.getIdLong());
+                        botListenerList.forEach(b -> b.addIgnoredUser(m.getIdLong(), m.getGuild().getIdLong()));
+                        //ModerationBot.ignoredUsers.add(m.getIdLong());
                         m.modifyNickname(newName).queue();
                     } catch (HierarchyException | InsufficientPermissionException ignored) {
-                        ModerationBot.ignoredUsers.remove(m.getIdLong());
+                        botListenerList.forEach(b -> b.removeIgnoredUser(m.getIdLong(), m.getGuild().getIdLong()));
+                        //ModerationBot.ignoredUsers.remove(m.getIdLong());
                     }
                 }
                 if (hide)
@@ -262,9 +296,16 @@ public class UserData {
                     return nameChange;
             }
             return new String[]{};
-        } catch (HierarchyException | InsufficientPermissionException | ExecutionException e) {
+        } catch (HierarchyException | InsufficientPermissionException e) {
             e.printStackTrace();
             return new String[]{};
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RateLimitException)
+                throw (RateLimitException) e.getCause();
+            else {
+                e.printStackTrace();
+                return new String[]{};
+            }
         }
     }
 
@@ -274,7 +315,7 @@ public class UserData {
      * @param userID The specified {@link Member member's} ID.
      * @return possibly-empty string containing a minecraft ign.
      */
-    public String getUsername(long userID) {
+    public String getUsername(long userID) throws RateLimitException {
         try {
             String[] names = usernameCache.get(userID);
             if (names.length == 0)
@@ -287,8 +328,12 @@ public class UserData {
             } else
                 return names[1];
         } catch (ExecutionException e) {
-            e.printStackTrace();
-            return "";
+            if (e.getCause() instanceof RateLimitException)
+                throw (RateLimitException) e.getCause();
+            else {
+                e.printStackTrace();
+                return "";
+            }
         }
     }
 
@@ -324,7 +369,7 @@ public class UserData {
      * @param name   This minecraft ign to be associated with this member.
      * @return a String containing the case-corrected username or "e" if an error occured or an empty string if that name doesnt exist
      */
-    public String setUuid(Member member, String name) {
+    public String setUuid(Member member, String name) throws RateLimitException {
         String uuid = getUUID(name);
         if (uuid == null)
             return "e";
@@ -345,22 +390,15 @@ public class UserData {
             if (uuidMap != null)
                 uuidMap.put(userID, uuid);
 
-            updateMember(member); // Return value can be ignored since nothing should go wrong
-
-            try {
-                String[] mcname= usernameCache.get(userID);
-                if(mcname.length == 1) {
-                    if(mcname[0].equals("-1"))
-                        return "";
-                    return mcname[0];
-                }
-                if(mcname.length == 2)
-                    return mcname[1];
-                return "e";
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-                return "e";
+            String[] mcname = updateMember(member);
+            if (mcname.length == 1) {
+                if (mcname[0].equals("-1"))
+                    return "";
+                return mcname[0];
             }
+            if (mcname.length == 2)
+                return mcname[1];
+            return "e";
         }
     }
 
@@ -396,9 +434,9 @@ public class UserData {
      * Updates the nicknames of all members that changed their minecraft ign.
      *
      * @param members A list of all the members to be checked.
-     * @return a {@link CompletableFuture completable future} with a value that is a hashmap of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
+     * @return a map of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
-    public Map<Long, String[]> updateNames(List<Member> members) {
+    public Map<Long, String[]> updateNames(List<Member> members) throws RateLimitException {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -416,6 +454,8 @@ public class UserData {
         HashMap<Long, String> toChange = new HashMap<>(uuidMap);
         toChange.keySet().retainAll(memberMap.keySet());
         Map<Long, String[]> updated = new ConcurrentHashMap<>();
+
+        increaseRequestCount(toChange.size() + 20);
 
         CloseableHttpAsyncClient httpclient = HttpAsyncClients.custom()
                 .setMaxConnPerRoute(1000)
@@ -455,8 +495,13 @@ public class UserData {
                                 } else {
                                     String[] res = new String[]{matches.get(matches.size() - 2), matches.get(matches.size() - 1)};
                                     usernameCache.put(entry.getKey(), res);
-                                    if (updateMember(memberMap.get(entry.getKey())).length == 2) {
-                                        updated.put(entry.getKey(), res);
+                                    try {
+                                        if (updateMember(memberMap.get(entry.getKey())).length == 2) {
+                                            updated.put(entry.getKey(), res);
+                                        }
+                                    } catch (RateLimitException e) {
+                                        e.printStackTrace();
+                                        updated.put(entry.getKey(), new String[]{"e"});
                                     }
                                 }
                             } else if (responseCode == HttpURLConnection.HTTP_BAD_REQUEST) {//UUID invalid
@@ -539,5 +584,17 @@ public class UserData {
         }
         assert uuidMap != null;
         return Collections.unmodifiableList(new ArrayList<>(uuidMap.values()));
+    }
+
+    public static class RateLimitException extends Exception {
+        /**
+         * The time left in seconds until the rate limit expires.
+         */
+        public final int timeLeft;
+
+        public RateLimitException(int timeLeft) {
+            super("Mojang rate limit reached! Please wait " + timeLeft + " seconds before trying again!");
+            this.timeLeft = timeLeft;
+        }
     }
 }

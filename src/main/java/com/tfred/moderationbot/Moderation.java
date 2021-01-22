@@ -63,11 +63,11 @@ public class Moderation {
         Set<Integer> pardoned = new HashSet<>(); // Set of punishment ids that were pardoned and not marked as hidden
         boolean was_pardoned = false;
 
-        while(!punishments.isEmpty()) {
+        while (!punishments.isEmpty()) {
             Punishment p = punishments.removeLast();
             if (p.severity == sev) {
                 if (!hidden.contains(p.id)) {
-                    if(pardoned.contains(p.id))
+                    if (pardoned.contains(p.id))
                         was_pardoned = true;
                     prev = true;
                     end_date = p.date + (((long) p.length) * 60000);
@@ -80,8 +80,7 @@ public class Moderation {
                     String s = p.reason.substring(2);
                     s = s.substring(0, s.indexOf(' '));
                     hidden.add(Integer.parseInt(s));
-                }
-                else {
+                } else {
                     String s = p.reason.substring(2);
                     s = s.substring(0, s.indexOf(' '));
                     pardoned.add(Integer.parseInt(s));
@@ -637,9 +636,22 @@ public class Moderation {
 
     public static class PunishmentHandler {
         private static PunishmentHandler punishmentHandler;
+        private final ScheduledExecutorService scheduler;
+        private final LinkedList<EndPunishment> queued;
+        private boolean paused;
+        private boolean ranWhilePaused;
+        private JDA jda;
+        private PunishmentHandler(JDA jda) {
+            this.jda = jda;
+            paused = false;
+            ranWhilePaused = false;
+            queued = new LinkedList<>();
+
+            scheduler = Executors.newScheduledThreadPool(0);
+        }
 
         public static PunishmentHandler get() throws NotInitializedException {
-            if(punishmentHandler == null)
+            if (punishmentHandler == null)
                 throw new NotInitializedException();
 
             return punishmentHandler;
@@ -647,7 +659,7 @@ public class Moderation {
 
         public static synchronized void initialize(JDA jda) {
             assert jda != null;
-            if(punishmentHandler == null) {
+            if (punishmentHandler == null) {
                 punishmentHandler = new PunishmentHandler(jda);
 
                 try {
@@ -655,7 +667,7 @@ public class Moderation {
                             .map(p -> Long.parseLong(p.getFileName().toString()))
                             .collect(Collectors.toList());
 
-                    for(long id :ids) {
+                    for (long id : ids) {
                         try {
                             Moderation.getActivePunishments(id).forEach((ap) -> punishmentHandler.newPunishment(ap.memberID, id, ap.punishment));
                         } catch (IOException ignored) {
@@ -668,20 +680,31 @@ public class Moderation {
             }
         }
 
+        public static void stop() {
+            try {
+                get().scheduler.shutdownNow();
+            } catch (Exception ignored) {
+            }
+        }
 
-        private final ScheduledExecutorService scheduler;
-        private final LinkedList<EndPunishment> queued;
-        private boolean paused;
-        private boolean ranWhilePaused;
-        private JDA jda;
+        public static void pause() {
+            try {
+                get().paused = true;
+            } catch (NotInitializedException ignored) {
+            }
+        }
 
-        private PunishmentHandler(JDA jda) {
-            this.jda = jda;
-            paused = false;
-            ranWhilePaused = false;
-            queued = new LinkedList<>();
-
-            scheduler = Executors.newScheduledThreadPool(0);
+        public static void resume(JDA jda) {
+            try {
+                PunishmentHandler pH = get();
+                pH.jda = jda;
+                pH.paused = false;
+                if (pH.ranWhilePaused) {
+                    while (!pH.queued.isEmpty())
+                        pH.queued.remove().run();
+                }
+            } catch (NotInitializedException ignored) {
+            }
         }
 
         public void newPunishment(long memberID, long guildID, Punishment p) {
@@ -733,29 +756,10 @@ public class Moderation {
             }
         }
 
-        public static void stop() {
-            try {
-                get().scheduler.shutdownNow();
-            } catch (Exception ignored) {
+        public static class NotInitializedException extends Exception {
+            public NotInitializedException() {
+                super("Please initialize the punishment handler first by running PunishmentHandler.initialize(jda)!");
             }
-        }
-
-        public static void pause() {
-            try {
-                get().paused = true;
-            } catch (NotInitializedException ignored) {}
-        }
-
-        public static void resume(JDA jda) {
-            try {
-                PunishmentHandler pH = get();
-                pH.jda = jda;
-                pH.paused = false;
-                if (pH.ranWhilePaused) {
-                    while(!pH.queued.isEmpty())
-                        pH.queued.remove().run();
-                }
-            } catch (NotInitializedException ignored) {}
         }
 
         private class EndPunishment {
@@ -771,12 +775,6 @@ public class Moderation {
 
             public void run() {
                 runEndPunishment(memberID, guildID, p);
-            }
-        }
-
-        public static class NotInitializedException extends Exception {
-            public NotInitializedException() {
-                super("Please initialize the punishment handler first by running PunishmentHandler.initialize(jda)!");
             }
         }
     }

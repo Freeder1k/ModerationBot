@@ -51,7 +51,7 @@ public class ServerData {
                 }
 
                 modRoles = allServerModRoles.get(guildID);
-                if(modRoles == null) {
+                if (modRoles == null) {
                     modRoles = Collections.synchronizedSet(new HashSet<>(4));
                     for (String id : lines.get(1).split(" ")) {
                         modRoles.add(Long.parseLong(id));
@@ -120,6 +120,10 @@ public class ServerData {
         }
     }
 
+    public static Set<Long> getModRoles(long guildID) {
+        return Collections.unmodifiableSet(allServerModRoles.get(guildID));
+    }
+
     private synchronized void updateFile() {
         try {
             List<String> lines = new ArrayList<>(11);
@@ -145,10 +149,6 @@ public class ServerData {
 
     public Set<Long> getModRoles() {
         return Collections.unmodifiableSet(modRoles);
-    }
-
-    public static Set<Long> getModRoles(long guildID) {
-        return Collections.unmodifiableSet(allServerModRoles.get(guildID));
     }
 
     public void addModRole(long modRole) {
