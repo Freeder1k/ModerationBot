@@ -125,7 +125,7 @@ public class Commands {
                 break;
             }
             case "modstats": {
-                usage = "!modstats [user ID]";
+                usage = "!modstats [user]";
                 description = "Show moderator statistics for a user.";
                 break;
             }
@@ -223,7 +223,7 @@ public class Commands {
                 CompletableFuture.runAsync(() -> caseCommand(args, sender, channel, guild.getIdLong()));
                 break;
             case "modstats":
-                CompletableFuture.runAsync(() -> modstatsCommand(sender, channel, guild.getIdLong()));
+                CompletableFuture.runAsync(() -> modstatsCommand(args, sender, channel, guild));
                 break;
             case "lb":
                 CompletableFuture.runAsync(() -> lbCommand(msg, sender, channel, guild));
@@ -265,7 +265,7 @@ public class Commands {
                             "**__!modlogs <user>__**\n- Show a users punishment history.\n\n" +
                             "**__!moderations__**\n- List all currently active punishments.\n\n" +
                             "**__!case <punishment ID>__**\n- Show info to a punishment.\n\n" +
-                            "**__!modstats [user ID]__**\n- Show moderator statistics for a user.\n", false)
+                            "**__!modstats [user]__**\n- Show moderator statistics for a user.\n", false)
                     .addField("", "**```autohotkey\nADMIN COMMANDS:```**", true).addBlankField(true).addBlankField(true)
                     .addField("**__!config <option> <value> [action]__**", "- Modify a config option.\n\n" +
                             "**__!lb <board>__**\n- Sends a message with a bh leaderboard (deletes any previous ones).\n\n" +
@@ -1139,11 +1139,11 @@ public class Commands {
                 return;
             }
             Moderation.UserPunishment userPunishment = null;
-            for(Moderation.UserPunishment p: all) {
-                if(p.p.id == pID)
+            for (Moderation.UserPunishment p : all) {
+                if (p.p.id == pID)
                     userPunishment = p;
             }
-            if(userPunishment == null)
+            if (userPunishment == null)
                 sendError(channel, "No punishment with ID " + pID + " found.");
             else {
                 String type = "";
@@ -1175,15 +1175,30 @@ public class Commands {
                         .setTitle("Case " + pID)
                         .addField("**User:**", "<@" + userPunishment.userID + ">\n**Type:**\n" + type, true)
                         .addField("**Date:**", Instant.ofEpochMilli(userPunishment.p.date).toString() + "\n**Length:**\n" + parseTime(((long) userPunishment.p.length) * 60L), true)
-                        .addField("**Moderator:**",  "<@" + userPunishment.p.punisherID + ">\n**Reason:**\n" + userPunishment.p.reason, true)
+                        .addField("**Moderator:**", "<@" + userPunishment.p.punisherID + ">\n**Reason:**\n" + userPunishment.p.reason, true)
                         .build()
                 ).queue();
             }
         }
     }
 
-    public static void modstatsCommand(Member sender, TextChannel channel, long guildID) {
+    public static void modstatsCommand(String[] args, Member sender, TextChannel channel, Guild guild) {
+        long guildID = guild.getIdLong();
         if (isModerator(guildID, sender)) {
+            Member moderator;
+            if (args.length == 1)
+                moderator = sender;
+            else if (args.length == 2) {
+                moderator = parseMember(guild, args[1]);
+                if (moderator == null) {
+                    sendError(channel, "Couldn't find the specified user!");
+                    return;
+                }
+            } else {
+                sendError(channel, "Invalid amount of arguments.");
+                return;
+            }
+
             Moderation.UserPunishment[] all;
             try {
                 all = Moderation.getAllUserPunishments(guildID);
@@ -1192,23 +1207,22 @@ public class Commands {
                 return;
             }
 
-            int[] last7Days = new int[]{0, 0, 0, 0, 0 , 0, 0, 0, 0};
-            int[] last30Days = new int[]{0, 0, 0, 0, 0 , 0, 0, 0, 0};
-            int[] allTime = new int[]{0, 0, 0, 0, 0 , 0, 0, 0, 0};
+            int[] last7Days = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0};
+            int[] last30Days = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0};
+            int[] allTime = new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-            long userID = sender.getIdLong();
+            long userID = moderator.getIdLong();
 
             long currentTime = System.currentTimeMillis();
 
-            for(Moderation.UserPunishment up: all) {
-                if(up.p.punisherID == userID) {
+            for (Moderation.UserPunishment up : all) {
+                if (up.p.punisherID == userID) {
                     boolean week = false;
                     boolean month = false;
-                    if(currentTime - up.p.date < 604800000L) {
+                    if (currentTime - up.p.date < 604800000L) {
                         week = true;
                         month = true;
-                    }
-                    else if(currentTime - up.p.date < 2592000000L)
+                    } else if (currentTime - up.p.date < 2592000000L)
                         month = true;
 
                     short sevType;
@@ -1243,7 +1257,7 @@ public class Commands {
                         default:
                             sevType = -1;
                     }
-                    if(sevType != -1) {
+                    if (sevType != -1) {
                         if (week)
                             last7Days[sevType]++;
                         if (month)
@@ -1255,8 +1269,8 @@ public class Commands {
 
             EmbedBuilder eb = new EmbedBuilder()
                     .setColor(defaultColor)
-                    .setTitle("Moderation statistics for " + sender.getUser().getAsTag())
-                    .setFooter("ID: " + sender.getId())
+                    .setTitle("Moderation statistics for " + moderator.getUser().getAsTag())
+                    .setFooter("ID: " + moderator.getId())
                     .setTimestamp(Instant.now())
                     .addField("**Last 7 days**",
                             "**Sev 1:**\n" + last7Days[0] +
