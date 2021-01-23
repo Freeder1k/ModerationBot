@@ -338,6 +338,26 @@ public class UserData {
     }
 
     /**
+     * Get the latest minecraft name of a uuid and the previous name if one exists.
+     *
+     * @param userID The user ID to get the name for.
+     * @return The name(s) or {} if the users uuid doesn't exist anymore or {"e"} if an error occured.
+     * @throws RateLimitException If the rate limit got reached.
+     */
+    public String[] getUsernames(long userID) throws RateLimitException {
+        try {
+            return usernameCache.get(userID);
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RateLimitException)
+                throw (RateLimitException) e.getCause();
+            else {
+                e.printStackTrace();
+                return new String[]{"e"};
+            }
+        }
+    }
+
+    /**
      * Returns the user ID associated with a minecraft uuid.
      *
      * @param uuid The uuid to search the associated user of.

@@ -30,7 +30,6 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,7 +39,7 @@ public class ModerationBot extends ListenerAdapter {
     /**
      * IDs of members of which a {@link GuildMemberUpdateNicknameEvent nickname update event} should be ignored
      */
-    private final Map<Long, Set<Long>> ignoredUsers = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Set<Long>> ignoredUsers = new ConcurrentHashMap<>();
     private final AutoRun autoRun;
 
     private ModerationBot(JDA jda) {
@@ -344,22 +343,34 @@ public class ModerationBot extends ListenerAdapter {
     private void checkNameChange(String old_n, String new_n, Member m) {
         Guild g = m.getGuild();
         long guildID = g.getIdLong();
-        String mc_n;
+        String[] mc_n;
         try {
-            mc_n = UserData.get(guildID).getUsername(m.getIdLong());
+            mc_n = UserData.get(guildID).getUsernames(m.getIdLong());
         } catch (UserData.RateLimitException e) {
-            autoRun.scheduleNameCheck(old_n, m, e.timeLeft);
+            autoRun.scheduleNameCheck(old_n, m, e.timeLeft + 10);
             return;
         }
         ServerData serverData = ServerData.get(g.getIdLong());
-        if (mc_n.isEmpty())
+        if (mc_n.length == 0)
             return;
 
+        String newMcName, oldMcName;
+
+        if (mc_n.length == 1) {
+            if (mc_n[0].equals("e") || mc_n[0].equals("-"))
+                return;
+            newMcName = mc_n[0];
+            oldMcName = null;
+        } else {
+            oldMcName = mc_n[0];
+            newMcName = mc_n[1];
+        }
+
         if (new_n == null)
-            new_n = m.getUser().getName();
+            new_n = m.getEffectiveName();
         new_n = Commands.getName(new_n);
 
-        if (!mc_n.equals(new_n)) {
+        if (!newMcName.equals(new_n)) {
             try {
                 addIgnoredUser(m.getIdLong(), m.getGuild().getIdLong());
                 m.modifyNickname(old_n).queue();
@@ -378,7 +389,9 @@ public class ModerationBot extends ListenerAdapter {
                     namechannel = g.getTextChannelById(serverData.getLogChannel());
                 }
                 if (namechannel != null)
-                    namechannel.sendMessage(new EmbedBuilder().setColor(Commands.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
+                    if (oldMcName != null)
+                        if (oldMcName.equals(old_n))
+                            namechannel.sendMessage(new EmbedBuilder().setColor(Commands.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
             }
         }
     }
@@ -489,9 +502,12 @@ public class ModerationBot extends ListenerAdapter {
          * @param timeSeconds The time in seconds until the rate limit is over.
          */
         public void scheduleNameCheck(String old_n, Member m, int timeSeconds) {
+            System.out.println("a");
             if (isNameCheckSchedulerActive.compareAndSet(false, true)) {
                 scheduler.schedule(() -> {
+                    System.out.println(scheduledNameChecks.size());
                     scheduledNameChecks.forEach(snc -> {
+                        System.out.println("c");
                         Guild g = jda.getGuildById(snc.guildID);
                         if (g != null) {
                             Member member = g.getMemberById(snc.memberID);
@@ -507,6 +523,7 @@ public class ModerationBot extends ListenerAdapter {
             long memberID = m.getIdLong();
             if (scheduledNameChecks.stream().noneMatch(snc -> snc.guildID == guildID && snc.memberID == memberID))
                 scheduledNameChecks.add(new ScheduledNameCheck(old_n, guildID, memberID));
+            System.out.println("b");
         }
 
         /**
