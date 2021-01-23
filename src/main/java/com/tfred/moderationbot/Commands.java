@@ -124,6 +124,11 @@ public class Commands {
                 description = "Show a punishment for a specified ID.";
                 break;
             }
+            case "modstats": {
+                usage = "!modstats [user ID]";
+                description = "Show moderator statistics for a user.";
+                break;
+            }
             case "lb": {
                 usage = "!lb <board>";
                 description = " Sends a message with a Blockhunt leaderboard that gets updated weekly.\n" +
@@ -217,6 +222,9 @@ public class Commands {
             case "case":
                 CompletableFuture.runAsync(() -> caseCommand(args, sender, channel, guild.getIdLong()));
                 break;
+            case "modstats":
+                CompletableFuture.runAsync(() -> modstatsCommand(sender, channel, guild.getIdLong()));
+                break;
             case "lb":
                 CompletableFuture.runAsync(() -> lbCommand(msg, sender, channel, guild));
                 break;
@@ -255,7 +263,9 @@ public class Commands {
                             "**__!punish <user> <severity> [reason]__**\n- Punish a user.\n\n" +
                             "**__!pardon <punishment ID|user> <hide> [reason]__**\n- Pardon a user or punishment.\n\n" +
                             "**__!modlogs <user>__**\n- Show a users punishment history.\n\n" +
-                            "**__!moderations__**\n- List all currently active punishments.\n", false)
+                            "**__!moderations__**\n- List all currently active punishments.\n\n" +
+                            "**__!case <punishment ID>__**\n- Show info to a punishment.\n\n" +
+                            "**__!modstats [user ID]__**\n- Show moderator statistics for a user.\n", false)
                     .addField("", "**```autohotkey\nADMIN COMMANDS:```**", true).addBlankField(true).addBlankField(true)
                     .addField("**__!config <option> <value> [action]__**", "- Modify a config option.\n\n" +
                             "**__!lb <board>__**\n- Sends a message with a bh leaderboard (deletes any previous ones).\n\n" +
@@ -1169,6 +1179,120 @@ public class Commands {
                         .build()
                 ).queue();
             }
+        }
+    }
+
+    public static void modstatsCommand(Member sender, TextChannel channel, long guildID) {
+        if (isModerator(guildID, sender)) {
+            Moderation.UserPunishment[] all;
+            try {
+                all = Moderation.getAllUserPunishments(guildID);
+            } catch (IOException e) {
+                sendError(channel, "An IO exception occurred! " + e.getMessage());
+                return;
+            }
+
+            int[] last7Days = new int[]{0, 0, 0, 0, 0 , 0, 0, 0, 0};
+            int[] last30Days = new int[]{0, 0, 0, 0, 0 , 0, 0, 0, 0};
+            int[] allTime = new int[]{0, 0, 0, 0, 0 , 0, 0, 0, 0};
+
+            long userID = sender.getIdLong();
+
+            long currentTime = System.currentTimeMillis();
+
+            for(Moderation.UserPunishment up: all) {
+                if(up.p.punisherID == userID) {
+                    boolean week = false;
+                    boolean month = false;
+                    if(currentTime - up.p.date < 604800000L) {
+                        week = true;
+                        month = true;
+                    }
+                    else if(currentTime - up.p.date < 2592000000L)
+                        month = true;
+
+                    short sevType;
+                    switch (up.p.severity) {
+                        case '1':
+                            sevType = 0;
+                            break;
+                        case '2':
+                            sevType = 1;
+                            break;
+                        case '3':
+                            sevType = 2;
+                            break;
+                        case '4':
+                            sevType = 3;
+                            break;
+                        case '5':
+                            sevType = 4;
+                            break;
+                        case '6':
+                            sevType = 5;
+                            break;
+                        case 'v':
+                            sevType = 6;
+                            break;
+                        case 'n':
+                            sevType = 7;
+                            break;
+                        case 'u':
+                            sevType = 8;
+                            break;
+                        default:
+                            sevType = -1;
+                    }
+                    if(sevType != -1) {
+                        if (week)
+                            last7Days[sevType]++;
+                        if (month)
+                            last30Days[sevType]++;
+                        allTime[sevType]++;
+                    }
+                }
+            }
+
+            EmbedBuilder eb = new EmbedBuilder()
+                    .setColor(defaultColor)
+                    .setTitle("Moderation statistics for " + sender.getUser().getAsTag())
+                    .setFooter("ID: " + sender.getId())
+                    .setTimestamp(Instant.now())
+                    .addField("**Last 7 days**",
+                            "**Sev 1:**\n" + last7Days[0] +
+                                    "\n**Sev 2:**\n" + last7Days[1] +
+                                    "\n**Sev 3:**\n" + last7Days[2] +
+                                    "\n**Sev 4:**\n" + last7Days[3] +
+                                    "\n**Sev 5:**\n" + last7Days[4] +
+                                    "\n**Sev 6:**\n" + last7Days[5] +
+                                    "\n**Sev v:**\n" + last7Days[6] +
+                                    "\n**Sev n:**\n" + last7Days[7] +
+                                    "\n**Pardon:**\n" + last7Days[8] +
+                                    "\n**Total:**\n" + Arrays.stream(last7Days).sum(), true)
+                    .addField("**Last 30 days**",
+                            "**Sev 1:**\n" + last30Days[0] +
+                                    "\n**Sev 2:**\n" + last30Days[1] +
+                                    "\n**Sev 3:**\n" + last30Days[2] +
+                                    "\n**Sev 4:**\n" + last30Days[3] +
+                                    "\n**Sev 5:**\n" + last30Days[4] +
+                                    "\n**Sev 6:**\n" + last30Days[5] +
+                                    "\n**Sev v:**\n" + last30Days[6] +
+                                    "\n**Sev n:**\n" + last30Days[7] +
+                                    "\n**Pardon:**\n" + last30Days[8] +
+                                    "\n**Total:**\n" + Arrays.stream(last30Days).sum(), true)
+                    .addField("**All time**",
+                            "**Sev 1:**\n" + allTime[0] +
+                                    "\n**Sev 2:**\n" + allTime[1] +
+                                    "\n**Sev 3:**\n" + allTime[2] +
+                                    "\n**Sev 4:**\n" + allTime[3] +
+                                    "\n**Sev 5:**\n" + allTime[4] +
+                                    "\n**Sev 6:**\n" + allTime[5] +
+                                    "\n**Sev v:**\n" + allTime[6] +
+                                    "\n**Sev n:**\n" + allTime[7] +
+                                    "\n**Pardon:**\n" + allTime[8] +
+                                    "\n**Total:**\n" + Arrays.stream(allTime).sum(), true);
+
+            channel.sendMessage(eb.build()).queue();
         }
     }
 
