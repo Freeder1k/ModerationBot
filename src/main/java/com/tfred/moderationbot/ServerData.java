@@ -121,7 +121,11 @@ public class ServerData {
     }
 
     public static Set<Long> getModRoles(long guildID) {
-        return Collections.unmodifiableSet(allServerModRoles.get(guildID));
+        Set<Long> roles = allServerModRoles.get(guildID);
+        if(roles != null)
+            return Collections.unmodifiableSet(roles);
+
+        return ServerData.get(guildID).getModRoles();
     }
 
     private synchronized void updateFile() {
