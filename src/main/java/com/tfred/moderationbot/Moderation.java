@@ -46,6 +46,37 @@ public class Moderation {
     }
 
     /**
+     * Get an array containing all user punishments for a guild.
+     *
+     * @param guildID
+     *          The guilds ID.
+     * @return
+     *          An array containing user punishments.
+     */
+    public static UserPunishment[] getAllUserPunishments(long guildID) throws IOException {
+        LinkedList<UserPunishment> res = new LinkedList<>();
+        if (Files.exists(Paths.get("moderations/" + guildID))) {
+            List<Long> ids = Files.find(Paths.get("moderations/" + guildID), 1, (p, bfa) -> bfa.isRegularFile() && p.getFileName().toString().matches("\\d+.punishments"))
+                    .map(p -> {
+                        String str = p.getFileName().toString();
+                        return Long.parseLong(str.substring(0, str.length() - 12));
+                    })
+                    .collect(Collectors.toList());
+
+            for (long id : ids) {
+                try {
+                    getUserPunishments(guildID, id).forEach((p) -> res.add(new UserPunishment(id, p)));
+                } catch (IOException ignored) {
+                    System.out.println("Failed to read punishments for user with ID " + id);
+                }
+            }
+            return res.toArray(new UserPunishment[0]);
+        }
+        else
+            return new UserPunishment[]{};
+    }
+
+    /**
      * Get the length of the next punishment of a specified severity for a user.
      *
      * @param guildID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
@@ -603,6 +634,29 @@ public class Moderation {
                 return false;
             Punishment p = (Punishment) o;
             return id == p.id;
+        }
+    }
+
+    public static class UserPunishment {
+        public final long userID;
+        public final Punishment p;
+
+        public UserPunishment(long userID, Punishment p) {
+            this.p = p;
+            this.userID = userID;
+        }
+
+        @Override
+        public String toString() {
+            return String.valueOf(userID) + ' ' + p.toString();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(o instanceof UserPunishment)
+                return p.id == (((UserPunishment) o).p.id);
+            else
+                return false;
         }
     }
 

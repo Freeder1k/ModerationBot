@@ -119,6 +119,11 @@ public class Commands {
                 description = "List all currently active punishments.";
                 break;
             }
+            case "case": {
+                usage = "!case <punishment ID>";
+                description = "Show a punishment for a specified ID.";
+                break;
+            }
             case "lb": {
                 usage = "!lb <board>";
                 description = " Sends a message with a Blockhunt leaderboard that gets updated weekly.\n" +
@@ -208,6 +213,9 @@ public class Commands {
                 break;
             case "moderations":
                 CompletableFuture.runAsync(() -> moderationsCommand(sender, channel, guild.getIdLong()));
+                break;
+            case "case":
+                CompletableFuture.runAsync(() -> caseCommand(args, sender, channel, guild.getIdLong()));
                 break;
             case "lb":
                 CompletableFuture.runAsync(() -> lbCommand(msg, sender, channel, guild));
@@ -1091,6 +1099,75 @@ public class Commands {
                 }
                 if (c != 0)
                     channel.sendMessage(eb.build()).queue();
+            }
+        }
+    }
+
+    public static void caseCommand(String[] args, Member sender, TextChannel channel, long guildID) {
+        if (isModerator(guildID, sender)) {
+            if (args.length == 1) {
+                helpMessage(channel, "case");
+                return;
+            }
+            if (args.length != 2) {
+                sendError(channel, "Please specify a punishment ID.");
+                return;
+            }
+            int pID;
+            try {
+                pID = Integer.parseInt(args[1]);
+            } catch (NumberFormatException ignored) {
+                sendError(channel, "Invalid punishment ID.");
+                return;
+            }
+
+            Moderation.UserPunishment[] all;
+            try {
+                all = Moderation.getAllUserPunishments(guildID);
+            } catch (IOException e) {
+                sendError(channel, "An IO exception occured! " + e.getMessage());
+                return;
+            }
+            Moderation.UserPunishment userPunishment = null;
+            for(Moderation.UserPunishment p: all) {
+                if(p.p.id == pID)
+                    userPunishment = p;
+            }
+            if(userPunishment == null)
+                sendError(channel, "No punishment with ID " + pID + " found.");
+            else {
+                String type = "";
+                switch (userPunishment.p.severity) {
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5': {
+                        type = "Mute (" + userPunishment.p.severity + ')';
+                        break;
+                    }
+                    case '6': {
+                        type = "Ban";
+                        break;
+                    }
+                    case 'v': {
+                        type = "Vent ban";
+                        break;
+                    }
+                    case 'n': {
+                        type = "Nickname mute";
+                        break;
+                    }
+                }
+
+                channel.sendMessage(new EmbedBuilder()
+                        .setColor(defaultColor)
+                        .setTitle("Case " + pID)
+                        .addField("**User:**", "<@" + userPunishment.userID + ">\n**Type:**\n" + type, true)
+                        .addField("**Date:**", Instant.ofEpochMilli(userPunishment.p.date).toString() + "\n**Length:**\n" + parseTime(((long) userPunishment.p.length) * 60L), true)
+                        .addField("**Moderator:**",  "<@" + userPunishment.p.punisherID + ">\n**Reason:**\n" + userPunishment.p.reason, true)
+                        .build()
+                ).queue();
             }
         }
     }
