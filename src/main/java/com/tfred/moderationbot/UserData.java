@@ -410,7 +410,17 @@ public class UserData {
             if (uuidMap != null)
                 uuidMap.put(userID, uuid);
 
-            String[] mcname = updateMember(member);
+            updateMember(member);
+
+            String[] mcname;
+            try {
+                mcname = usernameCache.get(userID);
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof RateLimitException)
+                    throw (RateLimitException) e.getCause();
+                else
+                    return "e";
+            }
             if (mcname.length == 1) {
                 if (mcname[0].equals("-1"))
                     return "";
