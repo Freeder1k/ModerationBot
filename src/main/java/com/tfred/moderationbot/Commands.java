@@ -129,6 +129,11 @@ public class Commands {
                 description = "Show moderator statistics for a user.";
                 break;
             }
+            case "punishlb": {
+                usage = "!punishlb";
+                description = "Show the top 10 users by punishments.";
+                break;
+            }
             case "lb": {
                 usage = "!lb <board>";
                 description = " Sends a message with a Blockhunt leaderboard that gets updated weekly.\n" +
@@ -268,7 +273,8 @@ public class Commands {
                             "**__!modlogs <user>__**\n- Show a users punishment history.\n\n" +
                             "**__!moderations__**\n- List all currently active punishments.\n\n" +
                             "**__!case <punishment ID>__**\n- Show info to a punishment.\n\n" +
-                            "**__!modstats [user]__**\n- Show moderator statistics for a user.\n", false)
+                            "**__!modstats [user]__**\n- Show moderator statistics for a user.\n"+
+                            "**__!punishlb__**\n- Show the top 10 users by punishments.\n", false)
                     .addField("", "**```autohotkey\nADMIN COMMANDS:```**", true).addBlankField(true).addBlankField(true)
                     .addField("**__!config <option> <value> [action]__**", "- Modify a config option.\n\n" +
                             "**__!lb <board>__**\n- Sends a message with a bh leaderboard (deletes any previous ones).\n\n" +
@@ -1340,11 +1346,6 @@ public class Commands {
                     .limit(10)
                     .collect(Collectors.toCollection(ArrayList::new));
 
-            EmbedBuilder eb = new EmbedBuilder()
-                    .setColor(defaultColor)
-                    .setTitle("Top 10 punishments leaderboard!")
-                    .setTimestamp(Instant.now());
-
             StringJoiner mentions = new StringJoiner("\n");
             StringJoiner scores = new StringJoiner("\n");
 
@@ -1354,9 +1355,12 @@ public class Commands {
                 scores.add(String.valueOf(e.getValue()));
             }
 
-
-            eb.addField("**User**", mentions.toString(), true);
-            eb.addField("**Punishments**", scores.toString(), true);
+            EmbedBuilder eb = new EmbedBuilder()
+                    .setColor(defaultColor)
+                    .setTitle("Top 10 punishments leaderboard!")
+                    .setTimestamp(Instant.now())
+                    .addField("**User**", mentions.toString(), true)
+                    .addField("**Punishments**", scores.toString(), true);
 
             channel.sendMessage(eb.build()).queue();
         }
