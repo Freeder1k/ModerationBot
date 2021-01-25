@@ -225,6 +225,9 @@ public class Commands {
             case "modstats":
                 CompletableFuture.runAsync(() -> modstatsCommand(args, sender, channel, guild));
                 break;
+            case "punishlb":
+                CompletableFuture.runAsync(() -> punishlbCommand(sender, channel, guild));
+                break;
             case "lb":
                 CompletableFuture.runAsync(() -> lbCommand(msg, sender, channel, guild));
                 break;
@@ -1305,6 +1308,55 @@ public class Commands {
                                     "\n**Sev n:**\n" + allTime[7] +
                                     "\n**Pardon:**\n" + allTime[8] +
                                     "\n**Total:**\n" + Arrays.stream(allTime).sum(), true);
+
+            channel.sendMessage(eb.build()).queue();
+        }
+    }
+
+    public static void punishlbCommand(Member sender, TextChannel channel, Guild guild) {
+        long guildID = guild.getIdLong();
+        if (isModerator(guildID, sender)) {
+            Moderation.UserPunishment[] all;
+            try {
+                all = Moderation.getAllUserPunishments(guildID);
+            } catch (IOException e) {
+                sendError(channel, "An IO exception occurred! " + e.getMessage());
+                return;
+            }
+
+            Map<Long, Integer> count = new HashMap<>();
+
+            for (Moderation.UserPunishment up : all) {
+                if (up.p.severity != 'u') {
+                    long ID = up.userID;
+                    count.merge(ID, 1, Integer::sum);
+                }
+            }
+
+            ArrayList<Map.Entry<Long, Integer>> sortedCount = count
+                    .entrySet()
+                    .stream()
+                    .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                    .limit(10)
+                    .collect(Collectors.toCollection(ArrayList::new));
+
+            EmbedBuilder eb = new EmbedBuilder()
+                    .setColor(defaultColor)
+                    .setTitle("Top 10 punishments leaderboard!")
+                    .setTimestamp(Instant.now());
+
+            StringJoiner mentions = new StringJoiner("\n");
+            StringJoiner scores = new StringJoiner("\n");
+
+            for (int i = 0; i < sortedCount.size(); i++) {
+                Map.Entry<Long, Integer> e = sortedCount.get(i);
+                mentions.add("**" +(i+1) + "**  <@" + e.getKey() + ">");
+                scores.add(String.valueOf(e.getValue()));
+            }
+
+
+            eb.addField("**User**", mentions.toString(), true);
+            eb.addField("**Punishments**", scores.toString(), true);
 
             channel.sendMessage(eb.build()).queue();
         }
