@@ -1,5 +1,6 @@
 package com.tfred.moderationbot;
 
+import com.tfred.moderationbot.commands.*;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -29,6 +30,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -42,8 +44,11 @@ public class ModerationBot extends ListenerAdapter {
     private final ConcurrentHashMap<Long, Set<Long>> ignoredUsers = new ConcurrentHashMap<>();
     private final AutoRun autoRun;
 
+    private final ArrayList<Command> commands;
+
     private ModerationBot(JDA jda) {
         autoRun = new AutoRun(jda);
+        commands = new ArrayList<>();
         System.out.println("Finished activating autoRun!");
         try {
             List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
@@ -93,12 +98,6 @@ public class ModerationBot extends ListenerAdapter {
             jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
             System.out.println("Finished Building JDA!");
         } catch (LoginException | InterruptedException e) {
-            //If anything goes wrong in terms of authentication, this is the exception that will represent it
-
-            //Due to the fact that awaitReady is a blocking method, one which waits until JDA is fully loaded,
-            // the waiting can be interrupted. This is the exception that would fire in that situation.
-            //As a note: in this extremely simplified example this will never occur. In fact, this will never occur unless
-            // you use awaitReady in a thread that has the possibility of being interrupted (async thread usage and interrupts)
             e.printStackTrace();
             return;
         }
@@ -107,7 +106,32 @@ public class ModerationBot extends ListenerAdapter {
         Moderation.PunishmentHandler.initialize(jda);
         System.out.println("Finished activating punishment handler!");
 
-        jda.addEventListener(new ModerationBot(jda));   // An instance of a class that will handle events.);
+        ModerationBot bot = new ModerationBot(jda);
+        bot.addCommand(new HelpCommand(bot))
+                .addCommand(new ConfigCommand())
+                .addCommand(new DelreactionCommand())
+                .addCommand(new GetreactionsCommand())
+                .addCommand(new NameCommand())
+                .addCommand(new UpdatenamesCommand())
+                .addCommand(new ListnamesCommand())
+                .addCommand(new PunishCommand())
+                .addCommand(new PardonCommand())
+                .addCommand(new ModlogsCommand())
+                .addCommand(new ModerationsCommand())
+                .addCommand(new CaseCommand())
+                .addCommand(new ModstatsCommand())
+                .addCommand(new PunishlbCommand())
+                .addCommand(new LbCommand())
+                .addCommand(new UpdatelbCommand())
+                .addCommand(new EvalCommand())
+                .addCommand(new IpCommand())
+                .addCommand(new EmbedtestCommand())
+                .addCommand(new ShutdownCommand())
+                .addCommand(new MemCommand())
+        ;
+        System.out.println("Finished loading commands!");
+
+        jda.addEventListener(bot);   // An instance of a class that will handle events.
     }
 
     public void addIgnoredUser(long userID, long guildID) {
@@ -126,6 +150,15 @@ public class ModerationBot extends ListenerAdapter {
         if (guildSet != null)
             return guildSet.contains(userID);
         return false;
+    }
+
+    public ModerationBot addCommand(Command command) {
+        commands.add(command);
+        return this;
+    }
+
+    public Command[] getCommands() {
+        return commands.toArray(new Command[]{});
     }
 
     /**
@@ -156,17 +189,13 @@ public class ModerationBot extends ListenerAdapter {
             Member member = event.getMember();
             User user = event.getAuthor();
 
-            boolean isPerson;
-
             String name;
             if (message.isWebhookMessage()) {
                 name = "[webhook]" + user.getName();                //If this is a Webhook message, then there is no Member associated
-                isPerson = false;
             } else {
                 assert member != null;
                 name = member.getEffectiveName();
-                isPerson = !user.isBot();
-                if (!isPerson)
+                if (user.isBot())
                     name = "[bot]" + name;
             }
 
@@ -185,12 +214,21 @@ public class ModerationBot extends ListenerAdapter {
             }
 
             //Process commands
+            /*
             if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && isPerson) {
                 if (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
-                    Commands.process(event);
+                    CommandUtils.process(event);
                 else
                     textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
 
+            }*/
+            if (!msg.isEmpty() && msg.charAt(0) == '!') {
+                for (Command command : commands) {
+                    if (command.isCommand(msg)) {
+                        CompletableFuture.runAsync(() -> command.run(event));
+                        return;
+                    }
+                }
             }
         } else if (event.isFromType(ChannelType.PRIVATE)) //If this message was sent to a PrivateChannel
         {
@@ -223,7 +261,7 @@ public class ModerationBot extends ListenerAdapter {
             mcName = UserData.get(guild.getIdLong()).getUsername(m.getIdLong());
         } catch (UserData.RateLimitException e) {
             if (canWrite)
-                Commands.sendError(channel, "Failed to get <@" + m.getId() + ">'s minecraft name: " + e.getMessage());
+                CommandUtils.sendError(channel, "Failed to get <@" + m.getId() + ">'s minecraft name: " + e.getMessage());
             mcName = "";
         }
 
@@ -306,7 +344,7 @@ public class ModerationBot extends ListenerAdapter {
                     }
                 }
                 if ((!response.isEmpty()) && canWrite)
-                    Commands.sendError(channel, response);
+                    CommandUtils.sendError(channel, response);
             }
         } catch (IOException ignored) {
             System.out.println("IO ERROR ON ACTIVE.DATA FOR " + guild.getName());
@@ -368,7 +406,7 @@ public class ModerationBot extends ListenerAdapter {
 
         if (new_n == null)
             new_n = m.getEffectiveName();
-        new_n = Commands.getName(new_n);
+        new_n = CommandUtils.parseName(new_n);
 
         if (!newMcName.equals(new_n)) {
             try {
@@ -382,7 +420,7 @@ public class ModerationBot extends ListenerAdapter {
         } else {
             if (old_n == null)
                 old_n = m.getUser().getName();
-            old_n = Commands.getName(old_n);
+            old_n = CommandUtils.parseName(old_n);
             if (!old_n.equals(new_n)) {
                 TextChannel namechannel = g.getTextChannelById(serverData.getNameChannel());
                 if (namechannel == null) {
@@ -391,7 +429,7 @@ public class ModerationBot extends ListenerAdapter {
                 if (namechannel != null)
                     if (oldMcName != null)
                         if (oldMcName.equals(old_n))
-                            namechannel.sendMessage(new EmbedBuilder().setColor(Commands.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
+                            namechannel.sendMessage(new EmbedBuilder().setColor(CommandUtils.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
             }
         }
     }
@@ -548,12 +586,12 @@ public class ModerationBot extends ListenerAdapter {
                     channel.sendMessage("Daily update in progress...").queue();
                     TextChannel finalChannel = channel;
                     channel.sendMessage("Updating usernames...")
-                            .queue((ignored) -> Commands.updateNames(finalChannel, guild, false));
+                            .queue((ignored) -> UserData.updateNames(finalChannel, guild, false));
                 } else
-                    Commands.updateNames(null, guild, false);
+                    UserData.updateNames(null, guild, false);
 
                 if (weekly)
-                    Commands.updateLeaderboards(channel, guild);
+                    Leaderboards.updateLeaderboards(channel, guild);
             }
         }
 

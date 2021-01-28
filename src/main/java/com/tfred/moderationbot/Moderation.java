@@ -1,5 +1,6 @@
 package com.tfred.moderationbot;
 
+import com.tfred.moderationbot.commands.CommandUtils;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.*;
@@ -803,10 +804,10 @@ public class Moderation {
                 if (pChannel == null) {
                     TextChannel lChannel = guild.getTextChannelById(serverData.getLogChannel());
                     if (lChannel != null) {
-                        Commands.sendInfo(lChannel, response);
+                        CommandUtils.sendInfo(lChannel, response);
                     }
                 } else
-                    Commands.sendInfo(pChannel, response);
+                    CommandUtils.sendInfo(pChannel, response);
             }
         }
 

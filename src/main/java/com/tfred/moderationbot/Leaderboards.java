@@ -2,6 +2,11 @@ package com.tfred.moderationbot;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
+import com.tfred.moderationbot.commands.CommandUtils;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.TextChannel;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,6 +17,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -315,6 +321,55 @@ public class Leaderboards {
      */
     public static long getDate() {
         return date;
+    }
+
+    /**
+     * Updates the leaderboard messages in a specified guild.
+     *
+     * @param channel The {@link TextChannel channel} to send the results to (can be null).
+     * @param guild   The specified {@link Guild guild}.
+     */
+    public static void updateLeaderboards(TextChannel channel, Guild guild) {
+        long guildID = guild.getIdLong();
+
+        try {
+            Leaderboards.updateLeaderboards();
+        } catch (Leaderboards.LeaderboardFetchFailedException e) {
+            System.out.println("Leaderboard update failed! " + e.getMessage());
+            if (channel != null)
+                CommandUtils.sendError(channel, "Leaderboard updating failed! Please try again in a bit or if that doesn't work contact the bot dev. " + e.getMessage());
+            return;
+        }
+
+        long[][] data = ServerData.get(guildID).getAllLbMessages();
+        for (int i = 0; i < 3; i++) {
+            if (data[i][0] == 0)
+                continue;
+
+            TextChannel editChannel = guild.getTextChannelById(data[i][0]);
+            if (editChannel == null)
+                continue;
+
+            List<String> lb = Leaderboards.lbToString(i, guildID);
+            assert lb != null;
+
+            EmbedBuilder eb = new EmbedBuilder().setColor(CommandUtils.defaultColor);
+            eb.addField(new String[]{"Hider Wins", "Hunter Wins", "Kills"}[i] + " Leaderboard:", lb.remove(0), false);
+            for (String s : lb) {
+                eb.addField("", s, false);
+            }
+            eb.setFooter("Last update: ");
+            eb.setTimestamp(Instant.ofEpochMilli(Leaderboards.getDate()));
+            try {
+                editChannel.editMessageById(data[i][1], eb.build()).queue();
+            } catch (IllegalArgumentException ignored) {
+            } catch (ErrorResponseException e) {
+                if (channel != null)
+                    CommandUtils.sendError(channel, "An error occurred when updating lb " + i + ": " + e.getMessage());
+            }
+        }
+        if (channel != null)
+            CommandUtils.sendSuccess(channel, "Updated leaderboards.");
     }
 
     private static class LbSpot {

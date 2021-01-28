@@ -3,8 +3,12 @@ package com.tfred.moderationbot;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.tfred.moderationbot.commands.CommandUtils;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.ISnowflake;
 import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.exceptions.HierarchyException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import org.apache.http.HttpResponse;
@@ -626,5 +630,90 @@ public class UserData {
             super("Mojang rate limit reached! Please wait " + timeLeft + " seconds before trying again!");
             this.timeLeft = timeLeft;
         }
+    }
+
+
+
+    private static final Map<Long, Long> updateNamesTimes = Collections.synchronizedMap(new HashMap<>());
+
+
+    /**
+     * Updates the nicknames of users in a specified guild.
+     *
+     * @param channel The {@link TextChannel channel} to send the results to (can be null).
+     * @param guild   The specified {@link Guild guild}.
+     */
+    public static void updateNames(TextChannel channel, Guild guild, boolean bypassTimeRestriction) {
+        long guildID = guild.getIdLong();
+        if (!bypassTimeRestriction) {
+            Long lastTimeRan = updateNamesTimes.get(guildID);
+            if (lastTimeRan != null) {
+                if (System.currentTimeMillis() - lastTimeRan < 600000) {
+                    CommandUtils.sendError(channel, "This command can only be ran once every 10 minutes per guild!");
+                    return;
+                }
+            }
+        }
+        updateNamesTimes.put(guildID, System.currentTimeMillis());
+
+        Map<Long, String[]> changed;
+        try {
+            changed = UserData.get(guildID).updateNames(guild.getMembers());
+        } catch (UserData.RateLimitException e) {
+            CommandUtils.sendError(channel, e.getMessage());
+            return;
+        }
+        EmbedBuilder eb = new EmbedBuilder()
+                .setTitle("Updated Users:")
+                .setColor(CommandUtils.defaultColor);
+
+        if (changed.size() == 1)
+            eb.setTitle("Updated User:");
+
+        if (!changed.isEmpty()) {
+            StringBuilder updated = new StringBuilder();
+            StringBuilder removed = new StringBuilder();
+            StringBuilder failed = new StringBuilder();
+            for (Map.Entry<Long, String[]> entry : changed.entrySet()) {
+                String[] s = entry.getValue();
+                if (s[0].equals("-"))
+                    removed.append("<@").append(entry.getKey()).append(">\n");
+                else if (s[0].equals("e"))
+                    failed.append("<@").append(entry.getKey()).append(">\n");
+                else
+                    updated.append("<@").append(entry.getKey()).append(">").append(" (").append(s[0]).append(" -> ").append(s[1]).append(")\n");
+            }
+            if (updated.length() != 0) {
+                if (updated.length() > 2048)
+                    eb.setDescription(updated.length() + " users were updated.");
+                else
+                    eb.setDescription(updated.toString());
+            } else
+                eb.setDescription("No users were updated.");
+            if (removed.length() != 0) {
+                if (removed.length() < 1024)
+                    eb.addField("\nRemoved Users:", removed.toString(), false);
+                else
+                    eb.addField("", removed.length() + " users were removed from the system.", false);
+            }
+            if (failed.length() != 0) {
+                if (failed.length() < 1024)
+                    eb.addField("\nFailed Users:", failed.toString(), false);
+                else
+                    eb.addField("", "Updating failed on " + failed.length() + " users.", false);
+            }
+
+            TextChannel namechannel = guild.getTextChannelById(ServerData.get(guildID).getNameChannel());
+            try {
+                if ((namechannel != null) && (!namechannel.equals(channel)))
+                    namechannel.sendMessage(eb.build()).queue();
+            } catch (InsufficientPermissionException ignored) {
+            }
+        } else {
+            eb.setDescription("No users were updated.");
+        }
+
+        if (channel != null)
+            channel.sendMessage(eb.build()).queue();
     }
 }
