@@ -1,6 +1,6 @@
 package com.tfred.moderationbot.commands;
 
-import com.tfred.moderationbot.UserData;
+import com.tfred.moderationbot.usernames.UsernameHandler;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -50,7 +50,7 @@ public class ListnamesCommand extends Command {
         int length1 = 12;
         int length2 = 33;
 
-        List<Long> ids = UserData.get(guild.getIdLong()).getSavedUserIDs();
+        List<Long> ids = UsernameHandler.get(guild.getIdLong()).getSavedUserIDs();
         for (Member m : members) {
             String mention = '\n' + m.getAsMention();
             if (ids.contains(m.getUser().getIdLong())) {

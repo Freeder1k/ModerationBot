@@ -22,9 +22,8 @@ public class EvalCommand extends Command {
     @Override
     public void execute(CommandEvent event) {
         try {
-            ScriptEngine engine = new ScriptEngineManager().getEngineByName("js");
+            ScriptEngine engine = new ScriptEngineManager().getEngineByName("Nashorn");
 
-            engine.eval("load(\"nashorn:mozilla_compat.js\"); ");
             engine.put("event", event);
 
             Object result = engine.eval(event.message.substring(6));

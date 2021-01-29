@@ -3,6 +3,7 @@ package com.tfred.moderationbot;
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import com.tfred.moderationbot.commands.CommandUtils;
+import com.tfred.moderationbot.usernames.UsernameHandler;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.TextChannel;
@@ -281,12 +282,15 @@ public class Leaderboards {
         }
 
         List<String> savedUuids = null;
+        UsernameHandler usernameHandler = null;
 
         boolean noMentions = false;
         if (guildID == 0)
             noMentions = true;
-        else
-            savedUuids = UserData.get(guildID).getSavedUuids();
+        else {
+            usernameHandler = UsernameHandler.get(guildID);
+            savedUuids = usernameHandler.getSavedUuids();
+        }
 
         List<String> output = new ArrayList<>(5);
         StringBuilder temp = new StringBuilder();
@@ -297,7 +301,7 @@ public class Leaderboards {
             if (!noMentions) {
                 String uuid = s.getUuid().replace("-", "");
                 if (savedUuids.contains(uuid))
-                    userID = String.valueOf(UserData.get(guildID).getUserID(uuid));
+                    userID = String.valueOf(usernameHandler.getUserID(uuid));
             }
 
             temp.append(s.toString(userID));

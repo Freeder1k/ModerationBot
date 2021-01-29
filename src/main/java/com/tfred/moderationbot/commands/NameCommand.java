@@ -1,6 +1,7 @@
 package com.tfred.moderationbot.commands;
 
-import com.tfred.moderationbot.UserData;
+import com.tfred.moderationbot.usernames.RateLimitException;
+import com.tfred.moderationbot.usernames.UsernameHandler;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.TextChannel;
@@ -24,7 +25,7 @@ public class NameCommand extends Command {
 
     @Override
     public void execute(CommandEvent event) {
-        UserData userData = UserData.get(event.guild.getIdLong());
+        UsernameHandler usernameHandler = UsernameHandler.get(event.guild.getIdLong());
         String[] args = event.args;
         TextChannel channel = event.channel;
 
@@ -56,8 +57,8 @@ public class NameCommand extends Command {
 
             String result;
             try {
-                result = userData.setUuid(member, args[3]);
-            } catch (UserData.RateLimitException e) {
+                result = usernameHandler.setUuid(member, args[3]);
+            } catch (RateLimitException e) {
                 sendError(channel, e.getMessage());
                 return;
             }
@@ -79,7 +80,7 @@ public class NameCommand extends Command {
             } else
                 memberID = member.getIdLong();
 
-            userData.removeUser(memberID);
+            usernameHandler.removeUser(memberID);
             sendSuccess(channel, "Removed <@" + memberID + ">'s username.");
         } else
             sendError(channel, "Unknown action! Allowed actions: ``set, remove``.");

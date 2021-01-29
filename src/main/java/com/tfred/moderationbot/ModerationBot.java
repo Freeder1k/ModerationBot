@@ -1,7 +1,8 @@
 package com.tfred.moderationbot;
 
 import com.tfred.moderationbot.commands.*;
-import net.dv8tion.jda.api.EmbedBuilder;
+import com.tfred.moderationbot.usernames.RateLimitException;
+import com.tfred.moderationbot.usernames.UsernameHandler;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -20,8 +21,8 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
-import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nonnull;
 import javax.security.auth.login.LoginException;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,16 +33,11 @@ import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class ModerationBot extends ListenerAdapter {
-    /**
-     * IDs of members of which a {@link GuildMemberUpdateNicknameEvent nickname update event} should be ignored
-     */
-    private final ConcurrentHashMap<Long, Set<Long>> ignoredUsers = new ConcurrentHashMap<>();
     private final AutoRun autoRun;
 
     private final ArrayList<Command> commands;
@@ -132,24 +128,6 @@ public class ModerationBot extends ListenerAdapter {
         System.out.println("Finished loading commands!");
 
         jda.addEventListener(bot);   // An instance of a class that will handle events.
-    }
-
-    public void addIgnoredUser(long userID, long guildID) {
-        Set<Long> guildSet = ignoredUsers.computeIfAbsent(guildID, k -> ConcurrentHashMap.newKeySet());
-        guildSet.add(userID);
-    }
-
-    public void removeIgnoredUser(long userID, long guildID) {
-        Set<Long> guildSet = ignoredUsers.get(guildID);
-        if (guildSet != null)
-            guildSet.remove(userID);
-    }
-
-    private boolean isIgnoredUser(long userID, long guildID) {
-        Set<Long> guildSet = ignoredUsers.get(guildID);
-        if (guildSet != null)
-            return guildSet.contains(userID);
-        return false;
     }
 
     public ModerationBot addCommand(Command command) {
@@ -265,8 +243,8 @@ public class ModerationBot extends ListenerAdapter {
 
         String mcName;
         try {
-            mcName = UserData.get(guild.getIdLong()).getUsername(m.getIdLong());
-        } catch (UserData.RateLimitException e) {
+            mcName = UsernameHandler.get(guild.getIdLong()).getUsername(m.getIdLong());
+        } catch (RateLimitException e) {
             if (canWrite)
                 CommandUtils.sendError(channel, "Failed to get <@" + m.getId() + ">'s minecraft name: " + e.getMessage());
             mcName = "";
@@ -276,10 +254,10 @@ public class ModerationBot extends ListenerAdapter {
             channel.sendMessage("<@" + m.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
 
         try {
-            addIgnoredUser(m.getIdLong(), guild.getIdLong());
+            UsernameHandler.get(guild.getIdLong()).addIgnoredUser(m.getIdLong());
             m.modifyNickname(mcName).queue();
         } catch (HierarchyException | InsufficientPermissionException ignored) {
-            removeIgnoredUser(m.getIdLong(), guild.getIdLong());
+            UsernameHandler.get(guild.getIdLong()).removeIgnoredUser(m.getIdLong());
         }
 
         //Manages punished users
@@ -367,10 +345,10 @@ public class ModerationBot extends ListenerAdapter {
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         Member m = event.getMember();
         long mID = m.getIdLong();
-        if (!isIgnoredUser(mID, m.getGuild().getIdLong()))
+        if (!UsernameHandler.get(event.getGuild().getIdLong()).isIgnoredUser(mID))
             checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
         else
-            removeIgnoredUser(mID, m.getGuild().getIdLong());
+            UsernameHandler.get(event.getGuild().getIdLong()).removeIgnoredUser(mID);
     }
 
     @Override
@@ -382,62 +360,6 @@ public class ModerationBot extends ListenerAdapter {
             if (m != null)
                 if (m.getNickname() == null)
                     checkNameChange(event.getOldName(), event.getNewName(), m);
-        }
-    }
-
-    private void checkNameChange(String old_n, String new_n, Member m) {
-        Guild g = m.getGuild();
-        long guildID = g.getIdLong();
-        String[] mc_n;
-        try {
-            mc_n = UserData.get(guildID).getUsernames(m.getIdLong());
-        } catch (UserData.RateLimitException e) {
-            autoRun.scheduleNameCheck(old_n, m, e.timeLeft + 10);
-            return;
-        }
-        ServerData serverData = ServerData.get(g.getIdLong());
-        if (mc_n.length == 0)
-            return;
-
-        String newMcName, oldMcName;
-
-        if (mc_n.length == 1) {
-            if (mc_n[0].equals("e") || mc_n[0].equals("-"))
-                return;
-            newMcName = mc_n[0];
-            oldMcName = null;
-        } else {
-            oldMcName = mc_n[0];
-            newMcName = mc_n[1];
-        }
-
-        if (new_n == null)
-            new_n = m.getEffectiveName();
-        new_n = CommandUtils.parseName(new_n);
-
-        if (!newMcName.equals(new_n)) {
-            try {
-                addIgnoredUser(m.getIdLong(), m.getGuild().getIdLong());
-                m.modifyNickname(old_n).queue();
-            } catch (HierarchyException | InsufficientPermissionException ignored) {
-                removeIgnoredUser(m.getIdLong(), m.getGuild().getIdLong());
-            }
-
-            m.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + g.getName() + " was reset due to it being incompatible with the username system.").queue());
-        } else {
-            if (old_n == null)
-                old_n = m.getUser().getName();
-            old_n = CommandUtils.parseName(old_n);
-            if (!old_n.equals(new_n)) {
-                TextChannel namechannel = g.getTextChannelById(serverData.getNameChannel());
-                if (namechannel == null) {
-                    namechannel = g.getTextChannelById(serverData.getLogChannel());
-                }
-                if (namechannel != null)
-                    if (oldMcName != null)
-                        if (oldMcName.equals(old_n))
-                            namechannel.sendMessage(new EmbedBuilder().setColor(CommandUtils.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
-            }
         }
     }
 
@@ -456,23 +378,31 @@ public class ModerationBot extends ListenerAdapter {
     }
 
     @Override
-    public void onDisconnect(@NotNull DisconnectEvent event) {
+    public void onDisconnect(@Nonnull DisconnectEvent event) {
         autoRun.pause();
         Moderation.PunishmentHandler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
     }
 
     @Override
-    public void onShutdown(@NotNull ShutdownEvent event) {
+    public void onShutdown(@Nonnull ShutdownEvent event) {
         autoRun.stop();
         Moderation.PunishmentHandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
+    private void checkNameChange(String old_n, String new_n, Member m) {
+        try {
+            UsernameHandler.get(m.getGuild().getIdLong()).checkNameChange(old_n, new_n, m);
+        } catch (RateLimitException e) {
+            autoRun.scheduleNameCheck(old_n, m, e.timeLeft + 10);
+        }
+    }
+
     private class AutoRun {
         private final ScheduledExecutorService scheduler;
         private final AtomicBoolean isNameCheckSchedulerActive = new AtomicBoolean(false);
-        private final LinkedBlockingDeque<ScheduledNameCheck> scheduledNameChecks = new LinkedBlockingDeque<>();
+        private final ConcurrentLinkedQueue<ScheduledNameCheck> scheduledNameChecks = new ConcurrentLinkedQueue<>();
         private JDA jda;
         private boolean paused;
         private boolean ranWhilePaused;
@@ -556,8 +486,9 @@ public class ModerationBot extends ListenerAdapter {
                         Guild g = jda.getGuildById(snc.guildID);
                         if (g != null) {
                             Member member = g.getMemberById(snc.memberID);
-                            if (member != null)
+                            if (member != null) {
                                 checkNameChange(snc.old_n, member.getEffectiveName(), member);
+                            }
                         }
                     });
                     scheduledNameChecks.clear();
@@ -593,9 +524,9 @@ public class ModerationBot extends ListenerAdapter {
                     channel.sendMessage("Daily update in progress...").queue();
                     TextChannel finalChannel = channel;
                     channel.sendMessage("Updating usernames...")
-                            .queue((ignored) -> UserData.updateNames(finalChannel, guild, false));
+                            .queue((ignored) -> UsernameHandler.get(guild.getIdLong()).updateNames(finalChannel, jda, false));
                 } else
-                    UserData.updateNames(null, guild, false);
+                    UsernameHandler.get(guild.getIdLong()).updateNames(null, jda, false);
 
                 if (weekly)
                     Leaderboards.updateLeaderboards(channel, guild);
