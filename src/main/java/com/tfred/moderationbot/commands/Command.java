@@ -132,21 +132,15 @@ public abstract class Command {
     }
 
     /**
-     * Checks if the text runs this command is the (case-insensitive).
+     * Checks if the provided name is this this command (case-insensitive).
      *
-     * @param text The name to check. Example: "!examplecommand examplearg".
+     * @param name The name to check. Example: "help".
      * @return True, if this command has this name.
      */
-    public boolean isCommand(String text) {
-        int space = text.indexOf(' ');
-        String commandName;
+    public boolean isCommand(String name) {
+        name = name.toLowerCase();
 
-        if (space == -1)
-            commandName = text.substring(1).toLowerCase();
-        else
-            commandName = text.substring(1, space).toLowerCase();
-
-        return (this.name.equals(commandName) || Arrays.asList(aliases).contains(commandName));
+        return (this.name.equals(name) || Arrays.asList(aliases).contains(name));
     }
 
     /**

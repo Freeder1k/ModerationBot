@@ -224,7 +224,14 @@ public class ModerationBot extends ListenerAdapter {
             }*/
             if (!msg.isEmpty() && msg.charAt(0) == '!') {
                 for (Command command : commands) {
-                    if (command.isCommand(msg)) {
+                    int space = msg.indexOf(' ');
+                    String commandName;
+                    if(space > 0)
+                        commandName = msg.substring(1, space);
+                    else
+                        commandName = msg.substring(1);
+
+                    if (command.isCommand(commandName)) {
                         CompletableFuture.runAsync(() -> command.run(event));
                         return;
                     }

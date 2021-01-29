@@ -54,7 +54,7 @@ public class HelpCommand extends Command {
             event.channel.sendMessage(eb.build()).queue();
         } else {
             for (Command c : bot.getCommands()) {
-                if (c.isCommand("!" + event.args[1])) {
+                if (c.isCommand(event.args[1])) {
                     c.sendHelpMessage(event.channel);
                     return;
                 }
