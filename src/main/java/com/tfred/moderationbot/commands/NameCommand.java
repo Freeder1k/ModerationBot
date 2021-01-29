@@ -24,7 +24,7 @@ public class NameCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         UsernameHandler usernameHandler = UsernameHandler.get(event.guild.getIdLong());
         String[] args = event.args;
         TextChannel channel = event.channel;

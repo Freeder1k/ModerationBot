@@ -25,7 +25,7 @@ public class CaseCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         TextChannel channel = event.channel;
 
         if (event.args.length == 1) {

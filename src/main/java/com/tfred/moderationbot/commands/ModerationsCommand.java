@@ -28,7 +28,7 @@ public class ModerationsCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         TextChannel channel = event.channel;
 
         List<Moderation.ActivePunishment> apList;

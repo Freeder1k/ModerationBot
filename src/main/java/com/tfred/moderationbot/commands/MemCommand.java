@@ -20,7 +20,7 @@ public class MemCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         try {
             Runtime rt = Runtime.getRuntime();
             double total = rt.totalMemory() / 1048576.;

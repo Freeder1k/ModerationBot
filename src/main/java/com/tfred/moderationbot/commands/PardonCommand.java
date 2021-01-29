@@ -31,7 +31,7 @@ public class PardonCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         String[] args = event.message.split(" ", 4);
         TextChannel channel = event.channel;
         Guild guild = event.guild;

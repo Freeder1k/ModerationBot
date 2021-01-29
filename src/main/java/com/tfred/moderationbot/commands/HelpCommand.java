@@ -24,7 +24,7 @@ public class HelpCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         if (event.args.length == 1) {
             StringJoiner anyone = new StringJoiner("\n");
             StringJoiner moderator = new StringJoiner("\n");

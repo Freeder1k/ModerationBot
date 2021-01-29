@@ -27,7 +27,7 @@ public class DelreactionCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         String[] args = event.args;
         TextChannel channel = event.channel;
 

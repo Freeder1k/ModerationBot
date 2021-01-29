@@ -30,7 +30,7 @@ public class GetreactionsCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         if (event.args.length == 1) {
             sendHelpMessage(event.channel);
             return;

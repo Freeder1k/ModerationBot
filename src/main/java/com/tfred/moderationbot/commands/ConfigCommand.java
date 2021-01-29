@@ -37,7 +37,7 @@ public class ConfigCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         ServerData serverData = ServerData.get(event.guild.getIdLong());
         if (event.args.length == 1) {
             EmbedBuilder embedBuilder = new EmbedBuilder();

@@ -20,7 +20,7 @@ public class EvalCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         try {
             ScriptEngine engine = new ScriptEngineManager().getEngineByName("Nashorn");
 

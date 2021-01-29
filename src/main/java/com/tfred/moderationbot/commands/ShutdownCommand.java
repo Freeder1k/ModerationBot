@@ -17,7 +17,7 @@ public class ShutdownCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         try {
             event.channel.sendMessage("⚠️**System shutting down...**⚠️").queue();
             event.event.getJDA().shutdown();

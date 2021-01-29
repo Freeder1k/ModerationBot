@@ -29,7 +29,7 @@ public class ListnamesCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         List<Member> members;
         TextChannel channel = event.channel;
         Guild guild = event.guild;

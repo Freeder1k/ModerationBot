@@ -20,7 +20,7 @@ public class UpdatelbCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         Leaderboards.updateLeaderboards(event.channel, event.guild);
     }
 }

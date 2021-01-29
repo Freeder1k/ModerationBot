@@ -27,7 +27,7 @@ public class PunishlbCommand extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    protected void execute(CommandEvent event) {
         Moderation.UserPunishment[] all;
         try {
             all = Moderation.getAllUserPunishments(event.guild.getIdLong());
