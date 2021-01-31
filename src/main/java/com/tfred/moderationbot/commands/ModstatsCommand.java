@@ -1,6 +1,6 @@
 package com.tfred.moderationbot.commands;
 
-import com.tfred.moderationbot.Moderation;
+import com.tfred.moderationbot.moderation.ModerationData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
@@ -28,6 +28,8 @@ public class ModstatsCommand extends Command {
 
     @Override
     protected void execute(CommandEvent event) {
+        sendError(event.channel, "Not implemented yet!");
+        /*
         TextChannel channel = event.channel;
 
         Member moderator;
@@ -44,9 +46,9 @@ public class ModstatsCommand extends Command {
             return;
         }
 
-        Moderation.UserPunishment[] all;
+        ModerationData.UserPunishment[] all;
         try {
-            all = Moderation.getAllUserPunishments(event.guild.getIdLong());
+            all = ModerationData.getAllPunishments(event.guild.getIdLong());
         } catch (IOException e) {
             sendError(channel, "An IO exception occurred! " + e.getMessage());
             return;
@@ -60,7 +62,7 @@ public class ModstatsCommand extends Command {
 
         long currentTime = System.currentTimeMillis();
 
-        for (Moderation.UserPunishment up : all) {
+        for (ModerationData.UserPunishment up : all) {
             if (up.p.punisherID == userID) {
                 boolean week = false;
                 boolean month = false;
@@ -113,7 +115,7 @@ public class ModstatsCommand extends Command {
         }
 
         EmbedBuilder eb = new EmbedBuilder()
-                .setColor(defaultColor)
+                .setColor(DEFAULT_COLOR)
                 .setTitle("Moderation statistics for " + moderator.getUser().getAsTag())
                 .setFooter("ID: " + moderator.getId())
                 .setTimestamp(Instant.now())
@@ -151,6 +153,6 @@ public class ModstatsCommand extends Command {
                                 "\n**Pardon:**\n" + allTime[8] +
                                 "\n**Total:**\n" + Arrays.stream(allTime).sum(), true);
 
-        channel.sendMessage(eb.build()).queue();
+        channel.sendMessage(eb.build()).queue();*/
     }
 }

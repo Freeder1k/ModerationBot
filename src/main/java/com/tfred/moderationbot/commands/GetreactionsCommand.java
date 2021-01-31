@@ -54,7 +54,7 @@ public class GetreactionsCommand extends Command {
 
         LinkedList<Permission> missingPerms = CommandUtils.missingPerms(c, Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY);
         if (!missingPerms.isEmpty()) {
-            event.channel.sendMessage(new EmbedBuilder().setColor(errorColor)
+            event.channel.sendMessage(new EmbedBuilder().setColor(ERROR_COLOR)
                     .addField("To use this command please give me the following permissions in <#" + c.getId() + ">:",
                             missingPerms.stream().map(p -> "• " + p.getName()).collect(Collectors.joining("\n")),
                             false)
@@ -74,7 +74,7 @@ public class GetreactionsCommand extends Command {
                         emoji = reactionEmote.getName();
                     emojis.add(emoji);
                 }
-                event.channel.sendMessage(new EmbedBuilder().setColor(defaultColor)
+                event.channel.sendMessage(new EmbedBuilder().setColor(DEFAULT_COLOR)
                         .setTitle("Reactions:")
                         .setDescription(emojis.stream().map(e -> "• " + e).collect(Collectors.joining("\n")) + "\n\n[Message link](" + m.getJumpUrl() + ")")
                         .build()).queue();

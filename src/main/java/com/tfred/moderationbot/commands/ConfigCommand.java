@@ -41,7 +41,7 @@ public class ConfigCommand extends Command {
         ServerData serverData = ServerData.get(event.guild.getIdLong());
         if (event.args.length == 1) {
             EmbedBuilder embedBuilder = new EmbedBuilder();
-            embedBuilder.setTitle("__Settings for " + event.guild.getName() + ":__").setColor(defaultColor);
+            embedBuilder.setTitle("__Settings for " + event.guild.getName() + ":__").setColor(DEFAULT_COLOR);
 
             Set<Long> modRoleIds = serverData.getModRoles();
             String modRoles;

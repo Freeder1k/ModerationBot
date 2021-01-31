@@ -30,7 +30,7 @@ public class MemCommand extends Command {
             double usedP = (1. - (free / total)) * 100.;
 
             EmbedBuilder eb = new EmbedBuilder()
-                    .setColor(CommandUtils.defaultColor)
+                    .setColor(CommandUtils.DEFAULT_COLOR)
                     .setTitle("Memory usage (in MB):")
                     .setDescription(String.format(Locale.US, "**Used:** ``%.2f / %.2f`` ``(%.2f%%)``\n**Max:** ``%.2f``", (total - free), total, usedP, max));
 

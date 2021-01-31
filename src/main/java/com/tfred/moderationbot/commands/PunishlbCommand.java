@@ -1,6 +1,6 @@
 package com.tfred.moderationbot.commands;
 
-import com.tfred.moderationbot.Moderation;
+import com.tfred.moderationbot.moderation.ModerationData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 
@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.tfred.moderationbot.commands.CommandUtils.defaultColor;
+import static com.tfred.moderationbot.commands.CommandUtils.DEFAULT_COLOR;
 import static com.tfred.moderationbot.commands.CommandUtils.sendError;
 
 public class PunishlbCommand extends Command {
@@ -28,9 +28,11 @@ public class PunishlbCommand extends Command {
 
     @Override
     protected void execute(CommandEvent event) {
-        Moderation.UserPunishment[] all;
+        sendError(event.channel, "Not implemented yet!");
+        /*
+        ModerationData.UserPunishment[] all;
         try {
-            all = Moderation.getAllUserPunishments(event.guild.getIdLong());
+            all = ModerationData.getAllPunishments(event.guild.getIdLong());
         } catch (IOException e) {
             sendError(event.channel, "An IO exception occurred! " + e.getMessage());
             return;
@@ -38,7 +40,7 @@ public class PunishlbCommand extends Command {
 
         Map<Long, Integer> count = new HashMap<>();
 
-        for (Moderation.UserPunishment up : all) {
+        for (ModerationData.UserPunishment up : all) {
             if (up.p.severity != 'u') {
                 long ID = up.userID;
                 count.merge(ID, 1, Integer::sum);
@@ -62,12 +64,12 @@ public class PunishlbCommand extends Command {
         }
 
         EmbedBuilder eb = new EmbedBuilder()
-                .setColor(defaultColor)
+                .setColor(DEFAULT_COLOR)
                 .setTitle("Top 10 punishments leaderboard!")
                 .setTimestamp(Instant.now())
                 .addField("**User**", mentions.toString(), true)
                 .addField("**Punishments**", scores.toString(), true);
 
-        event.channel.sendMessage(eb.build()).queue();
+        event.channel.sendMessage(eb.build()).queue();*/
     }
 }

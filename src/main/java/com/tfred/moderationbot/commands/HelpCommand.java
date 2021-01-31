@@ -42,7 +42,7 @@ public class HelpCommand extends Command {
             }
 
 
-            EmbedBuilder eb = new EmbedBuilder().setTitle("**Help:**").setColor(CommandUtils.defaultColor)
+            EmbedBuilder eb = new EmbedBuilder().setTitle("**Help:**").setColor(CommandUtils.DEFAULT_COLOR)
                     .setDescription("See: **!help <command>** for help on individual commands.\n");
             if (anyone.length() != 0)
                 eb.addField("**General commands:**", anyone.toString(), false);

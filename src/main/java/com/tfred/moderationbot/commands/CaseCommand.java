@@ -1,14 +1,13 @@
 package com.tfred.moderationbot.commands;
 
-import com.tfred.moderationbot.Moderation;
-import net.dv8tion.jda.api.EmbedBuilder;
+import com.tfred.moderationbot.moderation.ModerationData;
+import com.tfred.moderationbot.moderation.Punishment;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.TextChannel;
 
 import java.io.IOException;
-import java.time.Instant;
 
-import static com.tfred.moderationbot.commands.CommandUtils.*;
+import static com.tfred.moderationbot.commands.CommandUtils.sendError;
 
 public class CaseCommand extends Command {
     public CaseCommand() {
@@ -44,53 +43,21 @@ public class CaseCommand extends Command {
             return;
         }
 
-        Moderation.UserPunishment[] all;
+        Punishment[] all;
         try {
-            all = Moderation.getAllUserPunishments(event.guild.getIdLong());
+            all = ModerationData.getAllPunishments(event.guild.getIdLong());
         } catch (IOException e) {
+            System.out.println("abc");
             sendError(channel, "An IO exception occured! " + e.getMessage());
             return;
         }
-        Moderation.UserPunishment userPunishment = null;
-        for (Moderation.UserPunishment p : all) {
-            if (p.p.id == pID)
-                userPunishment = p;
-        }
-        if (userPunishment == null)
-            sendError(channel, "No punishment with ID " + pID + " found.");
-        else {
-            String type = "";
-            switch (userPunishment.p.severity) {
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5': {
-                    type = "Mute (" + userPunishment.p.severity + ')';
-                    break;
-                }
-                case '6': {
-                    type = "Ban";
-                    break;
-                }
-                case 'v': {
-                    type = "Vent ban";
-                    break;
-                }
-                case 'n': {
-                    type = "Nickname mute";
-                    break;
-                }
-            }
 
-            channel.sendMessage(new EmbedBuilder()
-                    .setColor(defaultColor)
-                    .setTitle("Case " + pID)
-                    .addField("**User:**", "<@" + userPunishment.userID + ">\n**Type:**\n" + type, true)
-                    .addField("**Date:**", Instant.ofEpochMilli(userPunishment.p.date).toString() + "\n**Length:**\n" + parseTime(((long) userPunishment.p.length) * 60L), true)
-                    .addField("**Moderator:**", "<@" + userPunishment.p.punisherID + ">\n**Reason:**\n" + userPunishment.p.reason, true)
-                    .build()
-            ).queue();
+        for (Punishment p : all) {
+            if (p.id == pID) {
+                channel.sendMessage(p.getAsCaseEmbed()).queue();
+                return;
+            }
         }
+        sendError(channel, "No punishment with ID " + pID + " found.");
     }
 }

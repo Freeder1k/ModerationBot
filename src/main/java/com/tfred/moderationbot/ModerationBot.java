@@ -1,6 +1,7 @@
 package com.tfred.moderationbot;
 
 import com.tfred.moderationbot.commands.*;
+import com.tfred.moderationbot.moderation.*;
 import com.tfred.moderationbot.usernames.RateLimitException;
 import com.tfred.moderationbot.usernames.UsernameHandler;
 import net.dv8tion.jda.api.JDA;
@@ -99,8 +100,6 @@ public class ModerationBot extends ListenerAdapter {
         }
         System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
-        Moderation.PunishmentHandler.initialize(jda);
-        System.out.println("Finished activating punishment handler!");
 
         ModerationBot bot = new ModerationBot(jda);
         bot.addCommand(new HelpCommand(bot))
@@ -110,7 +109,6 @@ public class ModerationBot extends ListenerAdapter {
                 .addCommand(new NameCommand())
                 .addCommand(new UpdatenamesCommand())
                 .addCommand(new ListnamesCommand())
-                .addCommand(new PunishCommand())
                 .addCommand(new PardonCommand())
                 .addCommand(new ModlogsCommand())
                 .addCommand(new ModerationsCommand())
@@ -124,10 +122,17 @@ public class ModerationBot extends ListenerAdapter {
                 .addCommand(new EmbedtestCommand())
                 .addCommand(new ShutdownCommand())
                 .addCommand(new MemCommand())
+                .addCommand(new MuteCommand())
+                .addCommand(new BanCommand())
+                .addCommand(new ChannelBanCommand())
         ;
         System.out.println("Finished loading commands!");
 
+        PunishmentScheduler.initialize(jda, bot.autoRun.scheduler);
+        System.out.println("Finished activating punishment handler!");
+
         jda.addEventListener(bot);   // An instance of a class that will handle events.
+        System.out.println("Added event listener!");
     }
 
     public ModerationBot addCommand(Command command) {
@@ -204,7 +209,7 @@ public class ModerationBot extends ListenerAdapter {
                 for (Command command : commands) {
                     int space = msg.indexOf(' ');
                     String commandName;
-                    if(space > 0)
+                    if (space > 0)
                         commandName = msg.substring(1, space);
                     else
                         commandName = msg.substring(1);
@@ -263,68 +268,32 @@ public class ModerationBot extends ListenerAdapter {
         //Manages punished users
         try {
             String response = "";
-            for (Moderation.ActivePunishment ap : Moderation.getActivePunishments(guild.getIdLong())) {
-                if (ap.memberID == m.getIdLong()) {
-                    long id;
-                    Role role;
-                    TextChannel channel2;
-
-                    switch (ap.punishment.severity) {
-                        case '1':
-                        case '2':
-                        case '3':
-                        case '4':
-                        case '5': {
-                            id = serverData.getMutedRole();
-                            if (id == 0) {
-                                response = "Please set a muted role with ``!config mutedrole <@role>``!";
-                            } else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
-                                response = "The bot is missing the manage roles permission!";
-                            } else {
-                                role = guild.getRoleById(id);
-                                if (role == null) {
-                                    response = "Please set a new muted role with ``!config mutedrole <@role>``!";
-                                } else
-                                    guild.addRoleToMember(m, role).queue();
-                            }
-                            break;
+            for (TimedPunishment p : ModerationData.getActivePunishments(guild.getIdLong())) {
+                if (p.userID == m.getIdLong()) {
+                    if (p instanceof MutePunishment) {
+                        Role mutedRole = guild.getRoleById(serverData.getMutedRole());
+                        if (mutedRole == null)
+                            response = "Please set a muted role with ``!config mutedrole <@role>``!";
+                        else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES))
+                            response = "The bot is missing the manage roles permission!";
+                        else {
+                            guild.addRoleToMember(m, mutedRole).queue();
+                            response = m.getAsMention() + " is currently muted.";
                         }
-                        case '6': {
-                            if (!guild.getSelfMember().hasPermission(Permission.BAN_MEMBERS)) {
-                                response = "The bot is missing the ban members permission!";
-                            } else
-                                response = m.getAsMention() + " should be banned!";
-                            break;
-                        }
-                        case 'v': {
-                            id = serverData.getVentChannel();
-                            if (id == 0) {
-                                response = "Please set a vent channel with ``!config ventchannel <#channel>``!";
-                            } else {
-                                channel2 = guild.getTextChannelById(id);
-                                if (channel2 == null) {
-                                    response = "Vent channel was deleted! Please set a new vent channel with ``!config ventchannel <#channel>``!";
-                                } else if (!guild.getSelfMember().hasPermission(channel2, Permission.MANAGE_PERMISSIONS)) {
-                                    response = "The bot is missing the manage permissions permission in " + channel2.getAsMention() + "!";
-                                } else
-                                    channel2.putPermissionOverride(m).setDeny(Permission.VIEW_CHANNEL).queue();
+                    } else if (p instanceof BanPunishment) {
+                        if (!guild.getSelfMember().hasPermission(Permission.BAN_MEMBERS))
+                            response = "The bot is missing the ban members permission!";
+                        else
+                            response = m.getAsMention() + " should be banned!";
+                    } else if (p instanceof ChannelBanPunishment) {
+                        GuildChannel bannedChannel = guild.getGuildChannelById(((ChannelBanPunishment) p).channelID);
+                        if (bannedChannel != null) {
+                            if (!guild.getSelfMember().hasPermission(bannedChannel, Permission.MANAGE_PERMISSIONS))
+                                response = "The bot is missing the manage permissions permission in <#" + bannedChannel.getId() + "> in order to ban <@" + p.userID + "> from it!";
+                            else {
+                                bannedChannel.putPermissionOverride(m).setDeny(Permission.VIEW_CHANNEL).queue();
+                                response = m.getAsMention() + " is currently banned from <#" + bannedChannel.getId() + ">.";
                             }
-                            break;
-                        }
-                        case 'n': {
-                            id = serverData.getNoNicknameRole();
-                            if (id == 0) {
-                                response = "Please set a no nickname role with ``!config nonickrole <@role>``!";
-                            } else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
-                                response = "The bot is missing the manage roles permission!";
-                            } else {
-                                role = guild.getRoleById(id);
-                                if (role == null) {
-                                    response = "noNickname role was deleted! Please set a no nickname role with ``!config nonickrole <@role>``!";
-                                } else
-                                    guild.addRoleToMember(m, role).queue();
-                            }
-                            break;
                         }
                     }
                 }
@@ -333,6 +302,8 @@ public class ModerationBot extends ListenerAdapter {
             }
         } catch (IOException ignored) {
             System.out.println("IO ERROR ON ACTIVE.DATA FOR " + guild.getName());
+            if (canWrite)
+                CommandUtils.sendError(channel, "Failed to read active punishment data <@470696578403794967>.");
         }
     }
 
@@ -366,28 +337,27 @@ public class ModerationBot extends ListenerAdapter {
     @Override
     public void onResume(ResumedEvent event) {
         autoRun.resume(event.getJDA());
-        Moderation.PunishmentHandler.resume(event.getJDA());
+        PunishmentScheduler.resume(event.getJDA());
         System.out.println("\n\nRESUMED\n\n");
     }
 
     @Override
     public void onReconnect(ReconnectedEvent event) {
         autoRun.resume(event.getJDA());
-        Moderation.PunishmentHandler.resume(event.getJDA());
+        PunishmentScheduler.resume(event.getJDA());
         System.out.println("\n\nRECONNECTED\n\n");
     }
 
     @Override
     public void onDisconnect(@Nonnull DisconnectEvent event) {
         autoRun.pause();
-        Moderation.PunishmentHandler.pause();
+        PunishmentScheduler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
     }
 
     @Override
     public void onShutdown(@Nonnull ShutdownEvent event) {
         autoRun.stop();
-        Moderation.PunishmentHandler.stop();
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
@@ -400,7 +370,7 @@ public class ModerationBot extends ListenerAdapter {
     }
 
     private class AutoRun {
-        private final ScheduledExecutorService scheduler;
+        public final ScheduledExecutorService scheduler;
         private final AtomicBoolean isNameCheckSchedulerActive = new AtomicBoolean(false);
         private final ConcurrentLinkedQueue<ScheduledNameCheck> scheduledNameChecks = new ConcurrentLinkedQueue<>();
         private JDA jda;

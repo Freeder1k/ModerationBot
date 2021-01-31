@@ -9,7 +9,7 @@ import net.dv8tion.jda.api.entities.TextChannel;
 import java.util.Date;
 import java.util.List;
 
-import static com.tfred.moderationbot.commands.CommandUtils.defaultColor;
+import static com.tfred.moderationbot.commands.CommandUtils.DEFAULT_COLOR;
 import static com.tfred.moderationbot.commands.CommandUtils.sendError;
 
 public class LbCommand extends Command {
@@ -53,7 +53,7 @@ public class LbCommand extends Command {
             return;
         }
 
-        EmbedBuilder eb = new EmbedBuilder().setColor(defaultColor);
+        EmbedBuilder eb = new EmbedBuilder().setColor(DEFAULT_COLOR);
         eb.addField(new String[]{"Hider Wins", "Hunter Wins", "Kills"}[boardNum] + " Leaderboard:", lb.remove(0), false);
         for (String s : lb) {
             eb.addField("", s, false);

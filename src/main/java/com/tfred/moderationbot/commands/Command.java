@@ -74,10 +74,9 @@ public abstract class Command {
             if (missingPerms.isEmpty())
                 execute(commandEvent);
             else {
-                commandEvent.channel.sendMessage(new EmbedBuilder().setColor(CommandUtils.errorColor)
-                        .addField("To use this command please give me the following permissions in <#" + commandEvent.channel.getId() + ">:",
-                                missingPerms.stream().map(p -> "• " + p.getName()).collect(Collectors.joining("\n")),
-                                false)
+                commandEvent.channel.sendMessage(new EmbedBuilder().setColor(CommandUtils.ERROR_COLOR)
+                        .setTitle("**To use this command please give me the following permissions:**")
+                        .setDescription(missingPerms.stream().map(p -> "• " + p.getName()).collect(Collectors.joining("\n")))
                         .build()).queue();
             }
         }
@@ -89,7 +88,7 @@ public abstract class Command {
      * @param channel A {@link TextChannel channel} to send the message to.
      */
     public void sendHelpMessage(TextChannel channel) {
-        EmbedBuilder eb = new EmbedBuilder().setColor(CommandUtils.defaultColor)
+        EmbedBuilder eb = new EmbedBuilder().setColor(CommandUtils.DEFAULT_COLOR)
                 .setTitle("!" + name + " info:")
                 .addField("Usage:", "``" + usage + "``", false);
         if (aliases.length != 0)

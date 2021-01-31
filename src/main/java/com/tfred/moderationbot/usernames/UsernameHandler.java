@@ -147,7 +147,7 @@ public class UsernameHandler {
         }
         EmbedBuilder eb = new EmbedBuilder()
                 .setTitle("Updated Users:")
-                .setColor(CommandUtils.defaultColor);
+                .setColor(CommandUtils.DEFAULT_COLOR);
 
         if (changed.size() == 1)
             eb.setTitle("Updated User:");
@@ -256,7 +256,7 @@ public class UsernameHandler {
                 if (namechannel != null)
                     if (oldMcName != null)
                         if (oldMcName.equals(old_n))
-                            namechannel.sendMessage(new EmbedBuilder().setColor(CommandUtils.defaultColor).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
+                            namechannel.sendMessage(new EmbedBuilder().setColor(CommandUtils.DEFAULT_COLOR).setTitle("Updated user:").setDescription(m.getAsMention() + " (" + old_n + "->" + new_n + ")").build()).queue();
             }
         }
     }

@@ -13,10 +13,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class CommandUtils {
-    public static final int defaultColor = 3603854;
-    public static final int successColor = 7844437;
-    public static final int errorColor = 14495300;
-    public static final int infoColor = 3901635;
+    public static final int DEFAULT_COLOR = 3603854;
+    public static final int SUCCESS_COLOR = 7844437;
+    public static final int ERROR_COLOR = 14495300;
+    public static final int INFO_COLOR = 3901635;
 
     /**
      * Send a success message.
@@ -26,7 +26,7 @@ public class CommandUtils {
      */
     public static void sendSuccess(TextChannel channel, String message) {
         try {
-            channel.sendMessage(new EmbedBuilder().setColor(successColor).setDescription("✅ " + message).build()).queue();
+            channel.sendMessage(new EmbedBuilder().setColor(SUCCESS_COLOR).setDescription("✅ " + message).build()).queue();
         } catch (InsufficientPermissionException e) {
             if (e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
                 channel.sendMessage("Please give me the embed links permission.\n" + message).queue();
@@ -41,7 +41,7 @@ public class CommandUtils {
      */
     public static void sendError(TextChannel channel, String message) {
         try {
-            channel.sendMessage(new EmbedBuilder().setColor(errorColor).setDescription("❌ " + message).build()).queue();
+            channel.sendMessage(new EmbedBuilder().setColor(ERROR_COLOR).setDescription("❌ " + message).build()).queue();
         } catch (InsufficientPermissionException e) {
             if (e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
                 channel.sendMessage("Please give me the embed links permission.\n" + message).queue();
@@ -56,7 +56,7 @@ public class CommandUtils {
      */
     public static void sendInfo(TextChannel channel, String message) {
         try {
-            channel.sendMessage(new EmbedBuilder().setColor(infoColor).setDescription("ℹ️ " + message).build()).queue();
+            channel.sendMessage(new EmbedBuilder().setColor(INFO_COLOR).setDescription("ℹ️ " + message).build()).queue();
         } catch (InsufficientPermissionException e) {
             if (e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
                 channel.sendMessage("Please give me the embed links permission.\n" + message).queue();

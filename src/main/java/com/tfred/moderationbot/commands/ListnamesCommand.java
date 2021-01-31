@@ -77,7 +77,7 @@ public class ListnamesCommand extends Command {
             return;
         }
 
-        EmbedBuilder eb1 = new EmbedBuilder().setColor(defaultColor);
+        EmbedBuilder eb1 = new EmbedBuilder().setColor(DEFAULT_COLOR);
         if (parts1.isEmpty())
             parts1.add("None.");
         eb1.addField("Added users:", parts1.remove(0), true);
@@ -86,7 +86,7 @@ public class ListnamesCommand extends Command {
         }
         channel.sendMessage(eb1.build()).queue();
 
-        EmbedBuilder eb2 = new EmbedBuilder().setColor(defaultColor);
+        EmbedBuilder eb2 = new EmbedBuilder().setColor(DEFAULT_COLOR);
         if (parts2.isEmpty())
             parts2.add("None.");
         eb2.addField("Users who haven't been added yet:", parts2.remove(0), true);
