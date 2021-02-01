@@ -10,6 +10,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class ModerationData {
@@ -19,6 +20,7 @@ public class ModerationData {
     /**
      * Get an array containing the active punishments for a guild.
      * Changes to this array don't reflect back.
+     * This array contains no null elements.
      *
      * @param guildID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
      * @return An array of all active punishments in the specified guild.
@@ -41,7 +43,7 @@ public class ModerationData {
     /**
      * Get an array containing the punishment history for a user in a specified guild.
      * Changes to this list don't reflect back.
-     * This array is sorted from oldest to newest.
+     * This array is sorted from oldest to newest and it contains no null elements.
      *
      * @param guildID The specified {@link net.dv8tion.jda.api.entities.Guild guild's} ID.
      * @param userID  The specified {@link net.dv8tion.jda.api.entities.User user's} ID.
@@ -50,8 +52,12 @@ public class ModerationData {
     public static Punishment[] getUserPunishments(long guildID, long userID) throws IOException {
         synchronized (synchronizeObject) {
             if (Files.exists(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"))) {
-                return Files.readAllLines(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"))
-                        .stream().map(s -> Punishment.parsePunishment(userID, s)).toArray(Punishment[]::new);
+                return Files
+                        .readAllLines(Paths.get("moderations/" + guildID + "/" + userID + ".punishments"))
+                        .stream()
+                        .map(s -> Punishment.parsePunishment(userID, s))
+                        .filter(Objects::nonNull)
+                        .toArray(Punishment[]::new);
             }
             else
                 return new Punishment[]{};
@@ -60,6 +66,7 @@ public class ModerationData {
 
     /**
      * Get an array containing all punishments for a guild.
+     * This array contains no null elements.
      *
      * @param guildID The guilds ID.
      * @return An array containing all punishments.

@@ -48,10 +48,12 @@ public abstract class Punishment {
                 return BanPunishment.parseBanPunishment(string);
             case 'c':
                 return ChannelBanPunishment.parseChannelBanPunishment(string);
+            case 'n':
+                return NamePunishment.parseNamePunishment(string);
             case 'x':
                 return PardonPunishment.parsePardonPunishment(string);
             default:
-                return null;
+                return OldPunishment.parseOldPunishment(string);
         }
     }
 
@@ -71,10 +73,12 @@ public abstract class Punishment {
                 return BanPunishment.parseBanPunishment(userID, string);
             case 'c':
                 return ChannelBanPunishment.parseChannelBanPunishment(userID, string);
+            case 'n':
+                return NamePunishment.parseNamePunishment(userID, string);
             case 'x':
                 return PardonPunishment.parsePardonPunishment(userID, string);
             default:
-                return null;
+                return OldPunishment.parseOldPunishment(userID, string);
         }
     }
 

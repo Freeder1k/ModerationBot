@@ -73,7 +73,7 @@ public class ModerationBot extends ListenerAdapter {
         System.out.println("Hello world but Frederik was here!");
 
         try {
-            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n".getBytes(), StandardOpenOption.APPEND);
+            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n" .getBytes(), StandardOpenOption.APPEND);
         } catch (IOException ignored) {
         }
 
@@ -125,6 +125,7 @@ public class ModerationBot extends ListenerAdapter {
                 .addCommand(new MuteCommand())
                 .addCommand(new BanCommand())
                 .addCommand(new ChannelBanCommand())
+                .addCommand(new NamepunishCommand())
         ;
         System.out.println("Finished loading commands!");
 

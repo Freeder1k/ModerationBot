@@ -37,7 +37,7 @@ public class BanPunishment extends TimedPunishment {
         this.severity = severity;
     }
 
-    private BanPunishment(long userId, int id, long date, long moderatorID, short severity, int duration, String reason) {
+    protected BanPunishment(long userId, int id, long date, long moderatorID, short severity, int duration, String reason) {
         super(userId, id, date, moderatorID, duration, reason);
         this.severity = severity;
     }
@@ -64,9 +64,9 @@ public class BanPunishment extends TimedPunishment {
                         wasPardoned = true;
                         endDate = pardoned.get(p.id);
                     }
+                    break;
                 }
-                break;
-            } else if (p instanceof PardonPunishment) {
+            } else if ((p instanceof PardonPunishment) && (((PardonPunishment) p).pardonedPunishmentType == 'b')) {
                 if (((PardonPunishment) p).hide)
                     hidden.add(((PardonPunishment) p).pardonedPunishmentID);
                 else
@@ -115,9 +115,6 @@ public class BanPunishment extends TimedPunishment {
         if (!m.find())
             return null;
 
-        if (m.groupCount() != 6)
-            return null;
-
         try {
             return new BanPunishment(
                     userID,
@@ -146,9 +143,6 @@ public class BanPunishment extends TimedPunishment {
         Matcher m = p.matcher(string);
 
         if (!m.find())
-            return null;
-
-        if (m.groupCount() != 7)
             return null;
 
         try {
@@ -184,7 +178,7 @@ public class BanPunishment extends TimedPunishment {
                         .setTitle("Case " + id)
                         .setColor(CommandUtils.DEFAULT_COLOR)
                         .addField("**User:**", "<@" + userID + ">\n**Type:**\n" + "ban", true)
-                        .addField("Severity:", severity + "\n**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L), true)
+                        .addField("**Severity:**", severity + "\n**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L), true)
                         .addField("**Moderator:**", "<@" + moderatorID + ">\n**Reason:**\n" + reason, true)
                         .setTimestamp(Instant.now())
                         .build()

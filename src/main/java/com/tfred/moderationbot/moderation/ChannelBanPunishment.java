@@ -35,7 +35,7 @@ public class ChannelBanPunishment extends TimedPunishment {
         this.channelID = channelID;
     }
 
-    private ChannelBanPunishment(long userId, int id, long date, long moderatorID, long channelID, int duration, String reason) {
+    protected ChannelBanPunishment(long userId, int id, long date, long moderatorID, long channelID, int duration, String reason) {
         super(userId, id, date, moderatorID, duration, reason);
         this.channelID = channelID;
     }
@@ -62,9 +62,9 @@ public class ChannelBanPunishment extends TimedPunishment {
                         wasPardoned = true;
                         endDate = pardoned.get(p.id);
                     }
+                    break;
                 }
-                break;
-            } else if (p instanceof PardonPunishment) {
+            } else if ((p instanceof PardonPunishment) && (((PardonPunishment) p).pardonedPunishmentType == 'c')) {
                 if (((PardonPunishment) p).hide)
                     hidden.add(((PardonPunishment) p).pardonedPunishmentID);
                 else
@@ -103,9 +103,6 @@ public class ChannelBanPunishment extends TimedPunishment {
         if (!m.find())
             return null;
 
-        if (m.groupCount() != 6)
-            return null;
-
         try {
             return new ChannelBanPunishment(
                     userID,
@@ -134,9 +131,6 @@ public class ChannelBanPunishment extends TimedPunishment {
         Matcher m = p.matcher(string);
 
         if (!m.find())
-            return null;
-
-        if (m.groupCount() != 7)
             return null;
 
         try {
@@ -172,7 +166,7 @@ public class ChannelBanPunishment extends TimedPunishment {
                         .setTitle("Case " + id)
                         .setColor(CommandUtils.DEFAULT_COLOR)
                         .addField("**User:**", "<@" + userID + ">\n**Type:**\n" + "channel ban", true)
-                        .addField("Channel:", "<#" + channelID + ">\n**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L), true)
+                        .addField("**Channel:**", "<#" + channelID + ">\n**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L), true)
                         .addField("**Moderator:**", "<@" + moderatorID + ">\n**Reason:**\n" + reason, true)
                         .setTimestamp(Instant.now())
                         .build()

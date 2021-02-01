@@ -3,6 +3,7 @@ package com.tfred.moderationbot.commands;
 import com.tfred.moderationbot.moderation.ModerationException;
 import com.tfred.moderationbot.moderation.ModerationHandler;
 import com.tfred.moderationbot.moderation.MutePunishment;
+import com.tfred.moderationbot.moderation.NamePunishment;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -10,13 +11,13 @@ import net.dv8tion.jda.api.entities.TextChannel;
 
 import static com.tfred.moderationbot.commands.CommandUtils.*;
 
-public class MuteCommand extends Command {
-    public MuteCommand() {
+public class NamepunishCommand extends Command {
+    public NamepunishCommand() {
         super(
-                "mute",
+                "namepunish",
                 new String[]{},
-                "!mute <user> severity reason",
-                "Mute a user. Allowed severities: 1-5.\nRequires a muted role to be set.",
+                "!namepunish <user> reason",
+                "Remove a users nickname perms.\nRequires a no nickname and a member role to be set.",
                 new Permission[]{Permission.MANAGE_ROLES},
                 false,
                 false,
@@ -26,7 +27,7 @@ public class MuteCommand extends Command {
 
     @Override
     protected void execute(CommandEvent event) {
-        String[] args = event.message.split(" ", 4);
+        String[] args = event.message.split(" ", 3);
         TextChannel channel = event.channel;
         Guild guild = event.guild;
 
@@ -35,7 +36,7 @@ public class MuteCommand extends Command {
             return;
         }
 
-        if (args.length < 3) {
+        if (args.length < 2) {
             sendError(channel, "Insufficient amount of arguments!");
             return;
         }
@@ -50,35 +51,24 @@ public class MuteCommand extends Command {
             return;
         }
 
-        if (args[2].length() != 1) {
-            sendError(channel, "Invalid severity type.");
-            return;
-        }
-        char sev = args[2].charAt(0);
-        if ("12345".indexOf(sev) == -1) {
-            sendError(channel, "Invalid severity type.");
-            return;
-        }
-        short severity = Short.parseShort(String.valueOf(sev));
-
         String reason = "None.";
-        if (args.length > 3) {
-            reason = args[3];
+        if (args.length > 2) {
+            reason = args[2];
             if (reason.length() > 500) {
                 sendError(channel, "Reason can only have a maximum length of 500 characters!");
                 return;
             }
         }
 
-        MutePunishment p;
+        NamePunishment p;
 
         try {
-            p = ModerationHandler.mute(member, severity, reason, event.sender.getIdLong());
+            p = ModerationHandler.removeNamePerms(member, reason, event.sender.getIdLong());
         } catch (ModerationException e) {
             sendError(channel, e.getMessage());
             return;
         }
 
-        sendSuccess(channel, "Muted <@" + p.userID + "> for " + parseTime(((long) p.duration) * 60L) + ".");
+        sendSuccess(channel, "Removed <@" + p.userID + ">'s nickname perms for " + parseTime(((long) p.duration) * 60L) + ".");
     }
 }

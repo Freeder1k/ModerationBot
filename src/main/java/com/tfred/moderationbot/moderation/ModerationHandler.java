@@ -6,7 +6,7 @@ import net.dv8tion.jda.api.entities.*;
 
 import java.io.IOException;
 
-public class ModerationHandler {
+public class ModerationHandler {//TODO audit log reasons
     /**
      * Mute a user.
      * This gets automatically logged in the guilds punishment channel.
@@ -14,7 +14,7 @@ public class ModerationHandler {
      * @param member              The member to mute.
      * @param severity            The severity (1-5).
      * @param reason              The specified reason.
-     * @param moderatorID         The member ID of the moderator.
+     * @param moderatorID         The user ID of the moderator.
      * @throws ModerationException A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
      */
     public static MutePunishment mute(Member member, short severity, String reason, long moderatorID) throws ModerationException {
@@ -29,7 +29,7 @@ public class ModerationHandler {
 
         Role mutedRole = g.getRoleById(serverData.getMutedRole());
         if (mutedRole == null)
-            throw new ModerationException("Please set a new muted role with ``!config mutedrole <@role>``!");
+            throw new ModerationException("Please set a new muted role with ``!config mutedrole <role>``!");
 
         if (reason.length() == 0)
             reason = "None.";
@@ -54,7 +54,7 @@ public class ModerationHandler {
             p.log(g);
             return p;
         } catch (Exception e) {
-            throw new ModerationException("Unable to mute <@" + member.getId() + "! " + e.getMessage());
+            throw new ModerationException("Unable to mute <@" + member.getId() + ">! " + e.getMessage());
         }
     }
 
@@ -66,7 +66,7 @@ public class ModerationHandler {
      * @param user              The user to ban.
      * @param severity            The severity (1 or 2).
      * @param reason              The specified reason.
-     * @param moderatorID         The member ID of the moderator.
+     * @param moderatorID         The user ID of the moderator.
      * @throws ModerationException A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
      */
     public static BanPunishment ban(Guild guild, User user, short severity, String reason, long moderatorID) throws ModerationException {
@@ -102,7 +102,7 @@ public class ModerationHandler {
                 e.printStackTrace();
             }
 
-            guild.ban(user, 0, "Punishment id " + p.id + ":\n" + reason).queue();
+            guild.ban(user, 0, "Case " + p.id + ":\n" + reason).queue();
             p.log(guild);
             return p;
         } catch (Exception e) {
@@ -117,7 +117,7 @@ public class ModerationHandler {
      * @param member              The member to punish.
      * @param channelID           The channel ID.
      * @param reason              The specified reason. If there is none please specify "None." as reason. Empty strings might lead to errors later on.
-     * @param moderatorID         The member ID of the moderator.
+     * @param moderatorID         The user ID of the moderator.
      * @throws ModerationException A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
      */
     public static ChannelBanPunishment channelBan(Member member, long channelID, String reason, long moderatorID) throws ModerationException {
@@ -146,7 +146,59 @@ public class ModerationHandler {
             p.log(g);
             return p;
         } catch (Exception e) {
-            throw new ModerationException("Unable remove <@" + member.getId() + ">'s access to <#" + channel.getId() + "! " + e.getMessage());
+            throw new ModerationException("Unable remove <@" + member.getId() + ">'s access to <#" + channel.getId() + ">! " + e.getMessage());
+        }
+    }
+
+    /**
+     * Remove a members nickname perms.
+     * This gets automatically logged in the guilds punishment channel.
+     *
+     * @param member              The member to punish.
+     * @param reason              The specified reason.
+     * @param moderatorID         The user ID of the moderator.
+     * @throws ModerationException A {@link ModerationException ModerationException} if something went wrong. The error message contains all necessary information.
+     */
+    public static NamePunishment removeNamePerms(Member member, String reason, long moderatorID) throws ModerationException {
+        Guild g = member.getGuild();
+        ServerData serverData = ServerData.get(g.getIdLong());
+
+        if (!g.getSelfMember().hasPermission(Permission.MANAGE_ROLES))
+            throw new ModerationException("The bot is missing the manage roles permission!");
+
+        Role nonickRole = g.getRoleById(serverData.getNoNicknameRole());
+        if (nonickRole == null)
+            throw new ModerationException("Please set a no nickname role with ``!config nonickrole <role>``!");
+
+        Role memberRole = g.getRoleById(serverData.getMemberRole());
+        if (memberRole == null)
+            throw new ModerationException("Please set a member role with ``!config member <role>``!");
+
+        if (reason.length() == 0)
+            reason = "None.";
+
+        NamePunishment p;
+        try {
+            p = new NamePunishment(g.getIdLong(), member.getIdLong(), moderatorID, reason);
+        } catch (IOException ignored) {
+            throw new ModerationException("An internal error occurred while calculating punishment length! Please try again in a bit.");
+        }
+
+        try {
+            ModerationData.savePunishment(g.getIdLong(), p);
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new ModerationException("An internal error occurred while logging punishment! Please try again in a bit.");
+        }
+
+        try {
+            PunishmentScheduler.get().schedule(g.getIdLong(), p);
+            g.addRoleToMember(member, nonickRole).queue();
+            g.removeRoleFromMember(member, memberRole).queue();
+            p.log(g);
+            return p;
+        } catch (Exception e) {
+            throw new ModerationException("Unable remove <@" + member.getId() + ">'s nickname perms! " + e.getMessage());
         }
     }
 
@@ -173,7 +225,7 @@ public class ModerationHandler {
         if (old_p == null)
             throw new ModerationException("No matching active punishment with id " + punishmentID + " found.");
 
-        PardonPunishment p = new PardonPunishment(guild.getIdLong(), old_p.userID, moderatorID, hide, punishmentID, reason);
+        PardonPunishment p = new PardonPunishment(guild.getIdLong(), moderatorID, hide, old_p, reason);
         ModerationData.savePardon(guild.getIdLong(), p);
         p.log(guild);
 

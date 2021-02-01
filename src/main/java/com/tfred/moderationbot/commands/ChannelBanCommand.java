@@ -60,8 +60,8 @@ public class ChannelBanCommand extends Command {
         String reason = "None.";
         if (args.length > 3) {
             reason = args[3];
-            if (reason.length() > 200) {
-                sendError(channel, "Reason can only have a maximum length of 200 characters!");
+            if (reason.length() > 500) {
+                sendError(channel, "Reason can only have a maximum length of 500 characters!");
                 return;
             }
         }

@@ -17,33 +17,28 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class MutePunishment extends TimedPunishment {
-    public final short severity;
-
+public class NamePunishment extends TimedPunishment {
     /**
-     * Create a new mute punishment. The punishment ID, date and duration get assigned automatically.
+     * Create a new name punishment. The punishment ID, date and duration get assigned automatically.
      *
-     * @param guildID     The guild ID for this mute.
-     * @param userID      The user ID of the muted user.
-     * @param moderatorID The user ID of the moderator that muted the user.
-     * @param severity    The severity of the muted (1-5).
-     * @param reason      The reason for this mute.
-     * @throws IOException If an IO exception occurred while checking previous punishments to calculate the mute duration.
+     * @param guildID     The guild ID for this channel ban.
+     * @param userID      The user ID of the channel banned user.
+     * @param moderatorID The user ID of the moderator that channel banned the user.
+     * @param reason      The reason for this channel ban.
+     * @throws IOException If an IO exception occurred while checking previous punishments to calculate the channel ban duration.
      */
-    MutePunishment(long guildID, long userID, long moderatorID, short severity, String reason) throws IOException {
-        super(guildID, userID, moderatorID, calculatePunishmentLength(guildID, userID, severity), reason);
-        this.severity = severity;
+    NamePunishment(long guildID, long userID, long moderatorID, String reason) throws IOException {
+        super(guildID, userID, moderatorID, calculatePunishmentLength(guildID, userID), reason);
     }
 
-    protected MutePunishment(long userId, int id, long date, long moderatorID, short severity, int duration, String reason) {
+    protected NamePunishment(long userId, int id, long date, long moderatorID, int duration, String reason) {
         super(userId, id, date, moderatorID, duration, reason);
-        this.severity = severity;
     }
 
-    private static int calculatePunishmentLength(long guildID, long userID, short sev) throws IOException {
+    private static int calculatePunishmentLength(long guildID, long userID) throws IOException {
         Punishment[] punishments = ModerationData.getUserPunishments(guildID, userID);
 
-        boolean prev = false; // If there is a previous Mute of the same severity
+        boolean prev = false; // If there is a previous name punishment of the same severity
         long endDate = 0;    // time till ^ ends
         int punishmentDuration = 0;     // duration of ^
         Set<Integer> hidden = new HashSet<>(); // Set of punishment ids that were pardoned and marked as hidden.
@@ -53,18 +48,18 @@ public class MutePunishment extends TimedPunishment {
         for (int i = punishments.length - 1; i >= 0; i--) {
             Punishment p = punishments[i];
 
-            if ((p instanceof MutePunishment) && (((MutePunishment) p).severity == sev)) {
+            if (p instanceof NamePunishment) {
                 if (!hidden.contains(p.id)) {
                     prev = true;
-                    endDate = p.date + (((long) ((MutePunishment) p).duration) * 60000);
-                    punishmentDuration = ((MutePunishment) p).duration;
+                    endDate = p.date + (((long) ((NamePunishment) p).duration) * 60000);
+                    punishmentDuration = ((NamePunishment) p).duration;
                     if (pardoned.containsKey(p.id)) {
                         wasPardoned = true;
                         endDate = pardoned.get(p.id);
                     }
                     break;
                 }
-            } else if ((p instanceof PardonPunishment) && (((PardonPunishment) p).pardonedPunishmentType == 'm')) {
+            } else if ((p instanceof PardonPunishment) && (((PardonPunishment) p).pardonedPunishmentType == 'n')) {
                 if (((PardonPunishment) p).hide)
                     hidden.add(((PardonPunishment) p).pardonedPunishmentID);
                 else
@@ -73,96 +68,44 @@ public class MutePunishment extends TimedPunishment {
         }
 
         if (!prev) {
-            switch (sev) {
-                case 1:
-                    return 60;
-                case 2:
-                    return 120;
-                case 3:
-                    return 240;
-                case 4:
-                    return 480;
-                case 5:
-                    return 1440;
-                default:
-                    return 0;
-            }
+            return 10080;
         }
 
         long timeSinceEnded = (System.currentTimeMillis() - endDate); //time since last punishment ended
 
         if (timeSinceEnded < 0 && !wasPardoned)
             return punishmentDuration;
-
-        if (timeSinceEnded < 172800000L)
+        else if (timeSinceEnded < 172800000L)
             return punishmentDuration * 2;
-
-        long bonusReqTime;
-        int bonusAdditionalTime;
-        int normalAdditionalTime;
-        switch (sev) {
-            case 1:
-                bonusReqTime = 604800000L;
-                bonusAdditionalTime = 105;
-                normalAdditionalTime = 45;
-                break;
-            case 2:
-                bonusReqTime = 604800000L;
-                bonusAdditionalTime = 210;
-                normalAdditionalTime = 90;
-                break;
-            case 3:
-                bonusReqTime = 1209600000L;
-                bonusAdditionalTime = 420;
-                normalAdditionalTime = 180;
-                break;
-            case 4:
-                bonusReqTime = 3024000000L;
-                bonusAdditionalTime = 840;
-                normalAdditionalTime = 360;
-                break;
-            case 5:
-                bonusReqTime = 3628800000L;
-                bonusAdditionalTime = 2520;
-                normalAdditionalTime = 1080;
-                break;
-            default:
-                bonusReqTime = 0L;
-                bonusAdditionalTime = 0;
-                normalAdditionalTime = 0;
+        else {
+            return punishmentDuration + 10080;
         }
-
-        if (timeSinceEnded < bonusReqTime)
-            return punishmentDuration + bonusAdditionalTime;
-        else
-            return punishmentDuration + normalAdditionalTime;
     }
 
     /**
-     * Parse a userID and a string for a MutePunishment.
+     * Parse a userID and a string for a NamePunishment.
      *
      * @param userID The user ID for the punishment.
      * @param string The string to parse.
-     *               Format: "m <punishmentID> <date> <moderatorID> <severity> <duration> <reason>"
-     * @return A MutePunishment. If the format is invalid null is returned.
+     *               Format: "n <punishmentID> <date> <moderatorID> <duration> <reason>"
+     * @return A NamePunishment. If the format is invalid null is returned.
      */
     @Nullable
-    public static MutePunishment parseMutePunishment(long userID, String string) {
-        Pattern p = Pattern.compile("m (\\d+) (\\d+) (\\d+) (\\d+) (\\d+) (.*)");
+    public static NamePunishment parseNamePunishment(long userID, String string) {
+        Pattern p = Pattern.compile("n (\\d+) (\\d+) (\\d+) (\\d+) (.*)");
         Matcher m = p.matcher(string);
 
         if (!m.find())
             return null;
 
         try {
-            return new MutePunishment(
+            return new NamePunishment(
                     userID,
                     Integer.parseInt(m.group(1)),
                     Long.parseLong(m.group(2)),
                     Long.parseLong(m.group(3)),
-                    Short.parseShort(m.group(4)),
-                    Integer.parseInt(m.group(5)),
-                    StringEscapeUtils.unescapeJava(m.group(6))
+                    Integer.parseInt(m.group(4)),
+                    StringEscapeUtils.unescapeJava(m.group(5))
             );
         } catch (NumberFormatException ignored) {
             return null;
@@ -170,29 +113,28 @@ public class MutePunishment extends TimedPunishment {
     }
 
     /**
-     * Parse a string for a MutePunishment.
+     * Parse a string for a NamePunishment.
      *
      * @param string The string to parse.
-     *               Format: "m <userID> <punishmentID> <date> <moderatorID> <severity> <duration> <reason>"
-     * @return A MutePunishment. If the format is invalid null is returned.
+     *               Format: "n <userID> <punishmentID> <date> <moderatorID> <duration> <reason>"
+     * @return A NamePunishment. If the format is invalid null is returned.
      */
     @Nullable
-    public static MutePunishment parseMutePunishment(String string) {
-        Pattern p = Pattern.compile("m (\\d+) (\\d+) (\\d+) (\\d+) (\\d+) (\\d+) (.*)");
+    public static NamePunishment parseNamePunishment(String string) {
+        Pattern p = Pattern.compile("n (\\d+) (\\d+) (\\d+) (\\d+) (\\d+) (.*)");
         Matcher m = p.matcher(string);
 
         if (!m.find())
             return null;
 
         try {
-            return new MutePunishment(
+            return new NamePunishment(
                     Long.parseLong(m.group(1)),
                     Integer.parseInt(m.group(2)),
                     Long.parseLong(m.group(3)),
                     Long.parseLong(m.group(4)),
-                    Short.parseShort(m.group(5)),
-                    Integer.parseInt(m.group(6)),
-                    StringEscapeUtils.unescapeJava(m.group(7))
+                    Integer.parseInt(m.group(5)),
+                    StringEscapeUtils.unescapeJava(m.group(6))
             );
         } catch (NumberFormatException ignored) {
             return null;
@@ -216,9 +158,9 @@ public class MutePunishment extends TimedPunishment {
                 new EmbedBuilder()
                         .setTitle("Case " + id)
                         .setColor(CommandUtils.DEFAULT_COLOR)
-                        .addField("**User:**", "<@" + userID + ">\n**Type:**\n" + "mute", true)
-                        .addField("**Severity:**", severity + "\n**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L), true)
-                        .addField("**Moderator:**", "<@" + moderatorID + ">\n**Reason:**\n" + reason, true)
+                        .addField("**User:**", "<@" + userID + ">\n**Type:**\n" + "removed\nnickname\nperms", true)
+                        .addField("**Duration:**", CommandUtils.parseTime(((long) duration) * 60L) + "\n**Moderator:**\n<@" + moderatorID + ">", true)
+                        .addField("**Reason:**", reason, true)
                         .setTimestamp(Instant.now())
                         .build()
         ).queue();
@@ -230,8 +172,7 @@ public class MutePunishment extends TimedPunishment {
                 .setColor(CommandUtils.DEFAULT_COLOR)
                 .setTitle("Case " + id)
                 .addField("**User:**", "<@" + userID + ">\n" +
-                        "**Type:**\nmute\n" +
-                        "**Severity:**\n" + severity, true)
+                        "**Type:**\nremoved\nnickname\nperms", true)
                 .addField("**Moderator:**", "<@" + moderatorID + ">\n" +
                         "**Date:**\n" + Instant.ofEpochMilli(date).toString() + "\n" +
                         "**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L), true)
@@ -247,8 +188,7 @@ public class MutePunishment extends TimedPunishment {
         int partLength = 0;
 
         String part1 = id + "\n" +
-                "**Type:**\nmute\n" +
-                "**Severity:**\n" + severity + "\n\u200B";
+                "**Type:**\nremoved\nnickname\nperms\n\u200B";
         partLength += 9 + part1.length();
 
         String part2 = "<@" + moderatorID + ">\n" +
@@ -256,7 +196,7 @@ public class MutePunishment extends TimedPunishment {
                 "**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L) + "\n\u200B";
         partLength += 14 + part2.length();
 
-        partLength += 11 + reason.length() + 7;
+        partLength += 11 + reason.length() + 1;
 
         if (characterCount + partLength > 5900)
             return 0;
@@ -278,8 +218,7 @@ public class MutePunishment extends TimedPunishment {
         partLength += 9 + String.valueOf(id).length();
 
         String part1 = "<@" + userID + ">\n" +
-                "**Type:**\nmute\n" +
-                "**Severity:**\n" + severity;
+                "**Type:**\nremoved\nnickname\nperms";
         partLength += 9 + part1.length();
 
         String part2 = "<@" + moderatorID + ">\n" +
@@ -303,45 +242,46 @@ public class MutePunishment extends TimedPunishment {
     /**
      * Return a string representation of this punishment without user ID.
      *
-     * @return A string of format "m <punishmentID> <date> <moderatorID> <severity> <duration> <reason>".
+     * @return A string of format "n <punishmentID> <date> <moderatorID> <duration> <reason>".
      */
     @Override
     public String toStringWithoutUserID() {
-        return "m " + id + ' ' + date + ' ' + moderatorID + ' ' + severity + ' ' + duration + ' ' + StringEscapeUtils.escapeJava(reason);
+        return "n " + id + ' ' + date + ' ' + moderatorID + ' ' + duration + ' ' + StringEscapeUtils.escapeJava(reason);
     }
 
     /**
      * Return a string representation of this punishment.
      *
-     * @return A string of format "m <userID> <punishmentID> <date> <moderatorID> <severity> <duration> <reason>".
+     * @return A string of format "n <userID> <punishmentID> <date> <moderatorID> <duration> <reason>".
      */
     @Override
     public String toString() {
-        return "m " + userID + ' ' + id + ' ' + date + ' ' + moderatorID + ' ' + severity + ' ' + duration + ' ' + StringEscapeUtils.escapeJava(reason);
+        return "n " + userID + ' ' + id + ' ' + date + ' ' + moderatorID + ' ' + duration + ' ' + StringEscapeUtils.escapeJava(reason);
     }
 
     @Override
     protected String end(Guild guild) throws ModerationException {
         Member member = guild.getMemberById(userID);
         if (member == null) {
-            return "Unmuted <@" + userID + ">.\nNote: User not in guild.";
+            return "Added back <@" + userID + ">'s nickname perms.\nNote: User not in guild.";
         }
-        long id = ServerData.get(guild.getIdLong()).getMutedRole();
-        if (id == 0L) {
-            throw new ModerationException("Unmute of <@" + userID + "> failed! No muted role set.");
+        Role nonickrole = guild.getRoleById(ServerData.get(guild.getIdLong()).getNoNicknameRole());
+        if (nonickrole == null) {
+            throw new ModerationException("Failed to add back <@" + userID + ">'s nickname perms! No nickname role not set.");
+        }
+        Role memberrole = guild.getRoleById(ServerData.get(guild.getIdLong()).getMemberRole());
+        if (memberrole == null) {
+            throw new ModerationException("Failed to add back <@" + userID + ">'s nickname perms! Member role not set.");
         }
         if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)) {
-            throw new ModerationException("Unmute of <@" + userID + "> failed! Missing permissions: MANAGE_ROLES. Please remove the role manually.");
-        }
-        Role mutedRole = guild.getRoleById(id);
-        if (mutedRole == null) {
-            throw new ModerationException("Unmute of <@" + userID + "> failed! Muted role doesn't exist anymore.");
+            throw new ModerationException("Failed to add back <@" + userID + ">'s nickname perms! The bot is missing the manage roles permission!");
         }
         try {
-            guild.removeRoleFromMember(member, mutedRole).queue();
-            return "Unmuted <@" + userID + ">.";
+            guild.addRoleToMember(member, memberrole).queue();
+            guild.removeRoleFromMember(member, nonickrole).queue();
+            return "Added back <@" + userID + ">'s nickname perms.";
         } catch (Exception e) {
-            throw new ModerationException("Unmute of <@" + userID + "> failed! " + e.getMessage());
+            throw new ModerationException("Failed to add back <@" + userID + ">'s nickname perms! " + e.getMessage());
         }
     }
 }

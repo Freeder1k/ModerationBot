@@ -17,17 +17,29 @@ import java.util.regex.Pattern;
 public class PardonPunishment extends Punishment {
     public final boolean hide;
     public final int pardonedPunishmentID;
+    public final char pardonedPunishmentType;
 
-    PardonPunishment(long guildID, long userID, long moderatorID, boolean hide, int pardonedPunishmentID, String reason) {
-        super(guildID, userID, moderatorID, reason);
+    /**
+     * Create a new pardon. The punishment ID and date get assigned automatically.
+     *
+     * @param guildID     The guild ID for this channel ban.
+     * @param moderatorID The user ID of the moderator that channel banned the user.
+     * @param hide        Whether to hide the pardoned punishment from future punishments.
+     * @param punishment  The punishment to pardon.
+     * @param reason      The reason for this channel ban.
+     */
+    PardonPunishment(long guildID, long moderatorID, boolean hide, TimedPunishment punishment, String reason) {
+        super(guildID, punishment.userID, moderatorID, reason);
         this.hide = hide;
-        this.pardonedPunishmentID = pardonedPunishmentID;
+        this.pardonedPunishmentID = punishment.id;
+        this.pardonedPunishmentType = punishment.toString().charAt(0);
     }
 
-    private PardonPunishment(long userID, int id, long date, long moderatorID, boolean hide, int pardonedPunishmentID, String reason) {
+    protected PardonPunishment(long userID, int id, long date, long moderatorID, boolean hide, int pardonedPunishmentID, char pardonedPunishmentType, String reason) {
         super(userID, id, date, moderatorID, reason);
         this.hide = hide;
         this.pardonedPunishmentID = pardonedPunishmentID;
+        this.pardonedPunishmentType = pardonedPunishmentType;
     }
 
     /**
@@ -40,13 +52,10 @@ public class PardonPunishment extends Punishment {
      */
     @Nullable
     public static PardonPunishment parsePardonPunishment(long userID, String string) {
-        Pattern p = Pattern.compile("x (\\d+) (\\d+) (\\d+) (\\d+) (\\d+) (.*)");
+        Pattern p = Pattern.compile("x (\\d+) (\\d+) (\\d+) (\\d+) (\\d+) (.) (.*)");
         Matcher m = p.matcher(string);
 
         if (!m.find())
-            return null;
-
-        if (m.groupCount() != 6)
             return null;
 
         try {
@@ -57,7 +66,8 @@ public class PardonPunishment extends Punishment {
                     Long.parseLong(m.group(3)),
                     m.group(4).equals("1"),
                     Integer.parseInt(m.group(5)),
-                    StringEscapeUtils.unescapeJava(m.group(6))
+                    m.group(6).charAt(0),
+                    StringEscapeUtils.unescapeJava(m.group(7))
             );
         } catch (NumberFormatException ignored) {
             return null;
@@ -73,13 +83,10 @@ public class PardonPunishment extends Punishment {
      */
     @Nullable
     public static PardonPunishment parsePardonPunishment(String string) {
-        Pattern p = Pattern.compile("x (\\d+) (\\d+) (\\d+) (\\d+) (\\d) (\\d+) (.*)");
+        Pattern p = Pattern.compile("x (\\d+) (\\d+) (\\d+) (\\d+) (\\d) (\\d+) (.) (.*)");
         Matcher m = p.matcher(string);
 
         if (!m.find())
-            return null;
-
-        if (m.groupCount() != 7)
             return null;
 
         try {
@@ -90,13 +97,15 @@ public class PardonPunishment extends Punishment {
                     Long.parseLong(m.group(4)),
                     m.group(5).equals("1"),
                     Integer.parseInt(m.group(6)),
-                    StringEscapeUtils.unescapeJava(m.group(7))
+                    m.group(7).charAt(0),
+                    StringEscapeUtils.unescapeJava(m.group(8))
             );
         } catch (NumberFormatException ignored) {
             return null;
         }
     }
 
+    //TODO type
     @Override
     protected void log(Guild guild) {
         ServerData serverData = ServerData.get(guild.getIdLong());
@@ -115,7 +124,7 @@ public class PardonPunishment extends Punishment {
                         .setTitle("Case " + id)
                         .setColor(CommandUtils.DEFAULT_COLOR)
                         .addField("**User:**", "<@" + userID + ">\n**Type:**\n" + "pardon", true)
-                        .addField("Effected pID:", pardonedPunishmentID + "\n**Hide:**\n" + (hide ? "yes" : "no"), true)
+                        .addField("**Effected pID:**", pardonedPunishmentID + "\n**Hide:**\n" + (hide ? "yes" : "no"), true)
                         .addField("**Moderator:**", "<@" + moderatorID + ">\n**Reason:**\n" + reason, true)
                         .setTimestamp(Instant.now())
                         .build()
@@ -173,7 +182,7 @@ public class PardonPunishment extends Punishment {
      */
     @Override
     public String toStringWithoutUserID() {
-        return "x " + id + ' ' + date + ' ' + moderatorID + ' ' + (hide ? 1 : 0) + ' ' + pardonedPunishmentID + ' ' + StringEscapeUtils.escapeJava(reason);
+        return "x " + id + ' ' + date + ' ' + moderatorID + ' ' + (hide ? 1 : 0) + ' ' + pardonedPunishmentID + ' ' + pardonedPunishmentType + ' ' + StringEscapeUtils.escapeJava(reason);
     }
 
     /**
@@ -183,6 +192,6 @@ public class PardonPunishment extends Punishment {
      */
     @Override
     public String toString() {
-        return "x " + userID + ' ' + id + ' ' + date + ' ' + moderatorID + ' ' + (hide ? 1 : 0) + ' ' + pardonedPunishmentID + ' ' + StringEscapeUtils.escapeJava(reason);
+        return "x " + userID + ' ' + id + ' ' + date + ' ' + moderatorID + ' ' + (hide ? 1 : 0) + ' ' + pardonedPunishmentID + ' ' + pardonedPunishmentType + ' ' + StringEscapeUtils.escapeJava(reason);
     }
 }
