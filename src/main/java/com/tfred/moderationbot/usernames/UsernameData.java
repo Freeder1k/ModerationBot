@@ -230,7 +230,7 @@ public class UsernameData {
 
             String name = m.getEffectiveName();
             if (name.endsWith(")")) {
-                Pattern pattern = Pattern.compile("\\((.*?)\\)");
+                Pattern pattern = Pattern.compile(".*\\((.+)\\)");
                 Matcher matcher = pattern.matcher(name);
                 if (matcher.find())
                     name = matcher.group(1);
