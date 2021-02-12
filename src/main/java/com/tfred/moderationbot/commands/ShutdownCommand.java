@@ -21,7 +21,8 @@ public class ShutdownCommand extends Command {
         try {
             event.channel.sendMessage("⚠️**System shutting down...**⚠️").queue();
             event.event.getJDA().shutdown();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            e.printStackTrace();
             event.channel.sendMessage("Error").queue();
         }
     }

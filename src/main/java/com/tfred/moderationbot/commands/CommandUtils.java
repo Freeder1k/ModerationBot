@@ -120,7 +120,7 @@ public class CommandUtils {
     public static String parseName(String nickname) {
         String name;
         if (nickname.endsWith(")")) {
-            Pattern pattern = Pattern.compile(".*\\((.+)\\)");
+            Pattern pattern = Pattern.compile(".*\\((.+)\\)$");
             Matcher matcher = pattern.matcher(nickname);
             if (matcher.find())
                 name = matcher.group(1);
