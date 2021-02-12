@@ -317,8 +317,11 @@ public class ModerationBot extends ListenerAdapter {
     public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
         Member m = event.getMember();
         long mID = m.getIdLong();
+        String old = event.getOldNickname();
+        if(old == null)
+            old = m.getUser().getName();
         if (!UsernameHandler.get(event.getGuild().getIdLong()).isIgnoredUser(mID))
-            checkNameChange(event.getOldNickname(), event.getNewNickname(), m);
+            checkNameChange(old, event.getNewNickname(), m);
         else
             UsernameHandler.get(event.getGuild().getIdLong()).removeIgnoredUser(mID);
     }
