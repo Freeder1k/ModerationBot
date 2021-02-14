@@ -232,6 +232,9 @@ public class UsernameHandler {
             new_n = m.getEffectiveName();
         new_n = CommandUtils.parseName(new_n);
 
+        if (old_n == null)
+            old_n = m.getUser().getName();
+
         if (!new_n.equals(newMcName)) {
             try {
                 ignoredUsers.add(m.getIdLong());
@@ -245,8 +248,6 @@ public class UsernameHandler {
 
             m.getUser().openPrivateChannel().queue((channel) -> channel.sendMessage("Your nickname in " + g.getName() + " was reset due to it being incompatible with the username system.").queue());
         } else {
-            if (old_n == null)
-                old_n = m.getUser().getName();
             old_n = CommandUtils.parseName(old_n);
             if (!old_n.equals(new_n)) {
                 TextChannel namechannel = g.getTextChannelById(serverData.getNameChannel());

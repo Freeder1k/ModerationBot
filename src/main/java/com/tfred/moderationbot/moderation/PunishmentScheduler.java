@@ -1,6 +1,6 @@
 package com.tfred.moderationbot.moderation;
 
-
+import com.tfred.moderationbot.BotScheduler;
 import com.tfred.moderationbot.ServerData;
 import com.tfred.moderationbot.commands.CommandUtils;
 import net.dv8tion.jda.api.JDA;
@@ -12,27 +12,26 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class PunishmentScheduler {
     private static PunishmentScheduler punishmentScheduler = null;
-    private final ScheduledExecutorService scheduler;
-    private final ConcurrentLinkedQueue<scheduledEndPunishment> queued;
-    private final AtomicBoolean paused;
-    private JDA jda;
+    private final BotScheduler scheduler;
+    private final JDA jda;
 
-    private PunishmentScheduler(JDA jda, ScheduledExecutorService scheduler) {
+    private PunishmentScheduler(JDA jda, BotScheduler scheduler) {
         this.jda = jda;
-        paused = new AtomicBoolean(false);
-        queued = new ConcurrentLinkedQueue<>();
-
         this.scheduler = scheduler;
     }
 
+    /**
+     * Get an instance of the punishment scheduler.
+     *
+     * @throws NotInitializedException
+     *          If the punishment scheduler hasn't been initialized yet with PunishmentScheduler.initialize.
+     */
+    @Nonnull
     public static PunishmentScheduler get() throws NotInitializedException {
         if (punishmentScheduler == null)
             throw new NotInitializedException();
@@ -40,7 +39,10 @@ public class PunishmentScheduler {
         return punishmentScheduler;
     }
 
-    public static synchronized void initialize(@Nonnull JDA jda, @Nonnull ScheduledExecutorService scheduler) {
+    /**
+     * Initialize the punishment scheduler. This also loads all active punishments for each guild.
+     */
+    public static synchronized void initialize(@Nonnull JDA jda, @Nonnull BotScheduler scheduler) {
         if (punishmentScheduler == null) {
             punishmentScheduler = new PunishmentScheduler(jda, scheduler);
 
@@ -66,43 +68,15 @@ public class PunishmentScheduler {
         }
     }
 
-    public static void pause() {
-        try {
-            get().paused.set(true);
-        } catch (NotInitializedException ignored) {
-        }
-    }
-
-    public static void resume(@Nonnull JDA jda) {
-        try {
-            PunishmentScheduler pS = get();
-            pS.jda = jda;
-            pS.paused.set(false);
-            while (!pS.queued.isEmpty())
-                pS.queued.remove().run();
-        } catch (NotInitializedException ignored) {
-        }
-    }
-
-    protected void schedule(long guildID, TimedPunishment p) {
-        long time = p.getTimeLeft();
-        if (time < 0)
-            runEndPunishment(guildID, p);
-        else {
-            scheduler.schedule(
-                    () -> runEndPunishment(guildID, p),
-                    time,
-                    TimeUnit.MILLISECONDS
-            );
-        }
+    protected void schedule(long guildID, @Nonnull TimedPunishment p) {
+        scheduler.schedule(
+                () -> runEndPunishment(guildID, p),
+                p.getTimeLeft(),
+                TimeUnit.MILLISECONDS
+        );
     }
 
     private void runEndPunishment(long guildID, TimedPunishment p) {
-        if (paused.get()) {
-            queued.add(new scheduledEndPunishment(guildID, p));
-            return;
-        }
-
         String response = "";
         Guild guild = jda.getGuildById(guildID);
 
@@ -137,20 +111,6 @@ public class PunishmentScheduler {
     public static class NotInitializedException extends Exception {
         public NotInitializedException() {
             super("Please initialize the punishment handler first by running PunishmentHandler.initialize(jda, scheduler)!");
-        }
-    }
-
-    private class scheduledEndPunishment {
-        private final long guildID;
-        private final TimedPunishment p;
-
-        public scheduledEndPunishment(long guildID, TimedPunishment p) {
-            this.guildID = guildID;
-            this.p = p;
-        }
-
-        public void run() {
-            runEndPunishment(guildID, p);
         }
     }
 }

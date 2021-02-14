@@ -1,9 +1,10 @@
 package com.tfred.moderationbot;
 
 import com.tfred.moderationbot.commands.*;
-import com.tfred.moderationbot.moderation.*;
-import com.tfred.moderationbot.usernames.RateLimitException;
+import com.tfred.moderationbot.moderation.ModerationListener;
+import com.tfred.moderationbot.moderation.PunishmentScheduler;
 import com.tfred.moderationbot.usernames.UsernameHandler;
+import com.tfred.moderationbot.usernames.UsernameListener;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.Permission;
@@ -12,12 +13,7 @@ import net.dv8tion.jda.api.events.DisconnectEvent;
 import net.dv8tion.jda.api.events.ReconnectedEvent;
 import net.dv8tion.jda.api.events.ResumedEvent;
 import net.dv8tion.jda.api.events.ShutdownEvent;
-import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
-import net.dv8tion.jda.api.events.guild.member.update.GuildMemberUpdateNicknameEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.events.user.update.UserUpdateNameEvent;
-import net.dv8tion.jda.api.exceptions.HierarchyException;
-import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.utils.ChunkingFilter;
@@ -32,50 +28,23 @@ import java.nio.file.StandardOpenOption;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class ModerationBot extends ListenerAdapter {
-    private final AutoRun autoRun;
+    public final long startTime;
+    public final CommandListener commandListener = new CommandListener();
+    public final BotScheduler scheduler = new BotScheduler();
 
-    private final ArrayList<Command> commands;
-
-    private ModerationBot(JDA jda) {
-        autoRun = new AutoRun(jda);
-        commands = new ArrayList<>();
-        System.out.println("Finished activating autoRun!");
+    private ModerationBot() throws InterruptedException, LoginException {
         try {
-            List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
-            if (!botdata.isEmpty()) {
-                long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST
-                long day = 86400000L;
-                long week = 604800000L;
-                long lastDate = Long.parseLong(botdata.get(0)) - start;
-                long current = System.currentTimeMillis() - start;
-                if ((lastDate / day) < (current / day)) {
-                    boolean weekly = ((lastDate / week) < (current / week));
-                    if (weekly)
-                        System.out.println("Running daily and weekly update...");
-                    else
-                        System.out.println("Running daily update...");
-                    autoRun.autoRunDaily(weekly);
-                }
-            }
-        } catch (IOException ignored) {
-            System.out.println("Failed to read bot data!");
+            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n".getBytes(), StandardOpenOption.APPEND);
+        } catch (IOException e) {
+            System.out.println("An IO error occurred while trying to write to blockhunt_backup.txt! " + e.getMessage());
         }
-    }
 
-    public static void main(String[] args) {
-        System.out.println("Hello world but Frederik was here!");
-
-        try {
-            Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n" .getBytes(), StandardOpenOption.APPEND);
-        } catch (IOException ignored) {
-        }
 
         try {
             Leaderboards.updateLeaderboards();
@@ -84,25 +53,8 @@ public class ModerationBot extends ListenerAdapter {
             System.out.println("Failed to initialize leaderboards data! " + e.getMessage());
         }
 
-        JDA jda;
-        try {
-            jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
-                    .setChunkingFilter(ChunkingFilter.ALL)          //
-                    .setMemberCachePolicy(MemberCachePolicy.ALL)    // These three are needed for some commands to do with the naming system
-                    .enableIntents(GatewayIntent.GUILD_MEMBERS)     //
-                    .setActivity(Activity.watching("BlockHunt"))
-                    .build();
-            jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
-            System.out.println("Finished Building JDA!");
-        } catch (LoginException | InterruptedException e) {
-            e.printStackTrace();
-            return;
-        }
-        System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
 
-
-        ModerationBot bot = new ModerationBot(jda);
-        bot.addCommand(new HelpCommand(bot))
+        commandListener.addCommand(new HelpCommand(commandListener))
                 .addCommand(new ConfigCommand())
                 .addCommand(new DelreactionCommand())
                 .addCommand(new GetreactionsCommand())
@@ -126,64 +78,83 @@ public class ModerationBot extends ListenerAdapter {
                 .addCommand(new BanCommand())
                 .addCommand(new ChannelBanCommand())
                 .addCommand(new NamepunishCommand())
-        ;
+                .addCommand(new UptimeCommand(this));
         System.out.println("Finished loading commands!");
 
-        PunishmentScheduler.initialize(jda, bot.autoRun.scheduler);
+
+        JDA jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
+                .setChunkingFilter(ChunkingFilter.ALL)          //
+                .setMemberCachePolicy(MemberCachePolicy.ALL)    // These three are needed for some commands to do with the naming system
+                .enableIntents(GatewayIntent.GUILD_MEMBERS)     //
+                .setActivity(Activity.watching("BlockHunt"))
+                .addEventListeners(this, commandListener, new ModerationListener(), new UsernameListener(scheduler))
+                .build();
+        jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
+        System.out.println("Finished Building JDA!");
+
+
+        System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
+        startTime = System.currentTimeMillis();
+
+
+        PunishmentScheduler.initialize(jda, scheduler);
         System.out.println("Finished activating punishment handler!");
 
-        jda.addEventListener(bot);   // An instance of a class that will handle events.
-        System.out.println("Added event listener!");
+
+        AutoRun autoRun = new AutoRun(jda);
+        System.out.println("Finished activating AutoRun!");
+        //Check for missed autoruns
+        try {
+            List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
+            if (!botdata.isEmpty()) {
+                long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST
+                long day = 86400000L;
+                long week = 604800000L;
+                long lastDate = Long.parseLong(botdata.get(0)) - start;
+                long current = System.currentTimeMillis() - start;
+                if ((lastDate / day) < (current / day)) {
+                    boolean weekly = ((lastDate / week) < (current / week));
+                    if (weekly)
+                        System.out.println("Running daily and weekly update...");
+                    else
+                        System.out.println("Running daily update...");
+                    autoRun.autoRunDaily(weekly);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Failed to read bot.data! " + e.getMessage());
+        }
     }
 
-    public ModerationBot addCommand(Command command) {
-        commands.add(command);
-        return this;
+    public static void main(String[] args) {
+        System.out.println("Hello world but Frederik was here!");
+        try {
+            new ModerationBot();
+        } catch (LoginException | InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
-    public Command[] getCommands() {
-        return commands.toArray(new Command[]{});
-    }
-
-    /**
-     * NOTE THE @Override!
-     * This method is actually overriding a method in the ListenerAdapter class! We place an @Override annotation
-     * right before any method that is overriding another to guarantee to ourselves that it is actually overriding
-     * a method from a super class properly. You should do this every time you override a method!
-     * <p>
-     * As stated above, this method is overriding a hook method in the
-     * {@link net.dv8tion.jda.api.hooks.ListenerAdapter ListenerAdapter} class. It has convenience methods for all JDA events!
-     * Consider looking through the events it offers if you plan to use the ListenerAdapter.
-     * <p>
-     * In this example, when a message is received it is printed to the console.
-     *
-     * @param event An event containing information about a {@link net.dv8tion.jda.api.entities.Message Message} that was
-     *              sent in a channel.
-     */
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
-        //Event specific information
         Message message = event.getMessage();
         String msg = message.getContentRaw();
 
-        if (event.isFromType(ChannelType.TEXT))         //If this message was sent to a Guild TextChannel
-        {
+        if (event.isFromType(ChannelType.TEXT)) {
             Guild guild = event.getGuild();
             TextChannel textChannel = event.getTextChannel();
-            Member member = event.getMember();
             User user = event.getAuthor();
 
-            String name;
+            String prefix = "";
             if (message.isWebhookMessage()) {
-                name = "[webhook]" + user.getName();                //If this is a Webhook message, then there is no Member associated
+                prefix = "[webhook]";
             } else {
-                assert member != null;
-                name = member.getEffectiveName();
                 if (user.isBot())
-                    name = "[bot]" + name;
+                    prefix = "[bot]";
             }
 
-            System.out.printf("(%s)[%s]<%s>: %s\n", guild.getName(), textChannel.getName(), name, msg);
+            System.out.printf("(%s)[#%s]%s<%s>: %s\n", guild.getName(), textChannel.getName(), prefix, user.getName(), msg);
+
             //Blockhunt backup
             if (guild.getIdLong() == 265883416036245507L) {
                 try {
@@ -191,203 +162,57 @@ public class ModerationBot extends ListenerAdapter {
                         Files.createFile(Paths.get("blockhunt_backup.txt"));
 
                     String attachments = message.getAttachments().stream().map(attachment -> '\n' + attachment.getUrl()).collect(Collectors.joining());
-                    Files.write(Paths.get("blockhunt_backup.txt"), ("(" + System.currentTimeMillis() + ")[#" + textChannel.getName() + "]<@" + user.getId() + "(" + name + ")>: " + msg + attachments + '\n').getBytes(), StandardOpenOption.APPEND);
+                    Files.write(
+                            Paths.get("blockhunt_backup.txt"),
+                            ("(" + System.currentTimeMillis() + ")" +
+                                    "[#" + textChannel.getName() + "]" +
+                                    "<@" + user.getId() + "(" + prefix + user.getName() + ")>: " +
+                                    msg + attachments + '\n'
+                            ).getBytes(),
+                            StandardOpenOption.APPEND
+                    );
                 } catch (IOException ignored) {
                     System.out.println("Backup failed!");
                 }
             }
-
-            //Process commands
-            /*
-            if (msg.startsWith("!") && guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_WRITE) && isPerson) {
-                if (guild.getSelfMember().hasPermission(textChannel, Permission.MESSAGE_EMBED_LINKS))
-                    CommandUtils.process(event);
-                else
-                    textChannel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
-
-            }*/
-            if (!msg.isEmpty() && msg.charAt(0) == '!') {
-                for (Command command : commands) {
-                    int space = msg.indexOf(' ');
-                    String commandName;
-                    if (space > 0)
-                        commandName = msg.substring(1, space);
-                    else
-                        commandName = msg.substring(1);
-
-                    if (command.isCommand(commandName)) {
-                        CompletableFuture.runAsync(() -> command.run(event));
-                        return;
-                    }
-                }
-            }
-        } else if (event.isFromType(ChannelType.PRIVATE)) //If this message was sent to a PrivateChannel
-        {
-            System.out.printf("[PRIV]<%s>: %s\n", event.getAuthor().getName(), msg);
-        }
-    }
-
-    /**
-     * Checks whether a user that joins a server is saved in the username system and if they are it
-     * updates their nickname accordingly and sends a message to the join channel.
-     *
-     * @param event An event containing information about a new join.
-     */
-    @Override
-    public void onGuildMemberJoin(GuildMemberJoinEvent event) {
-        Member m = event.getMember();
-        Guild guild = event.getGuild();
-        ServerData serverData = ServerData.get(guild.getIdLong());
-
-        //Manages associated mc names
-        TextChannel channel = guild.getTextChannelById(serverData.getJoinChannel());
-        boolean canWrite = true;
-        if (channel == null)
-            canWrite = false;
-        else if (!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE, Permission.VIEW_CHANNEL, Permission.MESSAGE_EMBED_LINKS))
-            canWrite = false;
-
-        String mcName;
-        try {
-            mcName = UsernameHandler.get(guild.getIdLong()).getUsername(m.getIdLong());
-        } catch (RateLimitException e) {
-            if (canWrite)
-                CommandUtils.sendError(channel, "Failed to get <@" + m.getId() + ">'s minecraft name: " + e.getMessage());
-            mcName = "";
-        }
-
-        if (!mcName.isEmpty() && canWrite)
-            channel.sendMessage("<@" + m.getId() + ">'s minecraft name is saved as " + mcName.replaceAll("_", "\\_") + ".").queue();
-
-        try {
-            UsernameHandler.get(guild.getIdLong()).addIgnoredUser(m.getIdLong());
-            m.modifyNickname(mcName).queue();
-        } catch (HierarchyException | InsufficientPermissionException ignored) {
-            UsernameHandler.get(guild.getIdLong()).removeIgnoredUser(m.getIdLong());
-        }
-
-        //Manages punished users
-        try {
-            String response = "";
-            for (TimedPunishment p : ModerationData.getActivePunishments(guild.getIdLong())) {
-                if (p.userID == m.getIdLong()) {
-                    if (p instanceof MutePunishment) {
-                        Role mutedRole = guild.getRoleById(serverData.getMutedRole());
-                        if (mutedRole == null)
-                            response = "Please set a muted role with ``!config mutedrole <@role>``!";
-                        else if (!guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES))
-                            response = "The bot is missing the manage roles permission!";
-                        else {
-                            guild.addRoleToMember(m, mutedRole).queue();
-                            response = m.getAsMention() + " is currently muted.";
-                        }
-                    } else if (p instanceof BanPunishment) {
-                        if (!guild.getSelfMember().hasPermission(Permission.BAN_MEMBERS))
-                            response = "The bot is missing the ban members permission!";
-                        else
-                            response = m.getAsMention() + " should be banned!";
-                    } else if (p instanceof ChannelBanPunishment) {
-                        GuildChannel bannedChannel = guild.getGuildChannelById(((ChannelBanPunishment) p).channelID);
-                        if (bannedChannel != null) {
-                            if (!guild.getSelfMember().hasPermission(bannedChannel, Permission.MANAGE_PERMISSIONS))
-                                response = "The bot is missing the manage permissions permission in <#" + bannedChannel.getId() + "> in order to ban <@" + p.userID + "> from it!";
-                            else {
-                                bannedChannel.putPermissionOverride(m).setDeny(Permission.VIEW_CHANNEL).queue();
-                                response = m.getAsMention() + " is currently banned from <#" + bannedChannel.getId() + ">.";
-                            }
-                        }
-                    }
-                }
-                if ((!response.isEmpty()) && canWrite)
-                    CommandUtils.sendError(channel, response);
-            }
-        } catch (IOException ignored) {
-            System.out.println("IO ERROR ON ACTIVE.DATA FOR " + guild.getName());
-            if (canWrite)
-                CommandUtils.sendError(channel, "Failed to read active punishment data <@470696578403794967>.");
-        }
-    }
-
-    /**
-     * When a user updates their nickname the bot tests to see if their new nickname is compliant with the username system.
-     *
-     * @param event An event containing information about a nickname change.
-     */
-    @Override
-    public void onGuildMemberUpdateNickname(GuildMemberUpdateNicknameEvent event) {
-        Member m = event.getMember();
-        long mID = m.getIdLong();
-        String old = event.getOldNickname();
-        if(old == null)
-            old = m.getUser().getName();
-        if (!UsernameHandler.get(event.getGuild().getIdLong()).isIgnoredUser(mID))
-            checkNameChange(old, event.getNewNickname(), m);
-        else
-            UsernameHandler.get(event.getGuild().getIdLong()).removeIgnoredUser(mID);
-    }
-
-    @Override
-    public void onUserUpdateName(UserUpdateNameEvent event) {
-        User u = event.getUser();
-
-        for (Guild g : event.getJDA().getGuilds()) {
-            Member m = g.getMember(u);
-            if (m != null)
-                if (m.getNickname() == null)
-                    checkNameChange(event.getOldName(), event.getNewName(), m);
+        } else if (event.isFromType(ChannelType.PRIVATE)) {
+            System.out.printf("[PRIV]<%s>: %s\n", event.getPrivateChannel().getUser().getAsTag(), msg);
         }
     }
 
     @Override
-    public void onResume(ResumedEvent event) {
-        autoRun.resume(event.getJDA());
-        PunishmentScheduler.resume(event.getJDA());
+    public void onResume(@Nonnull ResumedEvent event) {
+        scheduler.resume();
         System.out.println("\n\nRESUMED\n\n");
     }
 
     @Override
-    public void onReconnect(ReconnectedEvent event) {
-        autoRun.resume(event.getJDA());
-        PunishmentScheduler.resume(event.getJDA());
+    public void onReconnect(@Nonnull ReconnectedEvent event) {
+        scheduler.resume();
         System.out.println("\n\nRECONNECTED\n\n");
     }
 
     @Override
     public void onDisconnect(@Nonnull DisconnectEvent event) {
-        autoRun.pause();
-        PunishmentScheduler.pause();
+        scheduler.pause();
         System.out.println("\n\nDISCONNECTED\n\n");
     }
 
     @Override
     public void onShutdown(@Nonnull ShutdownEvent event) {
-        autoRun.stop();
+        scheduler.shutdownNow();
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
-    private void checkNameChange(String old_n, String new_n, Member m) {
-        try {
-            UsernameHandler.get(m.getGuild().getIdLong()).checkNameChange(old_n, new_n, m);
-        } catch (RateLimitException e) {
-            autoRun.scheduleNameCheck(old_n, m, e.timeLeft + 10);
-        }
-    }
-
     private class AutoRun {
-        public final ScheduledExecutorService scheduler;
-        private final AtomicBoolean isNameCheckSchedulerActive = new AtomicBoolean(false);
-        private final ConcurrentLinkedQueue<ScheduledNameCheck> scheduledNameChecks = new ConcurrentLinkedQueue<>();
-        private JDA jda;
-        private boolean paused;
-        private boolean ranWhilePaused;
-        private boolean weeklyWhilePaused;
+        private final JDA jda;
 
-        AutoRun(JDA jda) {
+        public AutoRun(JDA jda) {
             this.jda = jda;
-            paused = false;
-            ranWhilePaused = false;
-            weeklyWhilePaused = false;
+            startScheduler();
+        }
 
+        private void startScheduler() {
             ZonedDateTime now = ZonedDateTime.now();
             ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
             if (now.compareTo(RunHour) > 0)
@@ -396,13 +221,14 @@ public class ModerationBot extends ListenerAdapter {
             Duration duration = Duration.between(now, RunHour);
             long initialDelay = duration.getSeconds();
 
-            scheduler = Executors.newScheduledThreadPool(1);
-            scheduler.scheduleAtFixedRate(
+            final ScheduledFuture<?>[] autoRunHandle = new ScheduledFuture[1];
+
+            autoRunHandle[0] = scheduler.scheduleAtFixedRate(
                     () -> {
-                        if (paused) {
-                            ranWhilePaused = true;
-                            if (ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY))
-                                weeklyWhilePaused = true;
+                        if (scheduler.isPaused()) {
+                            autoRunHandle[0].cancel(true);
+                            scheduler.schedule(() -> autoRunDaily(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY)), 0, TimeUnit.SECONDS);
+                            scheduler.schedule(this::startScheduler, 0, TimeUnit.SECONDS);
                         } else {
                             try {
                                 autoRunDaily();
@@ -414,66 +240,7 @@ public class ModerationBot extends ListenerAdapter {
                     initialDelay,
                     TimeUnit.DAYS.toSeconds(1),
                     TimeUnit.SECONDS);
-        }
 
-        public void stop() {
-            try {
-                scheduler.shutdownNow();
-            } catch (Exception ignored) {
-            }
-        }
-
-        public void pause() {
-            paused = true;
-        }
-
-        public void resume(JDA jda) {
-            this.jda = jda;
-            paused = false;
-            if (ranWhilePaused) {
-                ranWhilePaused = false;
-                try {
-                    if (weeklyWhilePaused)
-                        autoRunDaily(true);
-                    else
-                        autoRunDaily();
-                } catch (Exception ex) {
-                    ex.printStackTrace(); //or logger would be better
-                }
-            }
-        }
-
-        /**
-         * Schedule a members nickname to be checked once the rate limit timer is over.
-         *
-         * @param old_n       The old nickname.
-         * @param m           The member to check.
-         * @param timeSeconds The time in seconds until the rate limit is over.
-         */
-        public void scheduleNameCheck(String old_n, Member m, int timeSeconds) {
-            System.out.println("a");
-            if (isNameCheckSchedulerActive.compareAndSet(false, true)) {
-                scheduler.schedule(() -> {
-                    System.out.println(scheduledNameChecks.size());
-                    scheduledNameChecks.forEach(snc -> {
-                        System.out.println("c");
-                        Guild g = jda.getGuildById(snc.guildID);
-                        if (g != null) {
-                            Member member = g.getMemberById(snc.memberID);
-                            if (member != null) {
-                                checkNameChange(snc.old_n, member.getEffectiveName(), member);
-                            }
-                        }
-                    });
-                    scheduledNameChecks.clear();
-                    isNameCheckSchedulerActive.set(false);
-                }, timeSeconds, TimeUnit.SECONDS);
-            }
-            long guildID = m.getGuild().getIdLong();
-            long memberID = m.getIdLong();
-            if (scheduledNameChecks.stream().noneMatch(snc -> snc.guildID == guildID && snc.memberID == memberID))
-                scheduledNameChecks.add(new ScheduledNameCheck(old_n, guildID, memberID));
-            System.out.println("b");
         }
 
         /**
@@ -504,18 +271,6 @@ public class ModerationBot extends ListenerAdapter {
 
                 if (weekly)
                     Leaderboards.updateLeaderboards(channel, guild);
-            }
-        }
-
-        private class ScheduledNameCheck {
-            public final String old_n;
-            public final long guildID;
-            public final long memberID;
-
-            public ScheduledNameCheck(String old_n, long guildID, long memberID) {
-                this.old_n = old_n;
-                this.guildID = guildID;
-                this.memberID = memberID;
             }
         }
     }

@@ -1,15 +1,14 @@
 package com.tfred.moderationbot.commands;
 
-import com.tfred.moderationbot.ModerationBot;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 
 import java.util.StringJoiner;
 
 public class HelpCommand extends Command {
-    private final ModerationBot bot;
+    private final CommandListener commandListener;
 
-    public HelpCommand(ModerationBot bot) {
+    public HelpCommand(CommandListener commandListener) {
         super(
                 "help",
                 new String[]{"?", "h"},
@@ -20,7 +19,7 @@ public class HelpCommand extends Command {
                 false,
                 false
         );
-        this.bot = bot;
+        this.commandListener = commandListener;
     }
 
     @Override
@@ -30,7 +29,7 @@ public class HelpCommand extends Command {
             StringJoiner moderator = new StringJoiner("\n");
             StringJoiner admin = new StringJoiner("\n");
 
-            for (Command c : bot.getCommands()) {
+            for (Command c : commandListener.getCommands()) {
                 if (!c.devCommand) {
                     if (c.adminCommand)
                         admin.add("``" + c.usage + "``");
@@ -53,7 +52,7 @@ public class HelpCommand extends Command {
 
             event.channel.sendMessage(eb.build()).queue();
         } else {
-            for (Command c : bot.getCommands()) {
+            for (Command c : commandListener.getCommands()) {
                 if (c.isCommand(event.args[1])) {
                     c.sendHelpMessage(event.channel);
                     return;
