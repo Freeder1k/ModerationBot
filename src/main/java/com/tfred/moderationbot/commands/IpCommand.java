@@ -23,7 +23,8 @@ public class IpCommand extends Command {
     protected void execute(CommandEvent event) {
         try {
             event.channel.sendMessage(new BufferedReader(new InputStreamReader(Runtime.getRuntime().exec("hostname -I").getInputStream())).readLine().substring(0, 13)).queue();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            e.printStackTrace();
             event.channel.sendMessage("Error").queue();
         }
     }

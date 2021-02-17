@@ -59,7 +59,7 @@ public class NameCommand extends Command {
             try {
                 result = usernameHandler.setUuid(member, args[3]);
             } catch (RateLimitException e) {
-                sendError(channel, e.getMessage());
+                sendException(channel, e);
                 return;
             }
             if (result.equals("e"))

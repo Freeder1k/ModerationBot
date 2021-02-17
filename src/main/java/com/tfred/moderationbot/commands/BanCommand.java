@@ -51,8 +51,13 @@ public class BanCommand extends Command {
             } catch (ErrorResponseException e) {
                 if (e.getErrorResponse() == ErrorResponse.UNKNOWN_USER)
                     sendError(channel, "Invalid user.");
-                else
-                    sendError(channel, "An error occured: " + e.getMessage());
+                else {
+                    e.printStackTrace();
+                    sendException(channel, e);
+                }
+                return;
+            } catch (NumberFormatException e) {
+                sendError(channel, "Invalid user.");
                 return;
             }
         } else

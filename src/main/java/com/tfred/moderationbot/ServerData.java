@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
+//TODO remove ventchannel
 public class ServerData {
     private static final HashMap<Long, SoftReference<ServerData>> allServerData = new HashMap<>();
     private static final HashMap<Long, Set<Long>> allServerModRoles = new HashMap<>();

@@ -67,10 +67,9 @@ public class ModerationListener extends ListenerAdapter {
                 if ((!response.isEmpty()) && canWrite)
                     CommandUtils.sendError(channel, response);
             }
-        } catch (IOException ignored) {
-            System.out.println("IO ERROR ON ACTIVE.DATA FOR " + guild.getName());
-            if (canWrite)
-                CommandUtils.sendError(channel, "Failed to read active punishment data <@470696578403794967>.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            CommandUtils.logException(guild, e);
         }
     }
 }

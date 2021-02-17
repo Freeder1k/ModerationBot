@@ -42,15 +42,15 @@ public class ModerationBot extends ListenerAdapter {
         try {
             Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n".getBytes(), StandardOpenOption.APPEND);
         } catch (IOException e) {
-            System.out.println("An IO error occurred while trying to write to blockhunt_backup.txt! " + e.getMessage());
+            System.out.println("[ModerationBot] ERROR - An IO error occurred while trying to write to blockhunt_backup.txt! " + e.getMessage());
         }
 
 
         try {
             Leaderboards.updateLeaderboards();
-            System.out.println("Finished initializing leaderboards data.");
+            System.out.println("[ModerationBot] INFO - Finished initializing leaderboards data.");
         } catch (Leaderboards.LeaderboardFetchFailedException e) {
-            System.out.println("Failed to initialize leaderboards data! " + e.getMessage());
+            System.out.println("[ModerationBot] ERROR - Failed to initialize leaderboards data! " + e.getMessage());
         }
 
 
@@ -79,7 +79,7 @@ public class ModerationBot extends ListenerAdapter {
                 .addCommand(new ChannelBanCommand())
                 .addCommand(new NamepunishCommand())
                 .addCommand(new UptimeCommand(this));
-        System.out.println("Finished loading commands!");
+        System.out.println("[ModerationBot] INFO - Finished loading commands!");
 
 
         JDA jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
@@ -90,19 +90,19 @@ public class ModerationBot extends ListenerAdapter {
                 .addEventListeners(this, commandListener, new ModerationListener(), new UsernameListener(scheduler))
                 .build();
         jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
-        System.out.println("Finished Building JDA!");
+        System.out.println("[ModerationBot] INFO - Finished Building JDA!");
 
 
-        System.out.println("Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
+        System.out.println("[ModerationBot] INFO - Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
         startTime = System.currentTimeMillis();
 
 
         PunishmentScheduler.initialize(jda, scheduler);
-        System.out.println("Finished activating punishment handler!");
+        System.out.println("[ModerationBot] INFO - Finished activating punishment handler!");
 
 
         AutoRun autoRun = new AutoRun(jda);
-        System.out.println("Finished activating AutoRun!");
+        System.out.println("[ModerationBot] INFO - Finished activating AutoRun!");
         //Check for missed autoruns
         try {
             List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
@@ -115,14 +115,14 @@ public class ModerationBot extends ListenerAdapter {
                 if ((lastDate / day) < (current / day)) {
                     boolean weekly = ((lastDate / week) < (current / week));
                     if (weekly)
-                        System.out.println("Running daily and weekly update...");
+                        System.out.println("[ModerationBot] INFO - Running daily and weekly update...");
                     else
-                        System.out.println("Running daily update...");
+                        System.out.println("[ModerationBot] INFO - Running daily update...");
                     autoRun.autoRunDaily(weekly);
                 }
             }
         } catch (IOException e) {
-            System.out.println("Failed to read bot.data! " + e.getMessage());
+            System.out.println("[ModerationBot] ERROR - Failed to read bot.data! " + e.getMessage());
         }
     }
 

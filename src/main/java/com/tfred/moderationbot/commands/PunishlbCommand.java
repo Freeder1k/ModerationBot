@@ -29,7 +29,7 @@ public class PunishlbCommand extends Command {
     @Override
     protected void execute(CommandEvent event) {
         sendError(event.channel, "Not implemented yet!");
-        /*
+        /*TODO implement
         ModerationData.UserPunishment[] all;
         try {
             all = ModerationData.getAllPunishments(event.guild.getIdLong());

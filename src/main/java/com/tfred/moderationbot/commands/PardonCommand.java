@@ -107,7 +107,8 @@ public class PardonCommand extends Command {
         try {
             punishments = Arrays.stream(ModerationData.getActivePunishments(guild.getIdLong())).filter(p -> p.userID == userID).collect(Collectors.toList());
         } catch (IOException e) {
-            sendError(channel, "An IO exception occurred while trying to read active punishments <@470696578403794967>! " + e.getMessage());
+            e.printStackTrace();
+            sendException(channel, e);
             return;
         }
         if (punishments.isEmpty()) {

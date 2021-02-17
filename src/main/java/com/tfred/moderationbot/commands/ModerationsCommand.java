@@ -33,7 +33,8 @@ public class ModerationsCommand extends Command {
         try {
             activePunishments = ModerationData.getActivePunishments(event.guild.getIdLong());
         } catch (IOException e) {
-            sendError(channel, "An IO error occurred while reading active.data <@470696578403794967>! " + e.getMessage());
+            e.printStackTrace();
+            sendException(channel, e);
             return;
         }
 

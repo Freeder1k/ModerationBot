@@ -92,8 +92,13 @@ public class PunishmentScheduler {
                     response = e.getMessage();
                 }
             }
-        } catch (IOException e) {
-            response = "An IO error occured while updating active.data (<@470696578403794967>)! " + e.getMessage();
+        } catch (Exception e) {
+            e.printStackTrace();
+            if(guild != null) {
+                CommandUtils.logException(guild, e);
+                return;
+            }
+            response = "An exception while updating active.data (<@470696578403794967>)! " + e.getMessage();
         }
 
         if (guild != null) {

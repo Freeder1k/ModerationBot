@@ -8,8 +8,7 @@ import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 
 import java.util.concurrent.CountDownLatch;
 
-import static com.tfred.moderationbot.commands.CommandUtils.sendError;
-import static com.tfred.moderationbot.commands.CommandUtils.sendSuccess;
+import static com.tfred.moderationbot.commands.CommandUtils.*;
 
 public class DelreactionCommand extends Command {
     public DelreactionCommand() {
@@ -77,13 +76,15 @@ public class DelreactionCommand extends Command {
                 sendSuccess(channel, "✅ Removed reactions with " + finalEmoji + " on " + amount + " messages.");
             } catch (InterruptedException e) {
                 e.printStackTrace();
-                sendError(channel, "An internal error occurred! Please try again later.");
+                sendException(channel, e);
             }
         }, (failure) -> {
             if (failure instanceof ErrorResponseException) {
                 sendError(channel, "Unknown emoji: ``" + finalEmoji + "``!\n If you don't have access to the emoji send it in the format ``:emoji:id``. Example: ``:test:756833424655777842``.");
-            } else
-                sendError(channel, "An internal error occurred! Please try again later.");
+            } else {
+                failure.printStackTrace();
+                sendException(channel, failure);
+            }
         }));
     }
 }

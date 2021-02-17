@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.entities.TextChannel;
 import java.io.IOException;
 
 import static com.tfred.moderationbot.commands.CommandUtils.sendError;
+import static com.tfred.moderationbot.commands.CommandUtils.sendException;
 
 public class CaseCommand extends Command {
     public CaseCommand() {
@@ -47,8 +48,8 @@ public class CaseCommand extends Command {
         try {
             all = ModerationData.getAllPunishments(event.guild.getIdLong());
         } catch (IOException e) {
-            System.out.println("abc");
-            sendError(channel, "An IO exception occured! " + e.getMessage());
+            e.printStackTrace();
+            sendException(channel, e);
             return;
         }
 

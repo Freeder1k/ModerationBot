@@ -1,5 +1,6 @@
 package com.tfred.moderationbot.commands;
 
+import com.tfred.moderationbot.ServerData;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
@@ -60,6 +61,41 @@ public class CommandUtils {
         } catch (InsufficientPermissionException e) {
             if (e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
                 channel.sendMessage("Please give me the embed links permission.\n" + message).queue();
+        }
+    }
+
+    /**
+     * Send an exception message.
+     *
+     * @param channel   The {@link TextChannel channel} to send the message to.
+     * @param throwable The throwable that should be included in the message.
+     */
+    public static void sendException(TextChannel channel, Throwable throwable) {
+        try {
+            channel.sendMessage(new EmbedBuilder()
+                    .setColor(ERROR_COLOR)
+                    .setTitle("A " + throwable.getClass().getSimpleName() + " occured!")
+                    .setDescription(throwable.getMessage()).build()).queue();
+        } catch (InsufficientPermissionException e) {
+            if (e.getPermission().equals(Permission.MESSAGE_EMBED_LINKS))
+                channel.sendMessage("A " + throwable.getClass().getSimpleName() + " occured:\n" + throwable.getMessage()).queue();
+        }
+    }
+
+    /**
+     * Send an exception message to the guilds log channel.
+     *
+     * @param guild The guild to log to.
+     * @param throwable The throwable that should be included in the message.
+     */
+    public static void logException(Guild guild, Throwable throwable) {
+        TextChannel channel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getLogChannel());
+        if(channel != null) {
+            if(guild.getSelfMember().hasPermission(channel, Permission.VIEW_CHANNEL, Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS))
+                channel.sendMessage(new EmbedBuilder()
+                        .setColor(ERROR_COLOR)
+                        .setTitle("A " + throwable.getClass().getSimpleName() + " occured!")
+                        .setDescription(throwable.getMessage()).build()).queue();
         }
     }
 
@@ -153,10 +189,8 @@ public class CommandUtils {
     /**
      * Returns a list containing all specified permissions the bot is missing in a channel.
      *
-     * @param channel
-     *          The channel to check.
-     * @return
-     *          A list containing the missing permissions.
+     * @param channel The channel to check.
+     * @return A list containing the missing permissions.
      */
     public static LinkedList<Permission> missingPerms(TextChannel channel, Permission... permissions) {
         LinkedList<Permission> missingPerms = new LinkedList<>();

@@ -29,7 +29,7 @@ public class ModstatsCommand extends Command {
     @Override
     protected void execute(CommandEvent event) {
         sendError(event.channel, "Not implemented yet!");
-        /*
+        /* TODO implement
         TextChannel channel = event.channel;
 
         Member moderator;

@@ -82,6 +82,10 @@ public class GetreactionsCommand extends Command {
                 if (failure instanceof ErrorResponseException) {
                     sendError(event.channel, "Couldn't find the specified message!");
                 }
+                else {
+                    failure.printStackTrace();
+                    sendException(event.channel, failure);
+                }
             });
         } catch (InsufficientPermissionException e) {
             sendError(event.channel, "Cannot perform action due to lack of permission in " + c.getAsMention() + "! Missing permission: " + e.getPermission().toString());

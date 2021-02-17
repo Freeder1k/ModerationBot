@@ -27,7 +27,6 @@ public class ConfigCommand extends Command {
                         "logchannel        │ channel │\n" +
                         "joinchannel       │ channel │\n" +
                         "punishmentchannel │ channel │\n" +
-                        "ventchannel       │ channel │\n" +
                         "namechannel       │ channel │```",
                 new Permission[]{},
                 false,
@@ -104,12 +103,6 @@ public class ConfigCommand extends Command {
                 embedBuilder.addField("**Punishment channel:**", "``Not set yet.``", false);
             else
                 embedBuilder.addField("**Punishment channel:**", "<#" + punishmentChannel + ">", false);
-
-            long ventChannel = serverData.getVentChannel();
-            if (ventChannel == 0)
-                embedBuilder.addField("**Vent channel:**", "``Not set yet.``", false);
-            else
-                embedBuilder.addField("**Vent channel:**", "<#" + ventChannel + ">", false);
 
             long nameChannel = serverData.getNameChannel();
             if (nameChannel == 0)
@@ -214,16 +207,6 @@ public class ConfigCommand extends Command {
                     }
                     serverData.setPunishmentChannel(c.getIdLong());
                     sendSuccess(channel, "Set the punishment channel to <#" + c.getId() + ">.");
-                    break;
-                }
-                case "ventchannel": {
-                    TextChannel c = guild.getTextChannelById(parseID(args[2]));
-                    if (c == null) {
-                        sendError(channel, "Invalid channel!");
-                        return;
-                    }
-                    serverData.setVentChannel(c.getIdLong());
-                    sendSuccess(channel, "Set the vent channel to <#" + c.getId() + ">.");
                     break;
                 }
                 case "namechannel": {

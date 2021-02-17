@@ -45,40 +45,47 @@ public abstract class Command {
 
     /**
      * Check all necessary details and run the command.
+     * Any exception that gets thrown by a subprocess gets caught here and
+     * {@link CommandUtils#sendException(TextChannel, Throwable)} and {@link Exception#printStackTrace()} are run.
      *
      * @param event The message event of the command.
      */
     public void run(MessageReceivedEvent event) {
-        if (!event.isFromType(ChannelType.TEXT))
-            return;
+        try {
+            if (!event.isFromType(ChannelType.TEXT))
+                return;
 
-        if (event.getMessage().isWebhookMessage())
-            return;
+            if (event.getMessage().isWebhookMessage())
+                return;
 
-        CommandEvent commandEvent = new CommandEvent(event);
+            CommandEvent commandEvent = new CommandEvent(event);
 
-        if (commandEvent.sender.getUser().isBot())
-            return;
+            if (commandEvent.sender.getUser().isBot())
+                return;
 
-        if (!commandEvent.guild.getSelfMember().hasPermission(commandEvent.channel, Permission.MESSAGE_WRITE))
-            return;
+            if (!commandEvent.guild.getSelfMember().hasPermission(commandEvent.channel, Permission.MESSAGE_WRITE))
+                return;
 
-        if (!commandEvent.guild.getSelfMember().hasPermission(commandEvent.channel, Permission.MESSAGE_EMBED_LINKS)) {
-            commandEvent.channel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
-            return;
-        }
-
-        if (allowedUser(commandEvent.sender)) {
-            LinkedList<Permission> missingPerms = missingPerms(commandEvent.channel);
-
-            if (missingPerms.isEmpty())
-                execute(commandEvent);
-            else {
-                commandEvent.channel.sendMessage(new EmbedBuilder().setColor(CommandUtils.ERROR_COLOR)
-                        .setTitle("**To use this command please give me the following permissions:**")
-                        .setDescription(missingPerms.stream().map(p -> "• " + p.getName()).collect(Collectors.joining("\n")))
-                        .build()).queue();
+            if (!commandEvent.guild.getSelfMember().hasPermission(commandEvent.channel, Permission.MESSAGE_EMBED_LINKS)) {
+                commandEvent.channel.sendMessage("Please give me the Embed Links permission to run commands.").queue();
+                return;
             }
+
+            if (allowedUser(commandEvent.sender)) {
+                LinkedList<Permission> missingPerms = missingPerms(commandEvent.channel);
+
+                if (missingPerms.isEmpty())
+                    execute(commandEvent);
+                else {
+                    commandEvent.channel.sendMessage(new EmbedBuilder().setColor(CommandUtils.ERROR_COLOR)
+                            .setTitle("**To use this command please give me the following permissions:**")
+                            .setDescription(missingPerms.stream().map(p -> "• " + p.getName()).collect(Collectors.joining("\n")))
+                            .build()).queue();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            CommandUtils.sendException(event.getTextChannel(), e);
         }
     }
 
