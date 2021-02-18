@@ -78,7 +78,8 @@ public class ModerationBot extends ListenerAdapter {
                 .addCommand(new BanCommand())
                 .addCommand(new ChannelBanCommand())
                 .addCommand(new NamepunishCommand())
-                .addCommand(new UptimeCommand(this));
+                .addCommand(new UptimeCommand(this))
+                .addCommand(new PunishmentInfo());
         System.out.println("[ModerationBot] INFO - Finished loading commands!");
 
 

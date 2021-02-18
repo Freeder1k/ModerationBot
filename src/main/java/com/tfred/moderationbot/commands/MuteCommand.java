@@ -15,8 +15,10 @@ public class MuteCommand extends Command {
         super(
                 "mute",
                 new String[]{},
-                "!mute <user> severity reason",
-                "Mute a user. Allowed severities: 1-5.\nRequires a muted role to be set.",
+                "!mute <user> <severity> reason",
+                "Mute a user. Allowed severities: 1-5.\n" +
+                        "For info on punishment lengths run !punishmentinfo\n" +
+                        "Requires a muted role to be set.",
                 new Permission[]{Permission.MANAGE_ROLES},
                 false,
                 false,

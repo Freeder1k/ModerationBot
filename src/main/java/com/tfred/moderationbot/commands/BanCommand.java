@@ -18,8 +18,10 @@ public class BanCommand extends Command {
         super(
                 "ban",
                 new String[]{},
-                "!ban <user> severity reason",
-                "Ban a user. Allowed severities: 1 or 2.\nIf the user is not in the guild a user Tag won't work.",
+                "!ban <user> <severity> reason",
+                "Ban a user. Allowed severities: 1 or 2.\n" +
+                        "For info on punishment lengths run !punishmentinfo\n" +
+                        "If the user is not in the guild a user Tag won't work.",
                 new Permission[]{Permission.BAN_MEMBERS},
                 false,
                 false,

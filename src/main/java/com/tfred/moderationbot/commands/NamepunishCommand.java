@@ -17,7 +17,9 @@ public class NamepunishCommand extends Command {
                 "namepunish",
                 new String[]{},
                 "!namepunish <user> reason",
-                "Remove a users nickname perms.\nRequires a no nickname and a member role to be set.",
+                "Remove a users nickname perms.\n" +
+                        "For info on punishment lengths run !punishmentinfo\n" +
+                        "Requires a no nickname and a member role to be set.",
                 new Permission[]{Permission.MANAGE_ROLES},
                 false,
                 false,

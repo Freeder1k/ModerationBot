@@ -17,7 +17,9 @@ public class ChannelBanCommand extends Command {
                 "channelban",
                 new String[]{},
                 "!channelban <user> <channel> reason",
-                "Ban a user from a channel. Requires the manage permissions permission in the specified channel.",
+                "Ban a user from a channel.\n" +
+                        "For info on punishment lengths run !punishmentinfo\n" +
+                        "Requires the manage permissions permission in the specified channel.",
                 new Permission[]{},
                 false,
                 false,

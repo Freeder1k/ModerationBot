@@ -58,6 +58,7 @@ public class HelpCommand extends Command {
                     return;
                 }
             }
+            CommandUtils.sendError(event.channel, "Unknown command: ``" + event.args[1] + "``!");
         }
     }
 }
