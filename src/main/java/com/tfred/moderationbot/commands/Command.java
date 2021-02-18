@@ -96,14 +96,14 @@ public abstract class Command {
      */
     public void sendHelpMessage(TextChannel channel) {
         EmbedBuilder eb = new EmbedBuilder().setColor(CommandUtils.DEFAULT_COLOR)
-                .setTitle("!" + name + " info:")
-                .addField("Usage:", "``" + usage + "``", false);
+                .setTitle("**!" + name + " info:**")
+                .addField("**Usage:**", "``" + usage + "``", false);
         if (aliases.length != 0)
-            eb.addField("Aliases:", String.join(", ", aliases), false);
-        eb.addField("Allowed users:", (devCommand ? "bot dev" : (adminCommand ? "admins" : (moderatorCommand ? "moderators" : "anyone"))), false);
-        eb.addField("Description:", description, false);
+            eb.addField("**Aliases:**", String.join(", ", aliases), false);
+        eb.addField("**Allowed users:**", (devCommand ? "bot dev" : (adminCommand ? "admins" : (moderatorCommand ? "moderators" : "anyone"))), false);
+        eb.addField("**Description:**", description, false);
         if (permissions.length != 0)
-            eb.addField("Required permissions:", Arrays.stream(permissions).map(Permission::getName).collect(Collectors.joining(", ")), false);
+            eb.addField("**Required permissions:**", Arrays.stream(permissions).map(Permission::getName).collect(Collectors.joining(", ")), false);
         channel.sendMessage(eb.build()).queue();
     }
 

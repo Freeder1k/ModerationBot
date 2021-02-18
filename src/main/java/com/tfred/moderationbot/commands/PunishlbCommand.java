@@ -1,6 +1,8 @@
 package com.tfred.moderationbot.commands;
 
 import com.tfred.moderationbot.moderation.ModerationData;
+import com.tfred.moderationbot.moderation.PardonPunishment;
+import com.tfred.moderationbot.moderation.Punishment;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 
@@ -10,13 +12,13 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.tfred.moderationbot.commands.CommandUtils.DEFAULT_COLOR;
-import static com.tfred.moderationbot.commands.CommandUtils.sendError;
+import static com.tfred.moderationbot.commands.CommandUtils.sendException;
 
 public class PunishlbCommand extends Command {
     public PunishlbCommand() {
         super(
                 "punishlb",
-                new String[]{"whoisbadboy/girl"},
+                new String[]{"whoisabadboy/girl"},
                 "!punishlb",
                 "Show the top 10 users by punishments.",
                 new Permission[]{},
@@ -28,21 +30,20 @@ public class PunishlbCommand extends Command {
 
     @Override
     protected void execute(CommandEvent event) {
-        sendError(event.channel, "Not implemented yet!");
-        /*TODO implement
-        ModerationData.UserPunishment[] all;
+        Punishment[] all;
         try {
             all = ModerationData.getAllPunishments(event.guild.getIdLong());
         } catch (IOException e) {
-            sendError(event.channel, "An IO exception occurred! " + e.getMessage());
+            e.printStackTrace();
+            sendException(event.channel, e);
             return;
         }
 
         Map<Long, Integer> count = new HashMap<>();
 
-        for (ModerationData.UserPunishment up : all) {
-            if (up.p.severity != 'u') {
-                long ID = up.userID;
+        for (Punishment p : all) {
+            if (p instanceof PardonPunishment) {
+                long ID = p.userID;
                 count.merge(ID, 1, Integer::sum);
             }
         }
@@ -70,6 +71,6 @@ public class PunishlbCommand extends Command {
                 .addField("**User**", mentions.toString(), true)
                 .addField("**Punishments**", scores.toString(), true);
 
-        event.channel.sendMessage(eb.build()).queue();*/
+        event.channel.sendMessage(eb.build()).queue();
     }
 }

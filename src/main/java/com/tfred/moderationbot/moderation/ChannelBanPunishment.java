@@ -177,7 +177,7 @@ public class ChannelBanPunishment extends TimedPunishment {
     public MessageEmbed getAsCaseEmbed() {
         return new EmbedBuilder()
                 .setColor(CommandUtils.DEFAULT_COLOR)
-                .setTitle("Case " + id)
+                .setTitle("**Case " + id + "**")
                 .addField("**User:**", "<@" + userID + ">\n" +
                         "**Type:**\nchannel ban\n" +
                         "**Channel:**\n<#" + channelID + ">", true)

@@ -214,7 +214,7 @@ public class MutePunishment extends TimedPunishment {
 
         punishmentChannel.sendMessage(
                 new EmbedBuilder()
-                        .setTitle("Case " + id)
+                        .setTitle("**Case " + id + "**")
                         .setColor(CommandUtils.DEFAULT_COLOR)
                         .addField("**User:**", "<@" + userID + ">\n**Type:**\n" + "mute", true)
                         .addField("**Severity:**", severity + "\n**Duration:**\n" + CommandUtils.parseTime(((long) duration) * 60L), true)
@@ -228,7 +228,7 @@ public class MutePunishment extends TimedPunishment {
     public MessageEmbed getAsCaseEmbed() {
         return new EmbedBuilder()
                 .setColor(CommandUtils.DEFAULT_COLOR)
-                .setTitle("Case " + id)
+                .setTitle("**Case " + id + "**")
                 .addField("**User:**", "<@" + userID + ">\n" +
                         "**Type:**\nmute\n" +
                         "**Severity:**\n" + severity, true)
