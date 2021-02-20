@@ -38,7 +38,7 @@ public class ModerationBot extends ListenerAdapter {
     public final CommandListener commandListener = new CommandListener();
     public final BotScheduler scheduler = new BotScheduler();
     private final JDA jda;
-
+//abc
     private ModerationBot() throws InterruptedException, LoginException {
         try {
             Files.write(Paths.get("blockhunt_backup.txt"), "BOT OFFLINE\n".getBytes(), StandardOpenOption.APPEND);
