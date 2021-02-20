@@ -37,6 +37,7 @@ public class ModerationBot extends ListenerAdapter {
     public final long startTime;
     public final CommandListener commandListener = new CommandListener();
     public final BotScheduler scheduler = new BotScheduler();
+    private final JDA jda;
 
     private ModerationBot() throws InterruptedException, LoginException {
         try {
@@ -83,7 +84,7 @@ public class ModerationBot extends ListenerAdapter {
         System.out.println("[ModerationBot] INFO - Finished loading commands!");
 
 
-        JDA jda = JDABuilder.createDefault(System.getenv("TOKEN")) // The token of the account that is logging in.
+        jda = JDABuilder.createDefault(System.getenv("TOKEN"))
                 .setChunkingFilter(ChunkingFilter.ALL)          //
                 .setMemberCachePolicy(MemberCachePolicy.ALL)    // These three are needed for some commands to do with the naming system
                 .enableIntents(GatewayIntent.GUILD_MEMBERS)     //
@@ -91,7 +92,7 @@ public class ModerationBot extends ListenerAdapter {
                 .addEventListeners(this, commandListener, new ModerationListener(), new UsernameListener(scheduler))
                 .build();
         jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
-        System.out.println("[ModerationBot] INFO - Finished Building JDA!");
+        System.out.println("[ModerationBot] INFO - Finished building JDA!");
 
 
         System.out.println("[ModerationBot] INFO - Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
@@ -99,19 +100,19 @@ public class ModerationBot extends ListenerAdapter {
 
 
         PunishmentScheduler.initialize(jda, scheduler);
-        System.out.println("[ModerationBot] INFO - Finished activating punishment handler!");
+        System.out.println("[ModerationBot] INFO - Finished initializing punishment handler!");
 
 
-        AutoRun autoRun = new AutoRun(jda);
-        System.out.println("[ModerationBot] INFO - Finished activating AutoRun!");
-        //Check for missed autoruns
+        startDailyScheduler();
+        System.out.println("[ModerationBot] INFO - Activated daily scheduler!");
+        //Check if a daily update was missed
         try {
-            List<String> botdata = Files.readAllLines(Paths.get("bot.data"));
-            if (!botdata.isEmpty()) {
+            List<String> botData = Files.readAllLines(Paths.get("bot.data"));
+            if (!botData.isEmpty()) {
                 long start = 1603602000000L; // Sun Oct 25 2020 06:00:00 CEST
                 long day = 86400000L;
                 long week = 604800000L;
-                long lastDate = Long.parseLong(botdata.get(0)) - start;
+                long lastDate = Long.parseLong(botData.get(0)) - start;
                 long current = System.currentTimeMillis() - start;
                 if ((lastDate / day) < (current / day)) {
                     boolean weekly = ((lastDate / week) < (current / week));
@@ -119,7 +120,7 @@ public class ModerationBot extends ListenerAdapter {
                         System.out.println("[ModerationBot] INFO - Running daily and weekly update...");
                     else
                         System.out.println("[ModerationBot] INFO - Running daily update...");
-                    autoRun.autoRunDaily(weekly);
+                    runDailyUpdate(weekly);
                 }
             }
         } catch (IOException e) {
@@ -205,74 +206,67 @@ public class ModerationBot extends ListenerAdapter {
         System.out.println("\n\nSHUTDOWN\n\n");
     }
 
-    private class AutoRun {
-        private final JDA jda;
+    private void startDailyScheduler() {
+        ZonedDateTime now = ZonedDateTime.now();
+        ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
+        if (now.compareTo(RunHour) > 0)
+            RunHour = RunHour.plusDays(1);
 
-        public AutoRun(JDA jda) {
-            this.jda = jda;
-            startScheduler();
-        }
+        Duration duration = Duration.between(now, RunHour);
+        long initialDelay = duration.getSeconds();
 
-        private void startScheduler() {
-            ZonedDateTime now = ZonedDateTime.now();
-            ZonedDateTime RunHour = now.withHour(6).withMinute(0).withSecond(0);
-            if (now.compareTo(RunHour) > 0)
-                RunHour = RunHour.plusDays(1);
+        final ScheduledFuture<?>[] autoRunHandle = new ScheduledFuture[1];
 
-            Duration duration = Duration.between(now, RunHour);
-            long initialDelay = duration.getSeconds();
-
-            final ScheduledFuture<?>[] autoRunHandle = new ScheduledFuture[1];
-
-            autoRunHandle[0] = scheduler.scheduleAtFixedRate(
-                    () -> {
-                        if (scheduler.isPaused()) {
-                            autoRunHandle[0].cancel(true);
-                            scheduler.schedule(() -> autoRunDaily(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY)), 0, TimeUnit.SECONDS);
-                            scheduler.schedule(this::startScheduler, 0, TimeUnit.SECONDS);
-                        } else {
-                            try {
-                                autoRunDaily();
-                            } catch (Exception ex) {
-                                ex.printStackTrace(); //or logger would be better
-                            }
+        autoRunHandle[0] = scheduler.scheduleAtFixedRate(
+                () -> {
+                    if (scheduler.isPaused()) {
+                        autoRunHandle[0].cancel(true);
+                        scheduler.schedule(() -> runDailyUpdate(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY)), 0, TimeUnit.SECONDS);
+                        scheduler.schedule(this::startDailyScheduler, 0, TimeUnit.SECONDS);
+                    } else {
+                        try {
+                            this.runDailyUpdate();
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
-                    },
-                    initialDelay,
-                    TimeUnit.DAYS.toSeconds(1),
-                    TimeUnit.SECONDS);
+                    }
+                },
+                initialDelay,
+                TimeUnit.DAYS.toSeconds(1),
+                TimeUnit.SECONDS);
 
+    }
+
+    /**
+     * This method gets called daily and handles the daily username and weekly leaderboard updating.
+     */
+    private void runDailyUpdate() {
+        runDailyUpdate(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY));
+    }
+
+    private void runDailyUpdate(boolean weekly) {
+        try {
+            Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
+        } catch (IOException e) {
+            System.out.println("Failed to write to bot.data!");
+            e.printStackTrace();
         }
-
-        /**
-         * This method gets called daily and handles the daily username and weekly leaderboard updating.
-         */
-        public void autoRunDaily() {
-            autoRunDaily(ZonedDateTime.now().getDayOfWeek().equals(DayOfWeek.SUNDAY));
-        }
-
-        public void autoRunDaily(boolean weekly) {
-            try {
-                Files.write(Paths.get("bot.data"), String.valueOf(System.currentTimeMillis()).getBytes());
-            } catch (IOException ignored) {
-                System.out.println("Failed to write to bot.data!");
-            }
-            for (Guild guild : jda.getGuilds()) {
-                TextChannel channel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getLogChannel());
-                if (!guild.getSelfMember().hasPermission(Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS, Permission.MESSAGE_READ))
+        for (Guild guild : jda.getGuilds()) {
+            TextChannel channel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getLogChannel());
+            if (channel != null)
+                if (!guild.getSelfMember().hasPermission(channel, Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS))
                     channel = null;
 
-                if (channel != null) {
-                    channel.sendMessage("Daily update in progress...").queue();
-                    TextChannel finalChannel = channel;
-                    channel.sendMessage("Updating usernames...")
-                            .queue((ignored) -> UsernameHandler.get(guild.getIdLong()).updateNames(finalChannel, jda, false));
-                } else
-                    UsernameHandler.get(guild.getIdLong()).updateNames(null, jda, false);
+            if (channel != null) {
+                channel.sendMessage("Daily update in progress...").queue();
+                TextChannel finalChannel = channel;
+                channel.sendMessage("Updating usernames...")
+                        .queue((ignored) -> UsernameHandler.get(guild.getIdLong()).updateAllNames(finalChannel, jda, false));
+            } else
+                UsernameHandler.get(guild.getIdLong()).updateAllNames(null, jda, false);
 
-                if (weekly)
-                    Leaderboards.updateLeaderboards(channel, guild);
-            }
+            if (weekly)
+                Leaderboards.updateLeaderboards(channel, guild);
         }
     }
 }

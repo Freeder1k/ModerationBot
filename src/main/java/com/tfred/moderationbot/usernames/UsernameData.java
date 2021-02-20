@@ -15,6 +15,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.http.util.EntityUtils;
 import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nonnull;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -38,11 +39,11 @@ public class UsernameData {
     private static int requestCount = 0;
     private static long lastRatelimitReset = 0L;
 
-    public final long guildID;
+    final long guildID;
     private final LoadingCache<Long, String[]> usernameCache;
     private SoftReference<HashMap<Long, String>> uuidMapReference;
 
-    protected UsernameData(long guildID) {
+    UsernameData(long guildID) {
         this.guildID = guildID;
         usernameCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(10, TimeUnit.MINUTES)
@@ -96,7 +97,7 @@ public class UsernameData {
      * @param uuid The uuid to get the name for.
      * @return The name(s)({old, new} or {current}) or {"-1"} if the uuid doesn't exist or {"e"} if an error occured.
      */
-    public static String[] getName(String uuid) throws RateLimitException {
+    static String[] getName(String uuid) throws RateLimitException {
         increaseRequestCount(1);
         try {
             URL urlForGetRequest = new URL("https://api.mojang.com/user/profiles/" + uuid + "/names");
@@ -134,7 +135,7 @@ public class UsernameData {
      * @param name The name to get the uuid for.
      * @return The uuid if successful, "!" if the name is invalid, null if an error occured.
      */
-    public static String getUUID(String name) throws RateLimitException {
+    static String getUUID(String name) throws RateLimitException {
         increaseRequestCount(1);
         try {
             URL urlForGetRequest = new URL("https://api.mojang.com/users/profiles/minecraft/" + name);
@@ -216,7 +217,7 @@ public class UsernameData {
      * @param m The {@link Member member} to update.
      * @return an empty array if nothing changed or their previous nickname didn't match their old username, {oldUsername, newUsername} if changed, {"-"} if entry should be deleted, {"e"} if other error.
      */
-    public String[] updateName(Member m) throws RateLimitException {
+    String[] updateName(Member m) throws RateLimitException {
         try {
             UsernameHandler usernameHandler = UsernameHandler.get(m.getGuild().getIdLong());
 
@@ -253,6 +254,7 @@ public class UsernameData {
                             m.modifyNickname(newNick).queue();
                         } catch (HierarchyException | InsufficientPermissionException ignored) {
                             usernameHandler.removeIgnoredUser(m.getIdLong());
+                            return new String[]{};
                         }
                     }
                 } else {
@@ -261,6 +263,7 @@ public class UsernameData {
                         m.modifyNickname(newName).queue();
                     } catch (HierarchyException | InsufficientPermissionException ignored) {
                         usernameHandler.removeIgnoredUser(m.getIdLong());
+                        return new String[]{};
                     }
                 }
                 if (hide)
@@ -288,7 +291,8 @@ public class UsernameData {
      * @param members A list of all the members to be checked.
      * @return a map of all updated user's IDs and their old and new username. If the associated uuid doesn't exist anymore the string array is {"-"} and if an error occurred it is {"e"}.
      */
-    public synchronized Map<Long, String[]> updateNames(List<Member> members) throws RateLimitException {
+    @Nonnull
+    synchronized Map<Long, String[]> updateAllNames(@Nonnull List<Member> members) throws RateLimitException {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -404,7 +408,7 @@ public class UsernameData {
      * @param userID The specified {@link Member member's} ID.
      * @return possibly-empty string containing a minecraft ign.
      */
-    public String getUsername(long userID) throws RateLimitException {
+    String getUsername(long userID) throws RateLimitException {
         try {
             String[] names = usernameCache.get(userID);
             if (names.length == 0)
@@ -433,7 +437,7 @@ public class UsernameData {
      * @return The name(s) or {} if the users uuid doesn't exist anymore or {"e"} if an error occured.
      * @throws RateLimitException If the rate limit got reached.
      */
-    public String[] getUsernames(long userID) throws RateLimitException {
+    String[] getUsernames(long userID) throws RateLimitException {
         try {
             return usernameCache.get(userID);
         } catch (ExecutionException e) {
@@ -452,7 +456,7 @@ public class UsernameData {
      * @param uuid The uuid to search the associated user of.
      * @return The {@link Member member's} ID or 0 if none was found.
      */
-    public long getUserID(String uuid) {
+    long getUserID(String uuid) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -478,7 +482,7 @@ public class UsernameData {
      * @param name   This minecraft ign to be associated with this member.
      * @return a String containing the case-corrected username or "e" if an error occured or an empty string if that name doesnt exist
      */
-    public String setUuid(Member member, String name) throws RateLimitException {
+    String setUuid(Member member, String name) throws RateLimitException {
         String uuid = getUUID(name);
         if (uuid == null)
             return "e";
@@ -526,7 +530,7 @@ public class UsernameData {
      *
      * @param userID The specified {@link Member member's} ID.
      */
-    public synchronized void removeUser(long userID) {
+    synchronized void removeUser(long userID) {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap != null)
             uuidMap.remove(userID);
@@ -554,7 +558,7 @@ public class UsernameData {
      *
      * @return possibly-empty list of user IDs.
      */
-    public List<Long> getSavedUserIDs() {
+    List<Long> getSavedUserIDs() {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {
@@ -574,7 +578,7 @@ public class UsernameData {
      *
      * @return possibly-empty list of minecraft uuids.
      */
-    public List<String> getSavedUuids() {
+    List<String> getSavedUuids() {
         HashMap<Long, String> uuidMap = uuidMapReference.get();
         if (uuidMap == null) {
             synchronized (this) {

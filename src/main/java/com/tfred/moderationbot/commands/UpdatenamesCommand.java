@@ -21,6 +21,6 @@ public class UpdatenamesCommand extends Command {
     protected void execute(CommandEvent event) {
         event.channel.sendMessage("Updating usernames (please note that the bot cannot change the nicknames of users with a higher role).")
                 .queue((ignored) -> UsernameHandler.get(event.guild.getIdLong())
-                        .updateNames(event.channel, event.event.getJDA(), event.sender.getIdLong() == 470696578403794967L));
+                        .updateAllNames(event.channel, event.event.getJDA(), event.sender.getIdLong() == 470696578403794967L));
     }
 }
