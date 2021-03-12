@@ -3,6 +3,7 @@ package com.tfred.moderationbot.commands;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 
+import javax.annotation.Nonnull;
 import java.util.Locale;
 
 public class MemCommand extends Command {
@@ -20,7 +21,7 @@ public class MemCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         try {
             Runtime rt = Runtime.getRuntime();
             double total = rt.totalMemory() / 1048576.;

@@ -9,6 +9,8 @@ import net.dv8tion.jda.api.entities.GuildChannel;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.TextChannel;
 
+import javax.annotation.Nonnull;
+
 import static com.tfred.moderationbot.commands.CommandUtils.*;
 
 public class ChannelBanCommand extends Command {
@@ -28,7 +30,7 @@ public class ChannelBanCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         String[] args = event.message.split(" ", 4);
         TextChannel channel = event.channel;
         Guild guild = event.guild;

@@ -3,6 +3,7 @@ package com.tfred.moderationbot.commands;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 
@@ -22,7 +23,7 @@ public class CommandListener extends ListenerAdapter {
      * @param command The command to add.
      * @return this.
      */
-    public CommandListener addCommand(Command command) {
+    public CommandListener addCommand(@Nonnull Command command) {
         commands.add(command);
         return this;
     }
@@ -35,7 +36,7 @@ public class CommandListener extends ListenerAdapter {
     }
 
     @Override
-    public void onMessageReceived(MessageReceivedEvent event) {
+    public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         String msg = event.getMessage().getContentRaw();
 
         if (!msg.isEmpty() && msg.charAt(0) == '!') {

@@ -2,17 +2,14 @@ package com.tfred.moderationbot.commands;
 
 import com.tfred.moderationbot.moderation.ModerationData;
 import com.tfred.moderationbot.moderation.Punishment;
-import com.tfred.moderationbot.moderation.TimedPunishment;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.TextChannel;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
-import java.time.Instant;
 import java.util.LinkedList;
-import java.util.List;
 
 import static com.tfred.moderationbot.commands.CommandUtils.*;
 
@@ -31,7 +28,7 @@ public class ModlogsCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         TextChannel channel = event.channel;
 
         if (event.args.length == 1) {
@@ -64,7 +61,7 @@ public class ModlogsCommand extends Command {
             return;
         }
 
-        if(punishments.length == 0) {
+        if (punishments.length == 0) {
             sendInfo(channel, "No punishments found for <@" + userID + ">.");
             return;
         }

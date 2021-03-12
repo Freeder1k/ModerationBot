@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.TextChannel;
 
+import javax.annotation.Nonnull;
 import java.util.Set;
 
 import static com.tfred.moderationbot.commands.CommandUtils.*;
@@ -36,7 +37,7 @@ public class ConfigCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         ServerData serverData = ServerData.get(event.guild.getIdLong());
         if (event.args.length == 1) {
             EmbedBuilder embedBuilder = new EmbedBuilder();

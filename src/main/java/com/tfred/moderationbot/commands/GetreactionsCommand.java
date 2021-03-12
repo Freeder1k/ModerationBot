@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,7 +31,7 @@ public class GetreactionsCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         if (event.args.length == 1) {
             sendHelpMessage(event.channel);
             return;
@@ -81,8 +82,7 @@ public class GetreactionsCommand extends Command {
             }, (failure) -> {
                 if (failure instanceof ErrorResponseException) {
                     sendError(event.channel, "Couldn't find the specified message!");
-                }
-                else {
+                } else {
                     failure.printStackTrace();
                     sendException(event.channel, failure);
                 }

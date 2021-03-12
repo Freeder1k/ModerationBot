@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
+import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -25,7 +26,7 @@ public abstract class Command {
     public final boolean adminCommand;
     public final boolean moderatorCommand;
 
-    public Command(String name, String[] aliases, String usage, String description, Permission[] permissions, boolean devCommand, boolean adminCommand, boolean moderatorCommand) {
+    public Command(@Nonnull String name, @Nonnull String[] aliases, @Nonnull String usage, @Nonnull String description, @Nonnull Permission[] permissions, boolean devCommand, boolean adminCommand, boolean moderatorCommand) {
         this.name = name;
         this.aliases = aliases;
         this.usage = usage;
@@ -41,7 +42,7 @@ public abstract class Command {
      *
      * @param event A {@link CommandEvent CommandEvent} containing all necessary information.
      */
-    protected abstract void execute(CommandEvent event);
+    protected abstract void execute(@Nonnull CommandEvent event);
 
     /**
      * Check all necessary details and run the command.
@@ -50,7 +51,7 @@ public abstract class Command {
      *
      * @param event The message event of the command.
      */
-    public void run(MessageReceivedEvent event) {
+    public void run(@Nonnull MessageReceivedEvent event) {
         try {
             if (!event.isFromType(ChannelType.TEXT))
                 return;
@@ -94,7 +95,7 @@ public abstract class Command {
      *
      * @param channel A {@link TextChannel channel} to send the message to.
      */
-    public void sendHelpMessage(TextChannel channel) {
+    public void sendHelpMessage(@Nonnull TextChannel channel) {
         EmbedBuilder eb = new EmbedBuilder().setColor(CommandUtils.DEFAULT_COLOR)
                 .setTitle("**!" + name + " info:**")
                 .addField("**Usage:**", "``" + usage + "``", false);
@@ -113,7 +114,7 @@ public abstract class Command {
      * @param member The {@link Member member} to check.
      * @return True, if the member can use this command.
      */
-    protected boolean allowedUser(Member member) {
+    protected boolean allowedUser(@Nonnull Member member) {
         if (devCommand)
             return member.getIdLong() == 470696578403794967L;
 
@@ -143,7 +144,7 @@ public abstract class Command {
      * @param name The name to check. Example: "help".
      * @return True, if this command has this name.
      */
-    public boolean isCommand(String name) {
+    public boolean isCommand(@Nonnull String name) {
         name = name.toLowerCase();
 
         return (this.name.equals(name) || Arrays.asList(aliases).contains(name));
@@ -155,7 +156,7 @@ public abstract class Command {
      * @param channel The channel to check.
      * @return A list containing the missing permissions.
      */
-    protected LinkedList<Permission> missingPerms(TextChannel channel) {
+    protected LinkedList<Permission> missingPerms(@Nonnull TextChannel channel) {
         return CommandUtils.missingPerms(channel, permissions);
     }
 }

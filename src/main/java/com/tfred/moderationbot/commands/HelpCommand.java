@@ -3,6 +3,7 @@ package com.tfred.moderationbot.commands;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 
+import javax.annotation.Nonnull;
 import java.util.StringJoiner;
 
 public class HelpCommand extends Command {
@@ -23,7 +24,7 @@ public class HelpCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         if (event.args.length == 1) {
             StringJoiner anyone = new StringJoiner("\n");
             StringJoiner moderator = new StringJoiner("\n");

@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.TextChannel;
 
+import javax.annotation.Nonnull;
 import java.util.Date;
 import java.util.List;
 
@@ -32,7 +33,7 @@ public class LbCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         TextChannel channel = event.channel;
         ServerData serverData = ServerData.get(event.guild.getIdLong());
 

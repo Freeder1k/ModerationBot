@@ -11,6 +11,8 @@ import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 import net.dv8tion.jda.api.requests.ErrorResponse;
 
+import javax.annotation.Nonnull;
+
 import static com.tfred.moderationbot.commands.CommandUtils.*;
 
 public class BanCommand extends Command {
@@ -30,7 +32,7 @@ public class BanCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         String[] args = event.message.split(" ", 4);
         TextChannel channel = event.channel;
         Guild guild = event.guild;
@@ -62,12 +64,12 @@ public class BanCommand extends Command {
                 sendError(channel, "Invalid user.");
                 return;
             }
-        } else
+        } else {
+            if (allowedUser(member)) {
+                sendError(channel, "This user is a server moderator!");
+                return;
+            }
             user = member.getUser();
-
-        if (allowedUser(member)) {
-            sendError(channel, "This user is a server moderator!");
-            return;
         }
 
         if (args[2].length() != 1) {

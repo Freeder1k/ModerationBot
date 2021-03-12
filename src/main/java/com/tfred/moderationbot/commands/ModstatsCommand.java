@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.TextChannel;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
@@ -27,7 +28,7 @@ public class ModstatsCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         TextChannel channel = event.channel;
 
         Member moderator;

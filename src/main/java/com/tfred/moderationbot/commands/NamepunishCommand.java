@@ -2,12 +2,13 @@ package com.tfred.moderationbot.commands;
 
 import com.tfred.moderationbot.moderation.ModerationException;
 import com.tfred.moderationbot.moderation.ModerationHandler;
-import com.tfred.moderationbot.moderation.MutePunishment;
 import com.tfred.moderationbot.moderation.NamePunishment;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.TextChannel;
+
+import javax.annotation.Nonnull;
 
 import static com.tfred.moderationbot.commands.CommandUtils.*;
 
@@ -28,7 +29,7 @@ public class NamepunishCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         String[] args = event.message.split(" ", 3);
         TextChannel channel = event.channel;
         Guild guild = event.guild;

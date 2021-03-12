@@ -3,6 +3,8 @@ package com.tfred.moderationbot.commands;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 
+import javax.annotation.Nonnull;
+
 public class PunishmentInfo extends Command {
     public PunishmentInfo() {
         super(
@@ -18,7 +20,7 @@ public class PunishmentInfo extends Command {
     }
 
     @Override
-    public void execute(CommandEvent event) {
+    public void execute(@Nonnull CommandEvent event) {
         event.channel.sendMessage(new EmbedBuilder()
                 .setColor(CommandUtils.DEFAULT_COLOR)
                 .setTitle("**Punishment info:**")

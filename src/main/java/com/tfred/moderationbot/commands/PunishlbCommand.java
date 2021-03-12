@@ -6,6 +6,7 @@ import com.tfred.moderationbot.moderation.Punishment;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
@@ -29,7 +30,7 @@ public class PunishlbCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         Punishment[] all;
         try {
             all = ModerationData.getAllPunishments(event.guild.getIdLong());
@@ -42,7 +43,7 @@ public class PunishlbCommand extends Command {
         Map<Long, Integer> count = new HashMap<>();
 
         for (Punishment p : all) {
-            if (p instanceof PardonPunishment) {
+            if (!(p instanceof PardonPunishment)) {
                 long ID = p.userID;
                 count.merge(ID, 1, Integer::sum);
             }

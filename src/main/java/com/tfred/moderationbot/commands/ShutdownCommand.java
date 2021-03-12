@@ -2,6 +2,8 @@ package com.tfred.moderationbot.commands;
 
 import net.dv8tion.jda.api.Permission;
 
+import javax.annotation.Nonnull;
+
 public class ShutdownCommand extends Command {
     public ShutdownCommand() {
         super(
@@ -17,7 +19,7 @@ public class ShutdownCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         try {
             event.channel.sendMessage("⚠️**System shutting down...**⚠️").queue();
             event.event.getJDA().shutdown();

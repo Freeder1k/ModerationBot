@@ -97,7 +97,10 @@ public class ModerationHandler {//TODO audit log reasons
 
         try {
             try {
-                user.openPrivateChannel().queue((pc) -> pc.sendMessage("You were banned from " + guild.getName() + ". Reason:\n" + p.reason).queue());
+                user.openPrivateChannel().queue((pc) -> {
+                    pc.sendMessage("You were banned from " + guild.getName() + ". Reason:\n" + p.reason).queue(null, null);
+                    pc.close().queue();
+                });
             } catch (Exception e) {
                 e.printStackTrace();
             }

@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 
+import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -25,7 +26,7 @@ public class CommandUtils {
      * @param channel The {@link TextChannel channel} to send the message to.
      * @param message The message content.
      */
-    public static void sendSuccess(TextChannel channel, String message) {
+    public static void sendSuccess(@Nonnull TextChannel channel, @Nonnull String message) {
         try {
             channel.sendMessage(new EmbedBuilder().setColor(SUCCESS_COLOR).setDescription("✅ " + message).build()).queue();
         } catch (InsufficientPermissionException e) {
@@ -40,7 +41,7 @@ public class CommandUtils {
      * @param channel The {@link TextChannel channel} to send the message to.
      * @param message The message content.
      */
-    public static void sendError(TextChannel channel, String message) {
+    public static void sendError(@Nonnull TextChannel channel, @Nonnull String message) {
         try {
             channel.sendMessage(new EmbedBuilder().setColor(ERROR_COLOR).setDescription("❌ " + message).build()).queue();
         } catch (InsufficientPermissionException e) {
@@ -55,7 +56,7 @@ public class CommandUtils {
      * @param channel The {@link TextChannel channel} to send the message to.
      * @param message The message content.
      */
-    public static void sendInfo(TextChannel channel, String message) {
+    public static void sendInfo(@Nonnull TextChannel channel, @Nonnull String message) {
         try {
             channel.sendMessage(new EmbedBuilder().setColor(INFO_COLOR).setDescription("ℹ️ " + message).build()).queue();
         } catch (InsufficientPermissionException e) {
@@ -70,7 +71,7 @@ public class CommandUtils {
      * @param channel   The {@link TextChannel channel} to send the message to.
      * @param throwable The throwable that should be included in the message.
      */
-    public static void sendException(TextChannel channel, Throwable throwable) {
+    public static void sendException(@Nonnull TextChannel channel, @Nonnull Throwable throwable) {
         try {
             channel.sendMessage(new EmbedBuilder()
                     .setColor(ERROR_COLOR)
@@ -88,7 +89,7 @@ public class CommandUtils {
      * @param guild The guild to log to.
      * @param throwable The throwable that should be included in the message.
      */
-    public static void logException(Guild guild, Throwable throwable) {
+    public static void logException(@Nonnull Guild guild, @Nonnull Throwable throwable) {
         TextChannel channel = guild.getTextChannelById(ServerData.get(guild.getIdLong()).getLogChannel());
         if(channel != null) {
             if(guild.getSelfMember().hasPermission(channel, Permission.VIEW_CHANNEL, Permission.MESSAGE_WRITE, Permission.MESSAGE_EMBED_LINKS))
@@ -105,7 +106,7 @@ public class CommandUtils {
      * @param input The input sting to be parsed.
      * @return The ID in the string or 0 if none could be parsed.
      */
-    public static long parseID(String input) {
+    public static long parseID(@Nonnull String input) {
         if (input.startsWith("\\<"))
             input = input.substring(1);
         if (input.charAt(0) == '<' && input.charAt(input.length() - 1) == '>') {
@@ -136,7 +137,7 @@ public class CommandUtils {
      * @param input The input string.
      * @return Possibly-null Member.
      */
-    public static Member parseMember(Guild guild, String input) {
+    public static Member parseMember(@Nonnull Guild guild, @Nonnull String input) {
         Member m = guild.getMemberById(parseID(input));
         if (m == null) {
             try {
@@ -153,7 +154,7 @@ public class CommandUtils {
      * @param nickname The nickname. This should be either "name(minecraft name)" or "minecraft name".
      * @return The minecraft name.
      */
-    public static String parseName(String nickname) {
+    public static String parseName(@Nonnull String nickname) {
         String name;
         if (nickname.endsWith(")")) {
             Pattern pattern = Pattern.compile(".*\\((.+)\\)$");
@@ -192,7 +193,7 @@ public class CommandUtils {
      * @param channel The channel to check.
      * @return A list containing the missing permissions.
      */
-    public static LinkedList<Permission> missingPerms(TextChannel channel, Permission... permissions) {
+    public static LinkedList<Permission> missingPerms(@Nonnull TextChannel channel, @Nonnull Permission... permissions) {
         LinkedList<Permission> missingPerms = new LinkedList<>();
 
         for (Permission p : permissions) {

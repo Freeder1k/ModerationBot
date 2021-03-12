@@ -6,6 +6,7 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
 
+import javax.annotation.Nonnull;
 import java.util.concurrent.CountDownLatch;
 
 import static com.tfred.moderationbot.commands.CommandUtils.*;
@@ -26,7 +27,7 @@ public class DelreactionCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         String[] args = event.args;
         TextChannel channel = event.channel;
 

@@ -2,6 +2,7 @@ package com.tfred.moderationbot.commands;
 
 import net.dv8tion.jda.api.Permission;
 
+import javax.annotation.Nonnull;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 
@@ -20,7 +21,7 @@ public class EvalCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         try {
             ScriptEngine engine = new ScriptEngineManager().getEngineByName("Nashorn");
 

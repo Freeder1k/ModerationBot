@@ -3,6 +3,8 @@ package com.tfred.moderationbot.commands;
 import com.tfred.moderationbot.Leaderboards;
 import net.dv8tion.jda.api.Permission;
 
+import javax.annotation.Nonnull;
+
 public class UpdatelbCommand extends Command {
     public UpdatelbCommand() {
         super(
@@ -20,7 +22,7 @@ public class UpdatelbCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         Leaderboards.updateLeaderboards(event.channel, event.guild);
     }
 }

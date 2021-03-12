@@ -5,6 +5,7 @@ import com.tfred.moderationbot.moderation.Punishment;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.TextChannel;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 
 import static com.tfred.moderationbot.commands.CommandUtils.sendError;
@@ -25,7 +26,7 @@ public class CaseCommand extends Command {
     }
 
     @Override
-    protected void execute(CommandEvent event) {
+    protected void execute(@Nonnull CommandEvent event) {
         TextChannel channel = event.channel;
 
         if (event.args.length == 1) {

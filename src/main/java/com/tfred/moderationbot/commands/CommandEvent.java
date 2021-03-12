@@ -23,7 +23,7 @@ public class CommandEvent {
      * @param event
      *          The event containing information.
      */
-    protected CommandEvent(MessageReceivedEvent event) {
+    protected CommandEvent(@Nonnull MessageReceivedEvent event) {
         this.event = event;
         this.message = event.getMessage().getContentRaw();
         this.args = message.substring(1).split(" ");
