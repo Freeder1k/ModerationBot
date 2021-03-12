@@ -13,7 +13,6 @@ import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClients;
 import org.apache.http.util.EntityUtils;
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nonnull;
 import java.io.BufferedReader;
@@ -50,7 +49,7 @@ public class UsernameData {
                 .build(
                         new CacheLoader<Long, String[]>() {
                             @Override
-                            public String[] load(@NotNull Long userID) throws RateLimitException {
+                            public String[] load(@Nonnull Long userID) throws RateLimitException {
                                 HashMap<Long, String> uuidMap = uuidMapReference.get();
                                 if (uuidMap == null) {
                                     loadData();
