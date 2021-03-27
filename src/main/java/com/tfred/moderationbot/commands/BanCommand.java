@@ -102,6 +102,7 @@ public class BanCommand extends Command {
         }
 
         sendSuccess(channel, "Banned <@" + p.userID + "> for " + parseTime(((long) p.duration) * 60L) + ".");
-        event.channel.sendMessage("https://tenor.com/view/yes-ok-boomer-gif-19035774").queue();
+        if(severity == 3)
+            event.channel.sendMessage("https://tenor.com/view/yes-ok-boomer-gif-19035774").queue();
     }
 }
