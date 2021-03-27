@@ -192,7 +192,7 @@ public class ModerationBot extends ListenerAdapter {
 
         ServerData serverData = ServerData.get(guildID);
 
-        TextChannel channel = guild.getTextChannelById(serverData.getJoinChannel());
+        TextChannel channel = guild.getTextChannelById(serverData.getJoinMsgChannel());
         if(channel != null && channel.canTalk()) {
             String msg = serverData.getJoinMsg();
             if(!msg.isEmpty())
