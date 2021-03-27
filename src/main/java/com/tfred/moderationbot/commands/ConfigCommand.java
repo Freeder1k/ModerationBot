@@ -27,6 +27,7 @@ public class ConfigCommand extends Command {
                         "nonickrole        │ role    │\n" +
                         "logchannel        │ channel │\n" +
                         "joinchannel       │ channel │\n" +
+                        "joinmsgchannel    │ channel │\n" +
                         "punishmentchannel │ channel │\n" +
                         "namechannel       │ channel │```",
                 new Permission[]{},
@@ -98,6 +99,12 @@ public class ConfigCommand extends Command {
                 embedBuilder.addField("**Join channel:**", "``Not set yet.``", false);
             else
                 embedBuilder.addField("**Join channel:**", "<#" + joinChannel + ">", false);
+
+            long joinMsgChannel = serverData.getJoinMsgChannel();
+            if (joinChannel == 0)
+                embedBuilder.addField("**Join Message channel:**", "``Not set yet.``", false);
+            else
+                embedBuilder.addField("**Join Message channel:**", "<#" + joinMsgChannel + ">", false);
 
             long punishmentChannel = serverData.getPunishmentChannel();
             if (punishmentChannel == 0)
@@ -208,6 +215,16 @@ public class ConfigCommand extends Command {
                     }
                     serverData.setPunishmentChannel(c.getIdLong());
                     sendSuccess(channel, "Set the punishment channel to <#" + c.getId() + ">.");
+                    break;
+                }
+                case "joinmsgchannel": {
+                    TextChannel c = guild.getTextChannelById(parseID(args[2]));
+                    if (c == null) {
+                        sendError(channel, "Invalid channel!");
+                        return;
+                    }
+                    serverData.setJoinMsgChannel(c.getIdLong());
+                    sendSuccess(channel, "Set the join message channel to <#" + c.getId() + ">.");
                     break;
                 }
                 case "namechannel": {

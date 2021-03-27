@@ -13,6 +13,7 @@ import net.dv8tion.jda.api.events.DisconnectEvent;
 import net.dv8tion.jda.api.events.ReconnectedEvent;
 import net.dv8tion.jda.api.events.ResumedEvent;
 import net.dv8tion.jda.api.events.ShutdownEvent;
+import net.dv8tion.jda.api.events.guild.member.GuildMemberJoinEvent;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
@@ -21,6 +22,7 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import javax.annotation.Nonnull;
 import javax.security.auth.login.LoginException;
+import javax.xml.soap.Text;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -80,7 +82,8 @@ public class ModerationBot extends ListenerAdapter {
                 .addCommand(new ChannelBanCommand())
                 .addCommand(new NamepunishCommand())
                 .addCommand(new UptimeCommand(this))
-                .addCommand(new PunishmentInfo());
+                .addCommand(new PunishmentInfo())
+                .addCommand(new JoinMessageCommand());
         System.out.println("[ModerationBot] INFO - Finished loading commands!");
 
 
@@ -179,6 +182,21 @@ public class ModerationBot extends ListenerAdapter {
             }
         } else if (event.isFromType(ChannelType.PRIVATE)) {
             System.out.printf("[PRIV]<%s>: %s\n", event.getPrivateChannel().getUser().getAsTag(), msg);
+        }
+    }
+
+    @Override
+    public void onGuildMemberJoin(GuildMemberJoinEvent event) {
+        Guild guild = event.getGuild();
+        long guildID = event.getGuild().getIdLong();
+
+        ServerData serverData = ServerData.get(guildID);
+
+        TextChannel channel = guild.getTextChannelById(serverData.getJoinChannel());
+        if(channel != null && channel.canTalk()) {
+            String msg = serverData.getJoinMsg();
+            if(!msg.isEmpty())
+                channel.sendMessage(msg.replace("{user}", event.getMember().getAsMention())).queue();
         }
     }
 

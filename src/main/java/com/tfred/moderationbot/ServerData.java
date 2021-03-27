@@ -1,5 +1,7 @@
 package com.tfred.moderationbot;
 
+import org.apache.commons.text.StringEscapeUtils;
+
 import java.io.IOException;
 import java.lang.ref.SoftReference;
 import java.nio.file.Files;
@@ -8,7 +10,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
-//TODO remove ventchannel
 public class ServerData {
     private static final HashMap<Long, SoftReference<ServerData>> allServerData = new HashMap<>();
     private static final HashMap<Long, Set<Long>> allServerModRoles = new HashMap<>();
@@ -22,9 +23,10 @@ public class ServerData {
     private long logChannel = 0;
     private long joinChannel = 0;
     private long punishmentChannel = 0;
-    private long ventChannel = 0;
+    private long joinMsgChannel = 0;
     private long nameChannel = 0;
     private int currentPunishmentID = 0;
+    private String joinMsg = "";
 
     private ServerData(long guildID) {
         this.guildID = guildID;
@@ -55,7 +57,8 @@ public class ServerData {
                 if (modRoles == null) {
                     modRoles = Collections.synchronizedSet(new HashSet<>(4));
                     for (String id : lines.get(1).split(" ")) {
-                        modRoles.add(Long.parseLong(id));
+                        if (!id.equals(""))
+                            modRoles.add(Long.parseLong(id));
                     }
                     allServerModRoles.put(guildID, modRoles);
                 }
@@ -72,13 +75,16 @@ public class ServerData {
 
                 punishmentChannel = Long.parseLong(lines.get(7));
 
-                ventChannel = Long.parseLong(lines.get(8));
+                joinMsgChannel = Long.parseLong(lines.get(8));
 
                 nameChannel = Long.parseLong(lines.get(9));
 
                 currentPunishmentID = Integer.parseInt(lines.get(10));
+
+                joinMsg = StringEscapeUtils.unescapeJava(lines.get(11));
             } catch (IndexOutOfBoundsException e) {/*this can be ignored*/} catch (NumberFormatException e) {
                 System.out.println("Formatting error in " + guildID + ".serverdata!");
+                e.printStackTrace();
             }
         } else {
             modRoles = Collections.synchronizedSet(new HashSet<>(4));
@@ -123,7 +129,7 @@ public class ServerData {
 
     public static Set<Long> getModRoles(long guildID) {
         Set<Long> roles = allServerModRoles.get(guildID);
-        if(roles != null)
+        if (roles != null)
             return Collections.unmodifiableSet(roles);
 
         return ServerData.get(guildID).getModRoles();
@@ -142,9 +148,10 @@ public class ServerData {
             lines.add(String.valueOf(logChannel));
             lines.add(String.valueOf(joinChannel));
             lines.add(String.valueOf(punishmentChannel));
-            lines.add(String.valueOf(ventChannel));
+            lines.add(String.valueOf(joinMsgChannel));
             lines.add(String.valueOf(nameChannel));
             lines.add(String.valueOf(currentPunishmentID));
+            lines.add(StringEscapeUtils.escapeJava(joinMsg));
 
             Files.write(Paths.get("serverdata/" + guildID + ".serverdata"), lines);
         } catch (IOException e) {
@@ -238,12 +245,12 @@ public class ServerData {
         updateFile();
     }
 
-    public long getVentChannel() {
-        return ventChannel;
+    public long getJoinMsgChannel() {
+        return joinMsgChannel;
     }
 
-    public synchronized void setVentChannel(long ventChannel) {
-        this.ventChannel = ventChannel;
+    public synchronized void setJoinMsgChannel(long joinMsgChannel) {
+        this.joinMsgChannel = joinMsgChannel;
         updateFile();
     }
 
@@ -265,5 +272,14 @@ public class ServerData {
         currentPunishmentID++;
         updateFile();
         return currentPunishmentID;
+    }
+
+    public String getJoinMsg() {
+        return joinMsg;
+    }
+
+    public synchronized void setJoinMsg(String joinMsg) {
+        this.joinMsg = joinMsg;
+        updateFile();
     }
 }
