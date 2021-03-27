@@ -18,7 +18,7 @@ public class JoinMessageCommand extends Command {
                 false
         );
     }
-
+//TODO limits
     @Override
     public void execute(CommandEvent event) {
         if (event.args.length == 1) {
@@ -32,7 +32,7 @@ public class JoinMessageCommand extends Command {
                 return;
             }
 
-            String joinMsg = event.message.split(" ", 2)[2];
+            String joinMsg = event.message.split(" ", 3)[2];
 
             ServerData.get(event.guild.getIdLong()).setJoinMsg(joinMsg);
 

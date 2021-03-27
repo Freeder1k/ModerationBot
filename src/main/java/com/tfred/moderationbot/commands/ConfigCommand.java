@@ -27,8 +27,8 @@ public class ConfigCommand extends Command {
                         "nonickrole        │ role    │\n" +
                         "logchannel        │ channel │\n" +
                         "joinchannel       │ channel │\n" +
-                        "joinmsgchannel    │ channel │\n" +
                         "punishmentchannel │ channel │\n" +
+                        "joinmsgchannel    │ channel │\n" +
                         "namechannel       │ channel │```",
                 new Permission[]{},
                 false,
