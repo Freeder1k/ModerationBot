@@ -75,7 +75,7 @@ public class ModerationHandler {//TODO audit log reasons
             throw new ModerationException("The bot is missing the ban members permission!");
         }
 
-        if (severity <= 0 || severity >= 3)
+        if (severity <= 0 || severity >= 4)
             throw new ModerationException("Invalid severity: " + severity);
 
         if (reason.length() == 0)

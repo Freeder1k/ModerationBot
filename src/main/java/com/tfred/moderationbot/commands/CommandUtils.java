@@ -177,7 +177,8 @@ public class CommandUtils {
      */
     public static String parseTime(long timeInSec) {
         List<String> time = new LinkedList<>();
-        time.add(timeInSec / (60 * 60 * 24) + "d");
+        time.add(timeInSec / (60 * 60 * 24 * 365) + "y");
+        time.add(timeInSec / (60 * 60 * 24) % 365 + "d");
         time.add((timeInSec / (60 * 60)) % 24 + "h");
         time.add((timeInSec / 60) % 60 + "m");
         time.add(timeInSec % 60 + "s");

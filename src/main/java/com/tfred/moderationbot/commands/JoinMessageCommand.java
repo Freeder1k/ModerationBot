@@ -18,7 +18,8 @@ public class JoinMessageCommand extends Command {
                 false
         );
     }
-//TODO limits
+
+    //TODO limits
     @Override
     public void execute(CommandEvent event) {
         if (event.args.length == 1) {

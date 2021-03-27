@@ -21,7 +21,7 @@ public class BanCommand extends Command {
                 "ban",
                 new String[]{},
                 "!ban <user> <severity> reason",
-                "Ban a user. Allowed severities: 1 or 2.\n" +
+                "Ban a user. Allowed severities: 1, 2 or 3.\n" +
                         "For info on punishment lengths run !punishmentinfo\n" +
                         "If the user is not in the guild a user Tag (ex: user#1234) won't work.",
                 new Permission[]{Permission.BAN_MEMBERS},
@@ -77,7 +77,7 @@ public class BanCommand extends Command {
             return;
         }
         char sev = args[2].charAt(0);
-        if ("12".indexOf(sev) == -1) {
+        if ("123".indexOf(sev) == -1) {
             sendError(channel, "Invalid severity type.");
             return;
         }
@@ -102,5 +102,6 @@ public class BanCommand extends Command {
         }
 
         sendSuccess(channel, "Banned <@" + p.userID + "> for " + parseTime(((long) p.duration) * 60L) + ".");
+        event.channel.sendMessage("https://tenor.com/view/yes-ok-boomer-gif-19035774").queue();
     }
 }

@@ -55,6 +55,10 @@ public class PunishmentInfo extends Command {
                         "First ban: 45 days.\n" +
                                 "Following bans: 45 days added on to last severity two ban.\n\u200B",
                         false)
+                .addField("**Sev 3:**",
+                        "Permanent ban.\n" +
+                                "Due to java integer limits this isn't actually permanent but its a pretty long time.\n\u200B",
+                        false)
                 .addField("**Channel bans:**",
                         "First punishment: 1 week.\n" +
                                 "Following punishments: 1 week added on to last channel ban effecting same channel.\n\u200B",

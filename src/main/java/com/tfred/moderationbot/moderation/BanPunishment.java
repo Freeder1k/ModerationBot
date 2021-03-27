@@ -43,6 +43,9 @@ public class BanPunishment extends TimedPunishment {
     }
 
     private static int calculatePunishmentLength(long guildID, long userID, short sev) throws IOException {
+        if(sev == 3)
+            return 2147483647;
+
         Punishment[] punishments = ModerationData.getUserPunishments(guildID, userID);
 
         boolean prev = false; // If there is a previous ban of the same severity
