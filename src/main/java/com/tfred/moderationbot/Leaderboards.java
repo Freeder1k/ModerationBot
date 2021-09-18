@@ -71,9 +71,9 @@ public class Leaderboards {
     private static String[] lbURLs(long dateMillis) {
         String time = LocalDateTime.ofEpochSecond(dateMillis / 1000, 0, ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH%3'A'mm%3'A'ss"));
         return new String[]{
-                "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hider%20wins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
-                "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=hunterwins&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50",
-                "https://mpstats.timmi6790.de/java/leaderboards/leaderboard?game=blockhunt&stat=kills&board=all&date=" + time + "&filtering=true&startPosition=1&endPosition=50"
+                "https://mpstats.timmi6790.de/v1/java/leaderboard/blockhunt/hiderwins/all/save?saveTime=" + time + "Z&filterReasons=GLITCHED&filterReasons=GIVEN&filterReasons=BOOSTED&filterReasons=HACKED",
+                "https://mpstats.timmi6790.de/v1/java/leaderboard/blockhunt/hunterwins/all/save?saveTime=" + time + "Z&filterReasons=GLITCHED&filterReasons=GIVEN&filterReasons=BOOSTED&filterReasons=HACKED",
+                "https://mpstats.timmi6790.de/v1/java/leaderboard/blockhunt/kills/all/save?saveTime=" + time + "Z&filterReasons=GLITCHED&filterReasons=GIVEN&filterReasons=BOOSTED&filterReasons=HACKED"
         };
     }
 
@@ -84,8 +84,11 @@ public class Leaderboards {
             }.getType();
 
             hiderLb = new Gson().fromJson(leaderboard[0], listType);
+            hiderLb = hiderLb.subList(0, 50);
             hunterLb = new Gson().fromJson(leaderboard[1], listType);
+            hunterLb = hunterLb.subList(0, 50);
             killsLb = new Gson().fromJson(leaderboard[2], listType);
+            killsLb = killsLb.subList(0, 50);
         } catch (JsonSyntaxException e) {
             throw new LeaderboardFetchFailedException(e.getMessage());
         }
@@ -111,7 +114,7 @@ public class Leaderboards {
 
                     JsonObject jsonObject = JsonParser.parseString(response).getAsJsonObject();
 
-                    data[i] = jsonObject.get("leaderboard");
+                    data[i] = jsonObject.get("entries");
                     if (data[i] == null) {
                         System.out.println("Leaderboard null! Url: " + lbUrls[i] + "\nServer response: " + response);
                         throw new LeaderboardFetchFailedException("Leaderboard null! Url: " + lbUrls[i] + "\nServer response: " + response);
@@ -365,7 +368,7 @@ public class Leaderboards {
             eb.setFooter("Last update: ");
             eb.setTimestamp(Instant.ofEpochMilli(Leaderboards.getDate()));
             try {
-                editChannel.editMessageById(data[i][1], eb.build()).queue();
+                editChannel.editMessageEmbedsById(data[i][1], eb.build()).queue();
             } catch (IllegalArgumentException ignored) {
             } catch (ErrorResponseException e) {
                 if (channel != null)
@@ -376,22 +379,30 @@ public class Leaderboards {
             CommandUtils.sendSuccess(channel, "Updated leaderboards.");
     }
 
+    private static class Player {
+        public final String name; //MC username
+        public final String uuid; //MC uuid
+
+        public Player(String name, String uuid) {
+            this.name = name;
+            this.uuid = uuid;
+        }
+    }
+
     private static class LbSpot {
-        private final String uuid; //MC uuid
-        private final String name; //MC username
+        private final Player player;
         private final int position;
         private final int score;
         private transient String change = ""; //change in position since last time step
 
-        LbSpot(String name, String uuid, int position, int score) {
-            this.name = name;
-            this.uuid = uuid;
+        LbSpot(Player player, int position, int score) {
+            this.player = player;
             this.position = position;
             this.score = score;
         }
 
         public String getUuid() {
-            return uuid;
+            return player.uuid;
         }
 
         public void setChange(int change) {
@@ -432,7 +443,7 @@ public class Leaderboards {
             if (!userID.isEmpty())
                 mention = " **[<@" + userID + ">]**";
 
-            return position + "." + special_emoji + " **" + (name.replaceAll("_", "\\\\_")) + "**" + mention + " - " + score + "    " + change + "\u200B";
+            return position + "." + special_emoji + " **" + (player.name.replaceAll("_", "\\\\_")) + "**" + mention + " - " + score + "    " + change + "\u200B";
         }
     }
 

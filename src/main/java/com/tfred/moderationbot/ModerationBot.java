@@ -22,7 +22,6 @@ import net.dv8tion.jda.api.utils.MemberCachePolicy;
 
 import javax.annotation.Nonnull;
 import javax.security.auth.login.LoginException;
-import javax.xml.soap.Text;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -96,7 +95,6 @@ public class ModerationBot extends ListenerAdapter {
                 .build();
         jda.awaitReady(); // Blocking guarantees that JDA will be completely loaded.
         System.out.println("[ModerationBot] INFO - Finished building JDA!");
-
 
         System.out.println("[ModerationBot] INFO - Guilds: " + jda.getGuilds().stream().map(Guild::getName).collect(Collectors.toList()).toString());
         startTime = System.currentTimeMillis();
@@ -193,21 +191,21 @@ public class ModerationBot extends ListenerAdapter {
         ServerData serverData = ServerData.get(guildID);
 
         TextChannel channel = guild.getTextChannelById(serverData.getJoinMsgChannel());
-        if(channel != null && channel.canTalk()) {
+        if (channel != null && channel.canTalk()) {
             String msg = serverData.getJoinMsg();
-            if(!msg.isEmpty())
+            if (!msg.isEmpty())
                 channel.sendMessage(msg.replace("{user}", event.getMember().getAsMention())).queue();
         }
     }
 
     @Override
-    public void onResume(@Nonnull ResumedEvent event) {
+    public void onResumed(@Nonnull ResumedEvent event) {
         scheduler.resume();
         System.out.println("\n\nRESUMED\n\n");
     }
 
     @Override
-    public void onReconnect(@Nonnull ReconnectedEvent event) {
+    public void onReconnected(@Nonnull ReconnectedEvent event) {
         scheduler.resume();
         System.out.println("\n\nRECONNECTED\n\n");
     }
